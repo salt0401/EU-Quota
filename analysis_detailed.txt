@@ -1,0 +1,140 @@
+=== EUROPEAN UNION SHEET DETAILED ANALYSIS ===
+
+First 25 rows, all columns:
+Row  1: ['MEPS European Union Quota Update', '', '', '', '', '', '']
+Row  2: ['Current quota period: 01-Oct-2025 to 30-Dec-2025', '', '', '', '', '', '']
+Row  3: ['Latest available data: 12-Dec-2025', '', '', '', '', '', '']
+Row  4: ['', '', '', '', '', '', '']
+Row  5: ['', '', '', 'Following the introduction of individual country c', '', '', '']
+Row  6: ['', '', '', '', '', '', '']
+Row  7: ['', '', '', '', '', '', '']
+Row  8: ['', '', '', '', '', '', '']
+Row  9: ['', '', '', '', '', '', '']
+Row 10: ['', '', '', '', '', '', '']
+Row 11: ['', '', '', '', '', '', '']
+Row 12: ['', '', '', '', '', '', '']
+Row 13: ['', '', '', '', '', '', '']
+Row 14: ['', '', '', '', '', '', '']
+Row 15: ['Quota Category', 'Country', 'Quota Limit (Tonnes)', 'Quota Allocated (Tonnes)', '% Quota Allocated', 'Balance Remaining (Tonnes)', '% Balance Remaining']
+Row 16: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Türkiye', '402732.86', '402732.86', '1', '', '']
+Row 17: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'India', '227781.67', '227781.67', '1', '', '']
+Row 18: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Korea, Republic of', '163077.7', '162642.825699', '0.9973333306699812', '434.874301', '0.002666669330018758']
+Row 19: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'United Kingdom', '140943.25', '10319.414055000016', '0.07321680218811488', '130623.83594499998', '0.9267831978118851']
+Row 20: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Serbia', '144087.54', '120967.56369000001', '0.8395421539572402', '23119.976310000002', '0.16045784604275984']
+Row 21: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Other countries', '867051', '356535.080201', '0.4112042777195344', '510515.919799', '0.5887957222804656']
+Row 22: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Egypt*', '112716.63', '25252.145000000004', '0.22403211487071606', '87464.485', '0.7759678851292839']
+Row 23: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Vietnam*', '112716.63', '84938.137', '0.7535546174508588', '27778.493', '0.24644538254914114']
+Row 24: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Japan*', '112716.63', '112.99170000001322', '0.0010024403674950833', '112603.63829999999', '0.9989975596325049']
+Row 25: ['Non Alloy and Other Alloy Hot Rolled Sheets and St', 'Taiwan*', '112716.63', '112716.63', '1', '', '']
+
+
+=== DATA TABLE HEADER ROW ===
+Found data header at row 15
+Headers: ['Quota Category', 'Country', 'Quota Limit (Tonnes)', 'Quota Allocated (Tonnes)', '% Quota Allocated', 'Balance Remaining (Tonnes)', '% Balance Remaining']
+  Col 1 'Quota Category': font_bold=False, font_size=11.0, fill=FF16477C, align_h=left
+  Col 2 'Country': font_bold=False, font_size=11.0, fill=FF16477C, align_h=left
+  Col 3 'Quota Limit (Tonnes)': font_bold=False, font_size=11.0, fill=FF16477C, align_h=right
+  Col 4 'Quota Allocated (Tonnes)': font_bold=False, font_size=11.0, fill=FF16477C, align_h=right
+  Col 5 '% Quota Allocated': font_bold=False, font_size=11.0, fill=FF16477C, align_h=right
+  Col 6 'Balance Remaining (Tonnes)': font_bold=False, font_size=11.0, fill=FF16477C, align_h=right
+  Col 7 '% Balance Remaining': font_bold=False, font_size=11.0, fill=FF16477C, align_h=right
+
+
+=== SAMPLE DATA ROWS AFTER HEADER ===
+Row 16: ['Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a', 'Türkiye', 402732.86, 402732.86, 1, 0, 0]
+Row 17: ['Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a', 'India', 227781.67, 227781.67, 1, 0, 0]
+Row 18: ['Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a', 'Korea, Republic of', 163077.7, 162642.825699, 0.9973333306699812, 434.874301, 0.002666669330018758]
+Row 19: ['Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a', 'United Kingdom', 140943.25, 10319.414055000016, 0.07321680218811488, 130623.83594499998, 0.9267831978118851]
+Row 20: ['Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a', 'Serbia', 144087.54, 120967.56369000001, 0.8395421539572402, 23119.976310000002, 0.16045784604275984]
+
+
+=== CELL FORMATTING DETAILS ===
+Cell (1,1) 'MEPS European Union Quota Upda...':
+  Font: bold=True, size=26.0, color=default
+  Fill: FF16477C
+  Align: h=None, v=None
+Cell (2,1) 'Current quota period: 01-Oct-2...':
+  Font: bold=False, size=16.0, color=default
+  Fill: FF16477C
+  Align: h=None, v=None
+Cell (3,1) 'Latest available data: 12-Dec-...':
+  Font: bold=False, size=16.0, color=default
+  Fill: FF16477C
+  Align: h=None, v=None
+Cell (15,1) 'Quota Category...':
+  Font: bold=False, size=11.0, color=default
+  Fill: FF16477C
+  Align: h=left, v=center
+Cell (15,2) 'Country...':
+  Font: bold=False, size=11.0, color=default
+  Fill: FF16477C
+  Align: h=left, v=center
+Cell (15,3) 'Quota Limit (Tonnes)...':
+  Font: bold=False, size=11.0, color=default
+  Fill: FF16477C
+  Align: h=right, v=center
+Cell (15,4) 'Quota Allocated (Tonnes)...':
+  Font: bold=False, size=11.0, color=default
+  Fill: FF16477C
+  Align: h=right, v=center
+Cell (15,5) '% Quota Allocated...':
+  Font: bold=False, size=11.0, color=default
+  Fill: FF16477C
+  Align: h=right, v=center
+Cell (15,6) 'Balance Remaining (Tonnes)...':
+  Font: bold=False, size=11.0, color=default
+  Fill: FF16477C
+  Align: h=right, v=center
+Cell (15,7) '% Balance Remaining...':
+  Font: bold=False, size=11.0, color=default
+  Fill: FF16477C
+  Align: h=right, v=center
+Cell (16,1) 'Non Alloy and Other Alloy Hot ...':
+  Font: bold=False, size=11.0, color=default
+  Fill: 00000000
+  Align: h=None, v=None
+Cell (16,2) 'Türkiye...':
+  Font: bold=False, size=11.0, color=default
+  Fill: 00000000
+  Align: h=None, v=None
+Cell (16,3) '402732.86...':
+  Font: bold=False, size=11.0, color=default
+  Fill: 00000000
+  Align: h=right, v=None
+Cell (16,4) '402732.86...':
+  Font: bold=False, size=11.0, color=default
+  Fill: 00000000
+  Align: h=right, v=None
+Cell (16,5) '1...':
+  Font: bold=False, size=11.0, color=default
+  Fill: 00000000
+  Align: h=right, v=None
+
+
+=== UNITED KINGDOM SHEET STRUCTURE ===
+First 25 rows, all columns:
+Row  1: ['MEPS United Kingdom Quota Update', '', '', '', '', '', '']
+Row  2: ['Current quota period: 01-Oct-2025 to 30-Dec-2025', '', '', '', '', '', '']
+Row  3: ['Latest available data: 12-Dec-2025', '', '', '', '', '', '']
+Row  4: ['', '', '', '', '', '', '']
+Row  5: ['', '', '', '', 'Following the introduction of individual country c', '', '']
+Row  6: ['', '', '', '', '', '', '']
+Row  7: ['', '', '', '', '', '', '']
+Row  8: ['', '', '', '', '', '', '']
+Row  9: ['', '', '', '', '', '', '']
+Row 10: ['', '', '', '', '', '', '']
+Row 11: ['', '', '', '', '', '', '']
+Row 12: ['', '', '', '', '', '', '']
+Row 13: ['', '', '', '', '', '', '']
+Row 14: ['', '', '', '', '', '', '']
+Row 15: ['Quota Category', 'Country', 'Quota Limit (Tonnes)', 'Quota Allocated (Tonnes)', '% Quota Allocated', 'Balance Remaining (Tonnes)', '% Balance Remaining']
+Row 16: ['Non-alloy and other alloy hot-rolled sheet and str', 'European Union', '187671', '72667.037517', '0.38720440300845627', '115003.962483', '0.6127955969915437']
+Row 17: ['Non-alloy and other alloy hot-rolled sheet and str', 'Turkey', '24641', '8044.867999999999', '0.3264830161113591', '16596.132', '0.6735169838886409']
+Row 18: ['Non-alloy and other alloy hot-rolled sheet and str', 'Taiwan', '13718', '13709.565', '0.9993851144481702', '8.435', '0.0006148855518297128']
+Row 19: ['Non-alloy and other alloy hot-rolled sheet and str', 'All others', '23611', '23611', '1', '', '']
+Row 20: ['Non-alloy and other alloy hot-rolled sheet and str', 'All others', '579165', '109096.283', '0.1883682249445322', '470068.717', '0.8116317750554678']
+Row 21: ['Metallic coated sheet', 'European Union', '324154', '101574.70941299998', '0.31335325003856185', '222579.29058700002', '0.6866467499614382']
+Row 22: ['Metallic coated sheet', 'Taiwan', '33513', '29155.1412', '0.8699651239817384', '4357.8588', '0.13003487601826158']
+Row 23: ['Metallic coated sheet', 'India', '24752', '20768.169421', '0.839050154371364', '3983.830579', '0.16094984562863607']
+Row 24: ['Metallic coated sheet', 'All others', '85595', '25763.637304999997', '0.30099465278345694', '59831.362695', '0.6990053472165431']
+Row 25: ['Metallic coated sheet', 'Vietnam*', '12839', '12838.999996', '0.9999999996884492', '4e-06', '3.115507438274009e-10']

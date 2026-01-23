@@ -1,0 +1,110 @@
+=== TEMPLATE FILE ===
+Sheets: ['Instructions', 'European Union', 'United Kingdom']
+
+Sheet: Instructions
+Dimensions: A1:H41, Max: 41 x 8
+Frozen: None
+Col widths: {'A': 8.7109375}
+Headers: ['MEPS Quota Update - December 2025', None, None, None, None, None, None, None]
+Row2: ['This spreadsheet contains data for the safeguard systems for both the European Union and the United Kingdom.', None, None, None, None, None, None, None]
+Row3: ['For ease of use the data has been split into separate tabs for each region/nation.', None, None, None, None, None, None, None]
+Header font: bold=False, size=26.0
+Header fill: FF16477C
+
+Sheet: European Union
+Dimensions: A1:G204, Max: 204 x 7
+Merged: ['D5:G14']
+Frozen: None
+Col widths: {'A': 64.140625, 'B': 39.28515625, 'C': 36.140625, 'D': 35.7109375, 'H': 9.140625}
+Headers: ['MEPS European Union Quota Update', None, None, None, None, None, None]
+Row2: ['Current quota period: 01-Oct-2025 to 30-Dec-2025', None, None, None, None, None, None]
+Row3: ['Latest available data: 12-Dec-2025', None, None, None, None, None, None]
+Header font: bold=True, size=26.0
+Header fill: FF16477C
+
+Sheet: United Kingdom
+Dimensions: A1:G86, Max: 86 x 7
+Merged: ['E5:G14']
+Frozen: None
+Col widths: {'A': 64.140625, 'B': 22.5703125, 'C': 17.7109375, 'D': 17.28515625, 'E': 36.140625, 'H': 9.140625}
+Headers: ['MEPS United Kingdom Quota Update', None, None, None, None, None, None]
+Row2: ['Current quota period: 01-Oct-2025 to 30-Dec-2025', None, None, None, None, None, None]
+Row3: ['Latest available data: 12-Dec-2025', None, None, None, None, None, None]
+Header font: bold=True, size=26.0
+Header fill: FF16477C
+
+
+=== SNAPSHOT FILE ===
+Sheets: ['Sheet1']
+
+Sheet: Sheet1
+Dimensions: A1:AF190, Max: 190 x 32
+Headers: ['input_order_number', 'input_start_date', 'input_quota_category', 'input_country', 'input_url', 'scrape_timestamp', 'url', 'order_number', 'validity_period', 'origin', 'initial_amount', 'amount', 'balance', 'transferred_amount', 'exhaustion_date', 'critical', 'last_import_date', 'last_allocation_date', 'awaiting_allocation', 'blocking_period', 'suspension_period', 'allocation_pct', 'associated_taric_code', 'validity_start']
+Row2: ['098967', '2026-01-01', 'Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a', 'Türkiye', 'https://ec.europa.eu/taxation_customs/dds2/taric/quota_tariff_details.jsp?Lang=en&StartDate=2026-01-01&Code=098967', '2026-01-15T15:01:59.614399', 'https://ec.europa.eu/taxation_customs/dds2/taric/quota_tariff_details.jsp?Lang=en&StartDate=2026-01-01&Code=098967', '098967', '01-01-2026  -  31-03-2026', 'Türkiye', 469492100, 393977800, 74232294.808, None, None, False, '12-01-2026', '14-01-2026', 127305, None, None, 100, '7208 10 00 00\n7208 25 00 00\n7208 26 00 00\n7208 27 00 00\n7208 36 00 00\n7208 37 00 00\n7208 38 00 00\n7208 39 00 00\n7208 40 00 00\n7208 52 10 00\n7208 52 99 00\n7208 53 10 00\n7208 53 90 00\n7208 54 00 00\n7211 13 00 00\n7211 14 00 00\n7211 19 00 00\n7225 19 10 00\n7225 30 00 00\n7225 40 15 00\n7225 40 90 00\n7226 19 10 00\n7226 91 00 00', '01-01-2026']
+Row3: ['098968', '2026-01-01', 'Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a', 'India', 'https://ec.europa.eu/taxation_customs/dds2/taric/quota_tariff_details.jsp?Lang=en&StartDate=2026-01-01&Code=098968', '2026-01-15T15:02:03.635697', 'https://ec.europa.eu/taxation_customs/dds2/taric/quota_tariff_details.jsp?Lang=en&StartDate=2026-01-01&Code=098968', '098968', '01-01-2026  -  31-03-2026', 'India', 298096250, 222829890, 0, None, '04-01-2026', False, '04-01-2026', '08-01-2026', 0, None, None, 77.018, '7208 10 00 00\n7208 25 00 00\n7208 26 00 00\n7208 27 00 00\n7208 36 00 00\n7208 37 00 00\n7208 38 00 00\n7208 39 00 00\n7208 40 00 00\n7208 52 10 00\n7208 52 99 00\n7208 53 10 00\n7208 53 90 00\n7208 54 00 00\n7211 13 00 00\n7211 14 00 00\n7211 19 00 00\n7225 19 10 00\n7225 30 00 00\n7225 40 15 00\n7225 40 90 00\n7226 19 10 00\n7226 91 00 00', '01-01-2026']
+
+
+=== PANDAS COMPARISON ===
+
+Template sheet 'Instructions': shape=(40, 1)
+Columns: ['MEPS Quota Update - December 2025']
+Dtypes:
+MEPS Quota Update - December 2025    object
+
+Template sheet 'European Union': shape=(203, 7)
+Columns: ['MEPS European Union Quota Update', 'Unnamed: 1', 'Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4', 'Unnamed: 5', 'Unnamed: 6']
+Dtypes:
+MEPS European Union Quota Update    object
+Unnamed: 1                          object
+Unnamed: 2                          object
+Unnamed: 3                          object
+Unnamed: 4                          object
+Unnamed: 5                          object
+Unnamed: 6                          object
+
+Template sheet 'United Kingdom': shape=(85, 7)
+Columns: ['MEPS United Kingdom Quota Update', 'Unnamed: 1', 'Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4', 'Unnamed: 5', 'Unnamed: 6']
+Dtypes:
+MEPS United Kingdom Quota Update    object
+Unnamed: 1                          object
+Unnamed: 2                          object
+Unnamed: 3                          object
+Unnamed: 4                          object
+Unnamed: 5                          object
+Unnamed: 6                          object
+
+Snapshot sheet 'Sheet1': shape=(189, 32)
+Columns: ['input_order_number', 'input_start_date', 'input_quota_category', 'input_country', 'input_url', 'scrape_timestamp', 'url', 'order_number', 'validity_period', 'origin', 'initial_amount', 'amount', 'balance', 'transferred_amount', 'exhaustion_date', 'critical', 'last_import_date', 'last_allocation_date', 'awaiting_allocation', 'blocking_period', 'suspension_period', 'allocation_pct', 'associated_taric_code', 'validity_start', 'validity_end', 'quota_used', 'quota_used_pct', 'quota_remaining_pct', 'days_remaining_in_quarter', 'daily_burn_rate', 'est_days_until_exhaustion', 'snapshot_timestamp']
+Dtypes:
+input_order_number             int64
+input_start_date              object
+input_quota_category          object
+input_country                 object
+input_url                     object
+scrape_timestamp              object
+url                           object
+order_number                   int64
+validity_period               object
+origin                        object
+initial_amount               float64
+amount                         int64
+balance                      float64
+transferred_amount           float64
+exhaustion_date               object
+critical                        bool
+last_import_date              object
+last_allocation_date          object
+awaiting_allocation            int64
+blocking_period               object
+suspension_period            float64
+allocation_pct               float64
+associated_taric_code         object
+validity_start                object
+validity_end                  object
+quota_used                   float64
+quota_used_pct               float64
+quota_remaining_pct          float64
+days_remaining_in_quarter      int64
+daily_burn_rate              float64
+est_days_until_exhaustion    float64
+snapshot_timestamp            object
