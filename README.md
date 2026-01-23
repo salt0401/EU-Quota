@@ -1,4 +1,4 @@
-# EU Quota Scraper
+# EU Quota Scraper v2.0
 
 Automated collection of EU steel tariff quota data from the European Commission's TARIC database.
 
@@ -9,73 +9,83 @@ This tool scrapes quota usage data from the EU TARIC system to track steel impor
 ### Key Features
 
 - **Automated data collection** from EU TARIC quota pages
-- **Calculated metrics**: % used, % remaining, daily burn rate, estimated exhaustion date
-- **Excel output** formatted for customer reports and Power BI integration
-- **Handles 189 quotas** across multiple steel products and origin countries
+- **MEPS-formatted Excel reports** with tables and filters
+- **Automatic date detection** for quota periods
+- **Dated output folders** (YYYY-MM-DD) for historical tracking
+- **189 EU quotas** tracked across multiple steel products and origin countries
+
+### Calculations (MEPS Formula)
+
+```
+Quota Limit = amount + transferred_amount
+Balance Remaining = balance - awaiting_allocation
+```
 
 ## Quick Start
 
-```powershell
-# Using the numberscrapping project virtual environment
-& "c:/Users/lyen/Downloads/numberscrapping project/.venv/Scripts/python.exe" "c:/Users/lyen/Downloads/EU Quota/main.py"
-```
-
-Or if running from within the EU Quota folder with dependencies installed:
 ```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run scraper
 python main.py           # Interactive mode
 python main.py --auto    # Automatic mode (for scheduling)
 ```
 
 ## Output Files
 
-Files are saved to `data/output/` (created automatically):
+Files are organized by date in `data/output/YYYY-MM-DD/`:
 
 | File | Description |
 |------|-------------|
-| `eu_quota_report_YYYYMMDD.xlsx` | Full scraped data |
-| `eu_quota_report_YYYYMMDD_customer.xlsx` | Customer-ready summary |
+| `eu_quota_raw_YYYYMMDD.xlsx` | Complete scraped data |
+| `MEPS_EU_Quota_Update_YYYYMMDD.xlsx` | Customer-ready report |
 
-Snapshots saved to `data/snapshots/` for historical tracking.
+Snapshots saved to `data/snapshots/` for historical analysis.
 
 ### Customer Report Columns
 
 | Column | Description |
 |--------|-------------|
-| Product Category | Steel product type |
-| Origin | Country of origin |
-| Order Number | 6-digit EU quota identifier |
-| Initial Quota (kg) | Total quota volume |
-| Quota Used (kg) | Amount consumed |
-| Used (%) | Usage percentage |
-| Remaining (kg) | Balance remaining |
-| Remaining (%) | Balance percentage |
-| Critical | Quota exhaustion warning flag |
-| Days Left in Quarter | Days until quarter ends |
-| Est. Days to Exhaustion | Projected days until quota runs out |
+| Quota Category | Steel product type |
+| Country | Country of origin |
+| Quota Limit (Tonnes) | Total available quota |
+| Quota Allocated (Tonnes) | Amount used |
+| % Quota Allocated | Usage percentage |
+| Balance Remaining (Tonnes) | Remaining quota |
+| % Balance Remaining | Remaining percentage |
 
 ## Project Structure
 
 ```
 EU Quota/
-├── eu_quota_scraper/
-│   ├── __init__.py
-│   ├── config.py           # URL patterns, quarter dates
-│   ├── scraper.py          # Selenium-based web scraper
-│   ├── data_processor.py   # Metric calculations
-│   └── exporter.py         # Excel export
-├── main.py                 # Entry point
-├── requirements.txt
-├── README.md
-├── README_繁體中文.md       # Chinese documentation
-└── EU Quota URL's.xlsx     # Input: quota list to track
+├── src/                           # Core source code
+│   ├── config.py                  # Configuration & quarter utilities
+│   ├── scraper.py                 # Selenium web scraper
+│   ├── data_processor.py          # Data calculations (MEPS formulas)
+│   ├── excel_generator.py         # MEPS report generator
+│   └── utils.py                   # File/folder utilities
+├── data/
+│   ├── input/                     # Input files
+│   │   └── quota_urls.xlsx        # Quota list to track
+│   ├── output/                    # Output by date
+│   │   └── YYYY-MM-DD/            # Dated folders
+│   └── snapshots/                 # Historical snapshots
+├── templates/                     # Reference templates
+├── docs/                          # Documentation
+│   ├── INSTRUCTIONS.md            # English
+│   └── INSTRUCTIONS_繁體中文.md    # Traditional Chinese
+├── main.py                        # Entry point
+├── requirements.txt               # Dependencies
+└── README.md
 ```
 
 ## Technical Notes
 
-- **Order Number Format**: Automatically pads to 6 digits with leading zeros (e.g., `98967` → `098967`)
+- **Order Number Format**: Automatically pads to 6 digits (e.g., `98967` → `098967`)
 - **Quarterly Periods**: Q1 (Jan-Mar), Q2 (Apr-Jun), Q3 (Jul-Sep), Q4 (Oct-Dec)
 - **Rate Limiting**: 1 second delay between requests
-- **Expected Runtime**: ~15-20 minutes for all 189 quotas
+- **Expected Runtime**: ~15-20 minutes for 189 quotas
 
 ## Scheduling Daily Updates (Windows)
 
@@ -83,9 +93,20 @@ EU Quota/
 2. Name: "EU Quota Scraper"
 3. Trigger: Daily at preferred time
 4. Action: Start a program
-   - Program: `c:\Users\lyen\Downloads\numberscrapping project\.venv\Scripts\python.exe`
-   - Arguments: `c:\Users\lyen\Downloads\EU Quota\main.py --auto`
+   - Program: `python`
+   - Arguments: `main.py --auto`
+   - Start in: `C:\path\to\EU Quota`
+
+## Documentation
+
+- [English Instructions](docs/INSTRUCTIONS.md)
+- [繁體中文說明](docs/INSTRUCTIONS_繁體中文.md)
+- [Data Flow Analysis](docs/DATA_FLOW_ANALYSIS.md)
 
 ## Data Source
 
 [EU TARIC Quota Database](https://ec.europa.eu/taxation_customs/dds2/taric/quota_consultation.jsp)
+
+---
+
+*Version 2.0 - January 2026*

@@ -3,214 +3,215 @@
 EU Quota Scraper - Main Entry Point
 Automated collection of EU steel tariff quota data
 
-Author: Data Intern @ MEPS International
+Author: MEPS International
 
 Usage:
-    python main.py                    # Interactive mode
-    python main.py --auto             # Automatic mode (uses defaults)
-    python main.py --input quotas.xlsx --output report.xlsx
+    python main.py
+    python main.py -i custom_input.xlsx -o custom_output.xlsx
 """
 
 import os
 import sys
 import argparse
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 
-# Add parent directory to path for imports
+# Add src directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from eu_quota_scraper import (
+from src import (
     EUQuotaScraper,
     get_current_quarter_start,
     calculate_quota_metrics,
-    export_to_excel,
-    save_snapshot
+    clean_quota_data,
+    prepare_customer_data,
+    generate_meps_report
 )
-from eu_quota_scraper.data_processor import clean_quota_data, prepare_customer_report
+from src.data_processor import extract_period_info, get_quota_summary
+from src.excel_generator import save_raw_data, save_snapshot
+from src.utils import (
+    get_output_folder,
+    get_snapshot_folder,
+    get_input_folder,
+    ensure_directories,
+    generate_output_filename,
+    format_date_display
+)
 
 
-# Default paths
-# Default paths
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_INPUT_FILE = os.path.join(SCRIPT_DIR, "EU Quota URL's.xlsx")
-DEFAULT_OUTPUT_DIR = os.path.join(SCRIPT_DIR, "data", "output")
-DEFAULT_SNAPSHOT_DIR = os.path.join(SCRIPT_DIR, "data", "snapshots")
+# Default input filename
+DEFAULT_INPUT_FILE = "quota_urls.xlsx"
 
 
 def load_quota_urls(filepath: str) -> pd.DataFrame:
     """
     Load quota order numbers from Excel file
-    
+
     Args:
         filepath: Path to Excel file with quota URLs
-        
+
     Returns:
         pd.DataFrame with order numbers and metadata
     """
-    print(f"📂 Loading quota list from: {filepath}")
-    
+    print(f"Loading quota list from: {filepath}")
+
     # Try to auto-detect header row by looking for key columns
-    # The EU Quota URL's.xlsx file has header on row 5 (index 4)
     for header_row in [0, 4, 1, 2, 3]:
         try:
             df = pd.read_excel(filepath, header=header_row)
-            # Check if we have the expected column
             if any('order' in str(col).lower() for col in df.columns):
-                print(f"   ✅ Found header at row {header_row + 1}")
+                print(f"  Found header at row {header_row + 1}")
                 break
         except Exception:
             continue
     else:
-        # Default fallback
         df = pd.read_excel(filepath, header=4)
-    
+
     # Filter out rows with NaN in the order number column
     order_col = None
     for col in df.columns:
         if 'order' in str(col).lower():
             order_col = col
             break
-    
+
     if order_col:
         df = df[df[order_col].notna()]
-    
-    print(f"   Found {len(df)} quotas to process")
-    print(f"   Columns: {list(df.columns)}")
-    
+
+    print(f"  Found {len(df)} quotas to process")
+
     return df
 
 
-def run_scraper(input_file: str = None,
-                output_file: str = None,
-                auto_mode: bool = False) -> pd.DataFrame:
+def run_scraper(
+    input_file: str = None,
+    output_file: str = None,
+    scrape_date: date = None
+) -> pd.DataFrame:
     """
     Main scraping workflow
-    
+
     Args:
         input_file: Path to input Excel file with quota URLs
-        output_file: Path for output Excel file
-        auto_mode: If True, run without user prompts
-        
+        output_file: Optional custom filename for output
+        scrape_date: Date for output folder (defaults to today)
+
     Returns:
         pd.DataFrame: Scraped and processed data
     """
     print("""
-    ╔══════════════════════════════════════════════════════════════╗
-         EU Quota Scraper - Steel Tariff Quota Tracker
-    ╚══════════════════════════════════════════════════════════════╝
+    ================================================================
+         EU Quota Scraper - Steel Tariff Quota Tracker v2.0
+    ================================================================
     """)
-    
+
+    if scrape_date is None:
+        scrape_date = date.today()
+
+    # Ensure directories exist
+    paths = ensure_directories(scrape_date)
+    output_folder = paths["output"]
+
+    print(f"Output folder: {output_folder}")
+
     # Determine input file
     if input_file is None:
-        input_file = DEFAULT_INPUT_FILE
-    
+        input_file = os.path.join(get_input_folder(), DEFAULT_INPUT_FILE)
+
     if not os.path.exists(input_file):
-        print(f"❌ Input file not found: {input_file}")
+        print(f"Error: Input file not found: {input_file}")
         return None
-    
+
     # Load quota URLs
     quotas_df = load_quota_urls(input_file)
-    
+
     # Display current quarter info
     quarter_start = get_current_quarter_start()
-    print(f"\n📅 Current quarter start: {quarter_start}")
-    
-    # Confirm before proceeding (unless auto mode)
-    if not auto_mode:
-        print(f"\n📊 Ready to scrape {len(quotas_df)} quotas")
-        user_input = input("   Continue? [y/n]: ").strip().lower()
-        if user_input not in ['y', 'yes']:
-            print("\n⏭️ Scraping cancelled")
-            return None
-    
+    print(f"\nCurrent quarter start: {quarter_start}")
+    print(f"Processing {len(quotas_df)} quotas...")
+
     # Initialize scraper and fetch data
     print("\n" + "=" * 60)
     print("Starting data collection...")
     print("=" * 60)
-    
+
     scraper = EUQuotaScraper(headless=True)
-    
+
     # Determine column names (handle different Excel formats)
     order_col = None
     date_col = None
-    
+
     for col in quotas_df.columns:
-        col_lower = col.lower()
+        col_lower = str(col).lower()
         if 'order' in col_lower and 'number' in col_lower:
             order_col = col
         elif 'order' in col_lower:
             order_col = col
-        if 'date' in col_lower or 'quarter' in col_lower:
+        if 'quarter' in col_lower or 'date' in col_lower:
             date_col = col
-    
+
     if order_col is None:
         order_col = quotas_df.columns[0]
-        print(f"   ⚠️ Using first column as order number: {order_col}")
-    
+        print(f"  Using first column as order number: {order_col}")
+
     if date_col is None:
-        # Use current quarter for all
         quotas_df['_start_date'] = quarter_start
         date_col = '_start_date'
-        print(f"   ⚠️ Using current quarter start date: {quarter_start}")
-    
+        print(f"  Using current quarter start date: {quarter_start}")
+
     # Fetch all quotas
     raw_data = scraper.fetch_all_quotas(quotas_df, order_col=order_col, date_col=date_col)
-    
+
     if raw_data.empty:
-        print("\n❌ No data was collected")
+        print("\nNo data was collected")
         return None
-    
+
     # Clean and process data
     print("\n" + "=" * 60)
     print("Processing data...")
     print("=" * 60)
-    
+
     cleaned_data = clean_quota_data(raw_data)
     processed_data = calculate_quota_metrics(cleaned_data)
-    
-    # Save snapshot
-    print("\n📸 Saving snapshot...")
-    os.makedirs(DEFAULT_SNAPSHOT_DIR, exist_ok=True)
-    save_snapshot(processed_data, DEFAULT_SNAPSHOT_DIR)
-    
-    # Export to Excel
-    print("\n💾 Exporting results...")
-    os.makedirs(DEFAULT_OUTPUT_DIR, exist_ok=True)
-    
+
+    # Extract period information automatically
+    period_display, latest_data, quarter, year = extract_period_info(processed_data)
+    print(f"  Detected period: {period_display}")
+    print(f"  Latest data: {latest_data}")
+
+    # Save snapshot for historical tracking
+    print("\nSaving snapshot...")
+    snapshot_folder = get_snapshot_folder()
+    snapshot_path = save_snapshot(processed_data, snapshot_folder)
+    print(f"  Snapshot: {snapshot_path}")
+
+    # Generate output files
+    print("\nGenerating output files...")
+
+    # 1. Raw data file
+    raw_filename = generate_output_filename("eu_quota_raw", scrape_date)
+    raw_path = os.path.join(output_folder, raw_filename)
+    save_raw_data(processed_data, raw_path)
+    print(f"  Raw data: {raw_path}")
+
+    # 2. MEPS customer report
     if output_file is None:
-        timestamp = datetime.now().strftime('%Y%m%d')
-        output_file = f"eu_quota_report_{timestamp}.xlsx"
-    
-    export_to_excel(processed_data, output_file, DEFAULT_OUTPUT_DIR)
-    
-    # Also create customer-ready report
-    customer_report = prepare_customer_report(processed_data)
-    if not customer_report.empty:
-        customer_file = output_file.replace('.xlsx', '_customer.xlsx')
-        export_to_excel(customer_report, customer_file, DEFAULT_OUTPUT_DIR, 
-                       sheet_name='Quota Summary')
-    
+        output_file = generate_output_filename("MEPS_EU_Quota_Update", scrape_date)
+
+    meps_path = os.path.join(output_folder, output_file)
+    generate_meps_report(processed_data, meps_path, period_display, latest_data)
+    print(f"  MEPS report: {meps_path}")
+
     # Display summary
+    summary = get_quota_summary(processed_data)
+
     print("\n" + "=" * 60)
-    print("📊 Summary")
+    print("Summary")
     print("=" * 60)
-    
-    success_count = len(processed_data[processed_data.get('order_number', pd.Series()).notna()])
-    print(f"   ✅ Quotas scraped: {success_count}/{len(quotas_df)}")
-    
-    if 'quota_used_pct' in processed_data.columns:
-        high_usage = processed_data[processed_data['quota_used_pct'] > 75]
-        if len(high_usage) > 0:
-            print(f"   ⚠️ High usage (>75%): {len(high_usage)} quotas")
-    
-    if 'critical' in processed_data.columns:
-        critical_count = processed_data['critical'].sum()
-        if critical_count > 0:
-            print(f"   🚨 Critical quotas: {critical_count}")
-    
-    print(f"\n📁 Output directory: {os.path.abspath(DEFAULT_OUTPUT_DIR)}")
-    
+    print(f"  Total quotas scraped: {summary['total_quotas']}")
+    print(f"  High usage (>75%): {summary['high_usage_count']}")
+    print(f"  Critical quotas: {summary['critical_count']}")
+    print(f"\nOutput folder: {output_folder}")
+
     return processed_data
 
 
@@ -221,34 +222,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python main.py                          # Interactive mode
-    python main.py --auto                   # Automatic mode
+    python main.py
     python main.py -i quotas.xlsx -o output.xlsx
         """
     )
-    
-    parser.add_argument('-i', '--input', 
+
+    parser.add_argument('-i', '--input',
                        help='Input Excel file with quota URLs',
                        default=None)
     parser.add_argument('-o', '--output',
                        help='Output Excel filename',
                        default=None)
-    parser.add_argument('--auto',
-                       action='store_true',
-                       help='Run in automatic mode (no prompts)')
-    
+
     args = parser.parse_args()
-    
+
     result = run_scraper(
         input_file=args.input,
-        output_file=args.output,
-        auto_mode=args.auto
+        output_file=args.output
     )
-    
+
     if result is not None:
-        print("\n✅ Scraping complete!")
+        print("\nScraping complete!")
     else:
-        print("\n❌ Scraping failed or was cancelled")
+        print("\nScraping failed")
         sys.exit(1)
 
 

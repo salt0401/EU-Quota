@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/analyze_data_flow.py:*)",
+      "Bash(py scripts/analyze_data_flow.py:*)",
+      "Bash(where:*)",
+      "Bash(echo:*)",
+      "Bash(/c/Python*/python.exe)",
+      "Bash(powershell.exe -Command \"python --version\")",
+      "Bash(unzip:*)",
+      "Bash(python:*)",
+      "Bash(py main.py:*)",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota''; python main.py\")",
+      "Bash(powershell.exe -Command \"Get-Command python* -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(powershell.exe -Command \"Test-Path ''C:\\\\Python*''; Test-Path ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\*''; Get-ChildItem ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\'' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell.exe -Command \"& ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python314\\\\python.exe'' ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\main.py''\")",
+      "Bash(powershell.exe -Command \"Get-Content ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-lyen-Downloads-EU-Quota\\\\tasks\\\\b6d3299.output'' -Tail 50\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\'' | Format-Table Name, Length, LastWriteTime\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\snapshots\\\\'' | Format-Table Name, Length, LastWriteTime\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates''; Expand-Archive -Path ''meps_customer_template.xlsx'' -DestinationPath ''template_extracted'' -Force; Get-ChildItem ''template_extracted'' -Recurse | Select-Object FullName\")",
+      "Bash(powershell.exe -Command \"Copy-Item ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\meps_customer_template.xlsx'' ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template.zip''; Expand-Archive -Path ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template.zip'' -DestinationPath ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template_extracted'' -Force; Get-ChildItem ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template_extracted'' -Recurse -Name\")",
+      "Bash(powershell.exe -Command \"Copy-Item ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\MEPS_EU_Quota_Update_20260123.xlsx'' ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\output.zip''; Expand-Archive -Path ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\output.zip'' -DestinationPath ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\output_extracted'' -Force; Get-ChildItem ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\output_extracted'' -Recurse -Name\")",
+      "Bash(powershell.exe -Command \"Get-Content ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template_extracted\\\\xl\\\\worksheets\\\\sheet2.xml'' -TotalCount 5\")",
+      "Bash(powershell.exe -Command \"Remove-Item 'C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\*' -Force; Remove-Item 'C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template_extracted' -Recurse -Force; Remove-Item 'C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template.zip' -Force\":*)",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\'' | Remove-Item -Force\")",
+      "Bash(powershell.exe -Command \"Get-Content ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-lyen-Downloads-EU-Quota\\\\tasks\\\\b232bfb.output'' -Tail 30\")",
+      "Bash(powershell.exe -Command \"Start-Sleep -Seconds 10; Get-Content ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-lyen-Downloads-EU-Quota\\\\tasks\\\\b232bfb.output'' -Tail 40\")"
+    ]
+  }
+}
