@@ -6,49 +6,69 @@
 - [x] Auto-detect quota period dates
 - [x] Generate basic MEPS report
 
-## Priority 2: In Progress
-- [ ] Make EU output 100% match MEPS template
-  - [ ] Add slicers for Country and Quota Category
-  - [ ] Match exact column widths and formatting
-  - [ ] Match header styles and colors
-  - [ ] Add explanatory text sections
+## Priority 2: Completed
+- [x] Make EU output 100% match MEPS template
+  - [x] Add slicers for Country and Quota Category (Fixed: Jan 2026 - using string-based XML manipulation)
+  - [x] Match exact column widths and formatting
+  - [x] Match header styles and colors
+  - [x] Add explanatory text sections
+  - [x] Preserve MEPS logo image
 
-## Priority 3: UK Support (Future)
+## Priority 3: UK Support (In Progress - Skeleton Ready)
 
-### When UK URLs are available:
+### Research Completed (Jan 2026)
 
-1. **Get UK Data Source**
-   - UK quotas use different system: UK Integrated Online Tariff (HMRC)
-   - Base URL: https://www.trade-tariff.service.gov.uk/
-   - Need input file with UK order numbers
+**UK Data Source Verified:**
+- Website: UK Integrated Online Tariff (HMRC)
+- URL: `https://www.trade-tariff.service.gov.uk/quota_search?order_number={ORDER_NUMBER}`
+- Data updated: Daily (excluding weekends and bank holidays)
+- Units: **Kilograms** (must convert to Tonnes for MEPS report)
+- Order numbers: 6 digits starting with "058" (e.g., 058001, 058006)
 
-2. **Files to Modify**
-   - `src/config.py`: Add UK_BASE_URL (already has placeholder)
-   - `src/scraper.py`: Create `UKQuotaScraper` class
-   - `src/excel_generator.py`: Add UK sheet generation
-   - `data/input/`: Add `uk_quota_urls.xlsx`
+**UK Categories (17 total):**
+| Category | Name |
+|----------|------|
+| 1A | Non-alloy hot-rolled sheet |
+| 1B | Other alloy hot-rolled sheet |
+| 4 | Metallic coated sheet |
+| 5 | Organic coated sheet |
+| 6 | Tin mill products |
+| 7 | Quarto plates |
+| 12A | Alloy merchant bars |
+| 12B | Non-alloy merchant bars |
+| 13 | Rebar |
+| 16 | Wire rod |
+| 17 | Angles/shapes/sections |
+| 19 | Railway material |
+| 20 | Gas pipe |
+| 21 | Hollow section |
+| 25A | Large welded tube (1) |
+| 25B | Large welded tube (2) |
+| 26 | Other welded tube |
 
-3. **UK Scraper Implementation Steps**
-   ```python
-   # In src/scraper.py, add:
-   class UKQuotaScraper:
-       def __init__(self, headless=True):
-           # Similar to EUQuotaScraper
-           pass
+### Files Created/Updated
 
-       def fetch_quota(self, order_number, start_date):
-           # UK-specific page parsing
-           pass
-   ```
+- [x] `src/uk_scraper.py` - Skeleton class with order numbers reference
+- [x] `src/config.py` - UK_BASE_URL and UK_QUOTA_FIELDS added
+- [x] `src/__init__.py` - UKQuotaScraper exported
+- [ ] `data/input/uk_quota_urls.xlsx` - **PENDING: Need from user**
 
-4. **Expected UK Data Fields**
-   - Order Number
-   - Quota Category (17 categories vs EU's 29)
-   - Country (EU, Turkey, All others)
-   - Quota Limit, Allocated, Balance
+### Remaining Tasks
 
-5. **Testing Checklist for UK**
-   - [ ] Verify UK URL structure
+1. **Get UK input file** (`uk_quota_urls.xlsx`)
+   - Same format as EU: Order Number, Quota Category, Country
+
+2. **Implement UK scraper fetch logic**
+   - Parse HTML from quota_search results
+   - Extract: Opening Balance, Current Balance, Status, etc.
+   - Convert kg to tonnes
+
+3. **Update excel_generator.py**
+   - Modify `_update_uk_sheet_xml()` to write actual UK data
+   - Update table2.xml for UK data range
+
+4. **Testing Checklist**
+   - [x] Verify UK URL structure
    - [ ] Test single quota fetch
    - [ ] Test batch processing
    - [ ] Verify data mapping to template
@@ -90,4 +110,5 @@
 - Combined runtime estimate: ~25-30 minutes
 
 ---
-*Last updated: January 2026*
+*Last updated: 23-Jan-2026*
+*Slicer fix: String-based XML manipulation in excel_generator.py to preserve namespace prefixes*

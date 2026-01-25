@@ -12,6 +12,7 @@ from .config import (
     build_quota_url
 )
 from .scraper import EUQuotaScraper
+from .uk_scraper import UKQuotaScraper  # Skeleton - not yet implemented
 from .data_processor import (
     calculate_quota_metrics,
     clean_quota_data,
@@ -23,6 +24,7 @@ from .utils import get_output_folder, ensure_directories
 __version__ = "2.0.0"
 __all__ = [
     "EUQuotaScraper",
+    "UKQuotaScraper",  # Skeleton - not yet implemented
     "get_current_quarter",
     "get_current_quarter_start",
     "get_quarter_dates",

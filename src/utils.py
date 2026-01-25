@@ -10,8 +10,14 @@ from typing import Optional
 
 
 def get_project_root() -> str:
-    """Get the project root directory"""
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    """Get the project root directory (works both as script and as PyInstaller exe)"""
+    import sys
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        return os.path.dirname(sys.executable)
+    else:
+        # Running as script
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def get_output_folder(scrape_date: Optional[date] = None) -> str:

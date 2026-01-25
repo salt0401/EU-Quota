@@ -12,8 +12,10 @@ EU Quota/
 │   ├── config.py              # Configuration and quarter utilities
 │   ├── scraper.py             # Web scraper using Selenium
 │   ├── data_processor.py      # Data cleaning and calculations
-│   ├── excel_generator.py     # MEPS report generator
+│   ├── excel_generator.py     # MEPS report generator (preserves slicers)
 │   └── utils.py               # File/folder utilities
+├── scripts/
+│   └── verify_output.py       # Output verification tool
 ├── data/
 │   ├── input/                 # Input files
 │   │   └── quota_urls.xlsx    # List of quotas to scrape
@@ -22,9 +24,9 @@ EU Quota/
 │   │       ├── eu_quota_raw_*.xlsx
 │   │       └── MEPS_EU_Quota_Update_*.xlsx
 │   └── snapshots/             # Historical snapshots
-├── templates/                 # Reference templates
+├── templates/
+│   └── meps_customer_template.xlsx  # MEPS template with slicers
 ├── docs/                      # Documentation
-├── scripts/                   # Development scripts
 └── main.py                    # Main entry point
 ```
 
@@ -78,7 +80,9 @@ Each run creates a dated folder in `data/output/YYYY-MM-DD/`:
    - For internal analysis
 
 2. **MEPS_EU_Quota_Update_YYYYMMDD.xlsx**
-   - Formatted customer report
+   - Formatted customer report with MEPS branding
+   - **Interactive slicers** for Quota Category and Country filtering
+   - MEPS logo and styling preserved
    - Contains Instructions sheet and data table
    - Ready for delivery
 
@@ -120,6 +124,21 @@ For automatic daily scraping, use Windows Task Scheduler:
    - Arguments: `main.py --auto`
    - Start in: `C:\path\to\EU Quota`
 
+## Verification Tool
+
+To verify output files have all required components (slicers, tables, drawings):
+
+```bash
+python scripts/verify_output.py
+```
+
+This checks:
+- All required XML files present
+- Namespace prefixes preserved (required for slicers)
+- Slicer references intact
+- Table and drawing relationships correct
+- MEPS logo preserved
+
 ## Troubleshooting
 
 ### Chrome driver issues
@@ -147,4 +166,4 @@ For issues or questions:
 
 ---
 
-*Version 2.0 - January 2026*
+*Version 2.1 - January 2026 (Slicer support added)*

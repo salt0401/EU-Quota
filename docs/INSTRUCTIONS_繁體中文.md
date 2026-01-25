@@ -12,8 +12,10 @@ EU Quota/
 │   ├── config.py              # 設定與季度工具函數
 │   ├── scraper.py             # 使用 Selenium 的網頁爬蟲
 │   ├── data_processor.py      # 數據清理與計算
-│   ├── excel_generator.py     # MEPS 報告生成器
+│   ├── excel_generator.py     # MEPS 報告生成器（保留交叉分析篩選器）
 │   └── utils.py               # 檔案/資料夾工具函數
+├── scripts/
+│   └── verify_output.py       # 輸出檔案驗證工具
 ├── data/
 │   ├── input/                 # 輸入檔案
 │   │   └── quota_urls.xlsx    # 要爬取的配額清單
@@ -22,9 +24,9 @@ EU Quota/
 │   │       ├── eu_quota_raw_*.xlsx
 │   │       └── MEPS_EU_Quota_Update_*.xlsx
 │   └── snapshots/             # 歷史快照
-├── templates/                 # 參考範本
+├── templates/
+│   └── meps_customer_template.xlsx  # MEPS 範本（含交叉分析篩選器）
 ├── docs/                      # 文件
-├── scripts/                   # 開發腳本
 └── main.py                    # 主程式入口
 ```
 
@@ -78,7 +80,9 @@ python main.py -i custom_quotas.xlsx -o custom_report.xlsx
    - 供內部分析使用
 
 2. **MEPS_EU_Quota_Update_YYYYMMDD.xlsx**
-   - 格式化的客戶報告
+   - 格式化的客戶報告，包含 MEPS 品牌樣式
+   - **互動式交叉分析篩選器**（可依配額類別和國家篩選）
+   - 保留 MEPS 標誌和樣式
    - 包含說明頁和數據表格
    - 可直接交付客戶
 
@@ -120,6 +124,21 @@ python main.py -i custom_quotas.xlsx -o custom_report.xlsx
    - 引數：`main.py --auto`
    - 開始於：`C:\path\to\EU Quota`
 
+## 驗證工具
+
+驗證輸出檔案是否包含所有必要元件（交叉分析篩選器、表格、圖表）：
+
+```bash
+python scripts/verify_output.py
+```
+
+檢查項目：
+- 所有必要的 XML 檔案是否存在
+- 命名空間前綴是否保留（交叉分析篩選器必需）
+- 篩選器參照是否完整
+- 表格和圖表關聯是否正確
+- MEPS 標誌是否保留
+
 ## 疑難排解
 
 ### Chrome 驅動程式問題
@@ -147,4 +166,4 @@ pip install --upgrade webdriver-manager
 
 ---
 
-*版本 2.0 - 2026年1月*
+*版本 2.1 - 2026年1月（新增交叉分析篩選器支援）*

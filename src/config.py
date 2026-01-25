@@ -10,8 +10,24 @@ from typing import Tuple, Optional
 # Base URL for EU TARIC quota details page
 EU_BASE_URL = "https://ec.europa.eu/taxation_customs/dds2/taric/quota_tariff_details.jsp"
 
-# UK quota base URL (for future implementation)
+# UK quota base URL
+# Source: UK Integrated Online Tariff (HMRC)
+# Search: https://www.trade-tariff.service.gov.uk/quota_search?order_number={ORDER_NUMBER}
 UK_BASE_URL = "https://www.trade-tariff.service.gov.uk/quota_search"
+
+# UK Quota Fields (different from EU)
+# Data is provided in kilograms (convert to tonnes for MEPS report)
+UK_QUOTA_FIELDS = [
+    'Order number',
+    'Origin',
+    'Quota period',
+    'Opening balance',
+    'Current balance',
+    'Status',
+    'Last allocation date',
+    'Suspension period',
+    'Blocking period'
+]
 
 # Default language
 LANGUAGE = "en"
@@ -181,23 +197,29 @@ def format_period_display(start_str: str, end_str: str) -> str:
         return f"{start_str} to {end_str}"
 
 
-def build_quota_url(order_number: str, start_date: str, region: str = "eu") -> str:
+def build_quota_url(order_number: str, start_date: str = None, region: str = "eu") -> str:
     """
     Build the URL for a specific quota details page
 
     Args:
-        order_number: Quota order number (e.g., '098967')
-        start_date: Quarter start date in YYYY-MM-DD format
-        region: 'eu' or 'uk' (uk not yet implemented)
+        order_number: Quota order number (EU: '098967', UK: '058001')
+        start_date: Quarter start date in YYYY-MM-DD format (required for EU, ignored for UK)
+        region: 'eu' or 'uk'
 
     Returns:
         str: Full URL to quota details page
     """
     if region.lower() == "eu":
+        if start_date is None:
+            start_date = get_current_quarter_start()
         return f"{EU_BASE_URL}?Lang={LANGUAGE}&StartDate={start_date}&Code={order_number}"
+    elif region.lower() == "uk":
+        # UK uses simple order number search (no date parameter needed)
+        # Order numbers are 6 digits starting with 058
+        order_number = str(order_number).zfill(6)
+        return f"{UK_BASE_URL}?order_number={order_number}"
     else:
-        # UK implementation placeholder
-        raise NotImplementedError("UK quota scraping not yet implemented")
+        raise ValueError(f"Unknown region: {region}. Use 'eu' or 'uk'.")
 
 
 def detect_quarter_from_validity(validity_start: str) -> Tuple[int, int]:

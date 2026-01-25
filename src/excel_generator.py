@@ -5,6 +5,9 @@ Creates MEPS-style Excel reports by modifying template XML directly
 
 Strategy: Copy the template file and modify XML directly using zipfile,
 preserving all slicers, drawings, and interactive elements that openpyxl strips.
+
+NOTE: This module uses string-based XML manipulation (not ElementTree) to preserve
+Excel's complex namespace prefixes which are required for slicers to work properly.
 """
 
 import os
@@ -15,39 +18,114 @@ import re
 import pandas as pd
 from datetime import date, datetime
 from typing import Optional, Tuple
-from xml.etree import ElementTree as ET
 
 from .data_processor import extract_period_info, prepare_customer_data, get_quota_summary
 from .utils import get_templates_folder
 
 
-# XML namespaces used in Excel files
-NAMESPACES = {
-    'main': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
-    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-}
+def prepare_uk_customer_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Prepare UK DataFrame for customer-facing MEPS report
 
-# Register namespaces to preserve them during XML modification
-for prefix, uri in NAMESPACES.items():
-    if prefix != 'main':  # main namespace is default, don't prefix it
-        ET.register_namespace(prefix, uri)
-ET.register_namespace('', NAMESPACES['main'])
+    Selects and renames columns to match MEPS template format.
+    UK data uses different column names than EU data.
+
+    Args:
+        df: Processed DataFrame with UK quota metrics
+
+    Returns:
+        pd.DataFrame: Customer-ready DataFrame with proper column names
+    """
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    # Column mapping: internal_name -> display_name
+    # UK scraper uses _tonnes suffix for already-converted values
+    column_mapping = {
+        'input_quota_category': 'Quota Category',
+        'input_country': 'Country',
+        'quota_limit_tonnes': 'Quota Limit (Tonnes)',
+        'quota_allocated_tonnes': 'Quota Allocated (Tonnes)',
+        'pct_allocated': '% Quota Allocated',
+        'balance_remaining_tonnes': 'Balance Remaining (Tonnes)',
+        'pct_remaining': '% Balance Remaining',
+    }
+
+    # Check if required columns exist, if not try to calculate
+    if 'quota_limit_tonnes' not in df.columns and 'opening_balance_kg' in df.columns:
+        df = df.copy()
+        df['quota_limit_tonnes'] = df['opening_balance_kg'].apply(
+            lambda x: x / 1000 if pd.notna(x) else 0
+        )
+    if 'quota_allocated_tonnes' not in df.columns and 'allocated_kg' in df.columns:
+        if 'quota_limit_tonnes' not in df.columns:
+            df = df.copy()
+        df['quota_allocated_tonnes'] = df['allocated_kg'].apply(
+            lambda x: x / 1000 if pd.notna(x) else 0
+        )
+    if 'balance_remaining_tonnes' not in df.columns and 'current_balance_kg' in df.columns:
+        if 'quota_limit_tonnes' not in df.columns:
+            df = df.copy()
+        df['balance_remaining_tonnes'] = df['current_balance_kg'].apply(
+            lambda x: x / 1000 if pd.notna(x) else 0
+        )
+
+    # Calculate percentages if not present
+    if 'pct_allocated' not in df.columns and 'quota_limit_tonnes' in df.columns and 'quota_allocated_tonnes' in df.columns:
+        df['pct_allocated'] = df.apply(
+            lambda r: r['quota_allocated_tonnes'] / r['quota_limit_tonnes']
+            if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else 0,
+            axis=1
+        )
+    if 'pct_remaining' not in df.columns and 'quota_limit_tonnes' in df.columns and 'balance_remaining_tonnes' in df.columns:
+        df['pct_remaining'] = df.apply(
+            lambda r: r['balance_remaining_tonnes'] / r['quota_limit_tonnes']
+            if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else 0,
+            axis=1
+        )
+
+    # Select columns that exist
+    available_cols = [c for c in column_mapping.keys() if c in df.columns]
+
+    if not available_cols:
+        return pd.DataFrame()
+
+    result = df[available_cols].copy()
+
+    # Rename columns
+    result = result.rename(columns={k: v for k, v in column_mapping.items() if k in result.columns})
+
+    # Round numeric columns
+    numeric_cols = ['Quota Limit (Tonnes)', 'Quota Allocated (Tonnes)', 'Balance Remaining (Tonnes)']
+    for col in numeric_cols:
+        if col in result.columns:
+            result[col] = result[col].round(0)
+
+    # Ensure percentages are in correct format (0-1 range)
+    pct_cols = ['% Quota Allocated', '% Balance Remaining']
+    for col in pct_cols:
+        if col in result.columns:
+            result[col] = result[col].round(4)
+
+    return result
 
 
 def generate_meps_report(
     df: pd.DataFrame,
     output_path: str,
     period_display: Optional[str] = None,
-    latest_data_date: Optional[str] = None
+    latest_data_date: Optional[str] = None,
+    uk_df: Optional[pd.DataFrame] = None
 ) -> str:
     """
     Generate MEPS-style Excel report by copying template and updating XML directly
 
     Args:
-        df: Processed DataFrame with quota metrics
+        df: Processed DataFrame with EU quota metrics
         output_path: Full path for output file
         period_display: Optional custom period string
         latest_data_date: Optional custom latest data date
+        uk_df: Optional processed DataFrame with UK quota metrics
 
     Returns:
         str: Path to generated file
@@ -63,17 +141,22 @@ def generate_meps_report(
     # Prepare customer data
     customer_df = prepare_customer_data(df)
 
+    # Prepare UK customer data if provided
+    uk_customer_df = None
+    if uk_df is not None and not uk_df.empty:
+        uk_customer_df = prepare_uk_customer_data(uk_df)
+
     # Get template path
     template_path = os.path.join(get_templates_folder(), "meps_customer_template.xlsx")
 
     if os.path.exists(template_path):
         # Use XML-based update to preserve slicers
         return _update_template_xml(template_path, output_path, customer_df,
-                                    period_display, latest_data_date)
+                                    period_display, latest_data_date, uk_customer_df)
     else:
         # Fallback: generate from scratch using openpyxl (no slicers)
         return _generate_from_scratch(output_path, customer_df,
-                                      period_display, latest_data_date)
+                                      period_display, latest_data_date, uk_customer_df)
 
 
 def _update_template_xml(
@@ -81,7 +164,8 @@ def _update_template_xml(
     output_path: str,
     df: pd.DataFrame,
     period_display: str,
-    latest_data: str
+    latest_data: str,
+    uk_df: Optional[pd.DataFrame] = None
 ) -> str:
     """
     Update template using direct XML manipulation to preserve slicers
@@ -90,7 +174,7 @@ def _update_template_xml(
     1. Extracts template xlsx to temp directory
     2. Modifies sharedStrings.xml (for date text updates)
     3. Modifies sheet2.xml (for EU data)
-    4. Modifies sheet3.xml (for UK placeholder)
+    4. Modifies sheet3.xml (for UK data)
     5. Repackages the xlsx preserving all other files (slicers, drawings, etc.)
     """
     # Create a temporary directory for extraction
@@ -104,15 +188,30 @@ def _update_template_xml(
         if os.path.exists(shared_strings_path):
             _update_shared_strings(shared_strings_path, period_display, latest_data)
 
+        # Calculate last row for table/dimension updates
+        last_row = 15 + len(df)
+
         # Update sheet2.xml (European Union) with new data
         sheet2_path = os.path.join(temp_dir, 'xl', 'worksheets', 'sheet2.xml')
         if os.path.exists(sheet2_path):
             _update_eu_sheet_xml(sheet2_path, df)
 
-        # Update sheet3.xml (United Kingdom) - clear data, keep structure
+        # Update table1.xml to match new data range
+        table1_path = os.path.join(temp_dir, 'xl', 'tables', 'table1.xml')
+        if os.path.exists(table1_path):
+            _update_table_xml(table1_path, last_row)
+
+        # Update sheet3.xml (United Kingdom) with UK data or placeholder
         sheet3_path = os.path.join(temp_dir, 'xl', 'worksheets', 'sheet3.xml')
         if os.path.exists(sheet3_path):
-            _update_uk_sheet_xml(sheet3_path)
+            _update_uk_sheet_xml(sheet3_path, uk_df)
+
+        # Update table2.xml for UK data range if UK data exists
+        if uk_df is not None and not uk_df.empty:
+            uk_last_row = 15 + len(uk_df)
+            table2_path = os.path.join(temp_dir, 'xl', 'tables', 'table2.xml')
+            if os.path.exists(table2_path):
+                _update_table_xml(table2_path, uk_last_row)
 
         # Package to a temp file first, then move to output
         temp_output = os.path.join(temp_dir, 'output.xlsx')
@@ -155,148 +254,198 @@ def _update_shared_strings(filepath: str, period_display: str, latest_data: str)
 
 
 def _update_eu_sheet_xml(filepath: str, df: pd.DataFrame):
-    """Update European Union sheet with new data rows"""
-
+    """
+    Update European Union sheet with new data rows using string manipulation.
+    This preserves all XML namespaces exactly as they are in the template.
+    """
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Parse XML
-    # We need to preserve the XML declaration and namespaces
-    tree = ET.parse(filepath)
-    root = tree.getroot()
+    # Find the sheetData section
+    sheet_data_start = content.find('<sheetData>')
+    sheet_data_end = content.find('</sheetData>')
 
-    # Find sheetData element
-    ns = {'': NAMESPACES['main']}
-    sheet_data = root.find('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheetData')
-
-    if sheet_data is None:
+    if sheet_data_start == -1 or sheet_data_end == -1:
         print("Warning: Could not find sheetData in sheet2.xml")
         return
 
-    # Get all existing rows
-    rows = sheet_data.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row')
+    # Extract the sheetData content
+    sheet_data_content = content[sheet_data_start:sheet_data_end + len('</sheetData>')]
 
-    # Find rows to remove (data rows start at row 16)
-    rows_to_remove = []
-    for row in rows:
-        row_num = int(row.get('r', 0))
-        if row_num >= 16:
-            rows_to_remove.append(row)
+    # Find where row 15 ends (the header row) - keep rows 1-15
+    # Look for the last occurrence of </row> before row 16 starts
+    row_15_end = sheet_data_content.find('<row r="16"')
+    if row_15_end == -1:
+        # Try to find row 15's closing tag
+        row_15_pattern = re.search(r'<row r="15"[^>]*>.*?</row>', sheet_data_content, re.DOTALL)
+        if row_15_pattern:
+            row_15_end = row_15_pattern.end()
+        else:
+            print("Warning: Could not find row 15 in sheet2.xml")
+            return
 
-    # Remove old data rows
-    for row in rows_to_remove:
-        sheet_data.remove(row)
+    # Keep the header portion (rows 1-15)
+    header_rows = sheet_data_content[len('<sheetData>'):row_15_end]
 
-    # Add new data rows
+    # Generate new data rows as XML strings
+    new_data_rows = []
     for idx, row_data in enumerate(df.values):
         row_num = 16 + idx
-        row_elem = _create_data_row(row_num, row_data)
-        sheet_data.append(row_elem)
+        row_xml = _create_data_row_xml(row_num, row_data)
+        new_data_rows.append(row_xml)
 
-    # Update dimension
-    dimension = root.find('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}dimension')
-    if dimension is not None:
-        last_row = 15 + len(df)
-        dimension.set('ref', f'A1:G{last_row}')
+    # Build new sheetData section
+    new_sheet_data = '<sheetData>' + header_rows + ''.join(new_data_rows) + '</sheetData>'
 
-    # Write back
-    tree.write(filepath, xml_declaration=True, encoding='UTF-8')
+    # Replace sheetData in the content
+    new_content = content[:sheet_data_start] + new_sheet_data + content[sheet_data_end + len('</sheetData>'):]
 
-    # Fix namespace declaration (ElementTree sometimes mangles it)
-    _fix_xml_namespaces(filepath)
+    # Update dimension ref
+    last_row = 15 + len(df)
+    new_content = re.sub(
+        r'<dimension ref="A1:G\d+"',
+        f'<dimension ref="A1:G{last_row}"',
+        new_content
+    )
+
+    # Update protected range
+    new_content = _update_protected_range(new_content, last_row)
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(new_content)
 
 
-def _create_data_row(row_num: int, data: tuple) -> ET.Element:
-    """Create an XML row element for data"""
-
-    ns = NAMESPACES['main']
-    row = ET.Element(f'{{{ns}}}row')
-    row.set('r', str(row_num))
-    row.set('spans', '1:7')
-
+def _create_data_row_xml(row_num: int, data: tuple) -> str:
+    """
+    Create an XML row string for data.
+    Uses inline strings for text and proper formatting for numbers.
+    Style indices: s="21" for text, s="22" for numbers, s="24" for percentages
+    """
     col_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+    cells = []
 
     for col_idx, value in enumerate(data):
-        cell = ET.SubElement(row, f'{{{ns}}}c')
-        cell.set('r', f'{col_letters[col_idx]}{row_num}')
+        cell_ref = f'{col_letters[col_idx]}{row_num}'
 
         if col_idx < 2:  # Text columns (Quota Category, Country)
-            cell.set('t', 'inlineStr')
-            inline_str = ET.SubElement(cell, f'{{{ns}}}is')
-            t_elem = ET.SubElement(inline_str, f'{{{ns}}}t')
-            t_elem.text = str(value) if value else ''
-        else:  # Numeric columns
-            v_elem = ET.SubElement(cell, f'{{{ns}}}v')
+            # Escape XML special characters
+            text_value = str(value) if value else ''
+            text_value = text_value.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            cells.append(f'<c r="{cell_ref}" s="21" t="inlineStr"><is><t>{text_value}</t></is></c>')
+        elif col_idx in [4, 6]:  # Percentage columns (% Quota Allocated, % Balance Remaining)
             if pd.isna(value):
-                v_elem.text = '0'
-            elif isinstance(value, float) and value < 1:  # Percentage
-                v_elem.text = str(value)
+                num_value = '0'
             else:
-                v_elem.text = str(int(value) if isinstance(value, float) and value == int(value) else value)
+                # Convert percentage to decimal if needed (e.g., 89.53 -> 0.8953)
+                num_value = str(float(value) / 100 if float(value) > 1 else value)
+            cells.append(f'<c r="{cell_ref}" s="24"><v>{num_value}</v></c>')
+        else:  # Numeric columns (Quota Limit, Quota Allocated, Balance Remaining)
+            if pd.isna(value):
+                num_value = '0'
+            else:
+                num_value = str(value)
+            cells.append(f'<c r="{cell_ref}" s="22"><v>{num_value}</v></c>')
 
-    return row
-
-
-def _update_uk_sheet_xml(filepath: str):
-    """Update UK sheet - clear data rows but keep structure"""
-
-    tree = ET.parse(filepath)
-    root = tree.getroot()
-
-    # Find sheetData element
-    sheet_data = root.find('.//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheetData')
-
-    if sheet_data is None:
-        return
-
-    # Get all existing rows and remove data rows (row >= 16)
-    rows = sheet_data.findall('{http://schemas.openxmlformats.org/spreadsheetml/2006/main}row')
-    rows_to_remove = [row for row in rows if int(row.get('r', 0)) >= 16]
-
-    for row in rows_to_remove:
-        sheet_data.remove(row)
-
-    # Add placeholder row
-    ns = NAMESPACES['main']
-    placeholder_row = ET.Element(f'{{{ns}}}row')
-    placeholder_row.set('r', '16')
-    placeholder_row.set('spans', '1:7')
-
-    cell = ET.SubElement(placeholder_row, f'{{{ns}}}c')
-    cell.set('r', 'A16')
-    cell.set('t', 'inlineStr')
-    inline_str = ET.SubElement(cell, f'{{{ns}}}is')
-    t_elem = ET.SubElement(inline_str, f'{{{ns}}}t')
-    t_elem.text = 'UK data not yet available'
-
-    sheet_data.append(placeholder_row)
-
-    # Write back
-    tree.write(filepath, xml_declaration=True, encoding='UTF-8')
-    _fix_xml_namespaces(filepath)
+    return f'<row r="{row_num}" spans="1:7" ht="17.45">{"".join(cells)}</row>'
 
 
-def _fix_xml_namespaces(filepath: str):
-    """Fix XML namespace declarations that ElementTree may have modified"""
+def _update_uk_sheet_xml(filepath: str, uk_df: Optional[pd.DataFrame] = None):
+    """
+    Update UK sheet with data or placeholder.
+    Uses string manipulation to preserve all XML namespaces.
 
+    Args:
+        filepath: Path to sheet3.xml
+        uk_df: DataFrame with UK quota data (optional)
+    """
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Ensure proper namespace declaration
-    if 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"' not in content:
-        # Add default namespace if missing
-        content = content.replace(
-            '<worksheet ',
-            '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
-        )
+    # Find the sheetData section
+    sheet_data_start = content.find('<sheetData>')
+    sheet_data_end = content.find('</sheetData>')
 
-    # Remove ns0: prefix if present (ElementTree artifact)
-    content = content.replace('ns0:', '')
-    content = content.replace(':ns0', '')
-    content = content.replace('xmlns:ns0', 'xmlns')
+    if sheet_data_start == -1 or sheet_data_end == -1:
+        return
+
+    # Extract the sheetData content
+    sheet_data_content = content[sheet_data_start:sheet_data_end + len('</sheetData>')]
+
+    # Find where row 15 ends (the header row) - keep rows 1-15
+    row_15_end = sheet_data_content.find('<row r="16"')
+    if row_15_end == -1:
+        row_15_pattern = re.search(r'<row r="15"[^>]*>.*?</row>', sheet_data_content, re.DOTALL)
+        if row_15_pattern:
+            row_15_end = row_15_pattern.end()
+        else:
+            return
+
+    # Keep the header portion (rows 1-15)
+    header_rows = sheet_data_content[len('<sheetData>'):row_15_end]
+
+    # Generate data rows or placeholder
+    if uk_df is not None and not uk_df.empty:
+        # Generate actual UK data rows
+        new_data_rows = []
+        for idx, row_data in enumerate(uk_df.values):
+            row_num = 16 + idx
+            row_xml = _create_data_row_xml(row_num, row_data)
+            new_data_rows.append(row_xml)
+        data_rows_xml = ''.join(new_data_rows)
+
+        # Update dimension ref
+        last_row = 15 + len(uk_df)
+    else:
+        # Create placeholder row
+        data_rows_xml = '<row r="16" spans="1:7" ht="17.45"><c r="A16" s="21" t="inlineStr"><is><t>UK data not yet available</t></is></c></row>'
+        last_row = 16
+
+    # Build new sheetData section
+    new_sheet_data = '<sheetData>' + header_rows + data_rows_xml + '</sheetData>'
+
+    # Replace sheetData in the content
+    new_content = content[:sheet_data_start] + new_sheet_data + content[sheet_data_end + len('</sheetData>'):]
+
+    # Update dimension ref for UK sheet
+    new_content = re.sub(
+        r'<dimension ref="A1:G\d+"',
+        f'<dimension ref="A1:G{last_row}"',
+        new_content
+    )
+
+    # Update protected range
+    new_content = _update_protected_range(new_content, last_row)
+
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(new_content)
+
+
+def _update_table_xml(filepath: str, last_row: int):
+    """
+    Update table definition to match new data range.
+    Updates ref attribute and autoFilter ref.
+    """
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Update table ref (e.g., ref="A15:G204" -> ref="A15:G{last_row}")
+    content = re.sub(
+        r'ref="A15:G\d+"',
+        f'ref="A15:G{last_row}"',
+        content
+    )
 
     with open(filepath, 'w', encoding='utf-8') as f:
         f.write(content)
+
+
+def _update_protected_range(content: str, last_row: int) -> str:
+    """Update protected range in sheet XML to match new data range."""
+    return re.sub(
+        r'<protectedRange sqref="A15:G\d+"',
+        f'<protectedRange sqref="A15:G{last_row}"',
+        content
+    )
 
 
 def _repackage_xlsx_to_file(source_dir: str, output_path: str):
@@ -320,7 +469,8 @@ def _generate_from_scratch(
     output_path: str,
     df: pd.DataFrame,
     period_display: str,
-    latest_data: str
+    latest_data: str,
+    uk_df: Optional[pd.DataFrame] = None
 ) -> str:
     """
     Generate report from scratch using openpyxl (fallback if template not available)
@@ -384,7 +534,7 @@ def _generate_from_scratch(
 
     ws_eu.freeze_panes = f'A{start_row + 1}'
 
-    # UK placeholder
+    # UK sheet
     for row in range(1, 15):
         for col in range(1, 8):
             ws_uk.cell(row=row, column=col).fill = HEADER_FILL
@@ -393,7 +543,32 @@ def _generate_from_scratch(
     ws_uk['A1'].font = TITLE_FONT
     ws_uk['A2'] = f"Current quota period: {period_display}"
     ws_uk['A3'] = f"Latest available data: {latest_data}"
-    ws_uk['A15'] = "UK data not yet available"
+    ws_uk['A2'].font = SUBTITLE_FONT
+    ws_uk['A3'].font = SUBTITLE_FONT
+
+    if uk_df is not None and not uk_df.empty:
+        # Write UK headers
+        uk_headers = list(uk_df.columns)
+        for col_idx, header in enumerate(uk_headers, 1):
+            cell = ws_uk.cell(row=start_row, column=col_idx, value=header)
+            cell.font = HEADER_FONT
+            cell.fill = HEADER_FILL
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+        # Write UK data
+        for row_idx, row_data in enumerate(uk_df.values, start_row + 1):
+            for col_idx, value in enumerate(row_data, 1):
+                cell = ws_uk.cell(row=row_idx, column=col_idx, value=value)
+                cell.font = DATA_FONT
+                if col_idx >= 3:
+                    cell.alignment = Alignment(horizontal='right')
+
+        for col_idx, width in enumerate(col_widths, 1):
+            ws_uk.column_dimensions[get_column_letter(col_idx)].width = width
+
+        ws_uk.freeze_panes = f'A{start_row + 1}'
+    else:
+        ws_uk['A15'] = "UK data not yet available"
 
     wb.save(output_path)
     return output_path

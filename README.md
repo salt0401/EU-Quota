@@ -9,7 +9,9 @@ This tool scrapes quota usage data from the EU TARIC system to track steel impor
 ### Key Features
 
 - **Automated data collection** from EU TARIC quota pages
-- **MEPS-formatted Excel reports** with tables and filters
+- **MEPS-formatted Excel reports** with interactive slicers and filters
+- **Interactive slicers** for Quota Category and Country filtering
+- **MEPS logo and branding** preserved in output
 - **Automatic date detection** for quota periods
 - **Dated output folders** (YYYY-MM-DD) for historical tracking
 - **189 EU quotas** tracked across multiple steel products and origin countries
@@ -63,15 +65,18 @@ EU Quota/
 │   ├── config.py                  # Configuration & quarter utilities
 │   ├── scraper.py                 # Selenium web scraper
 │   ├── data_processor.py          # Data calculations (MEPS formulas)
-│   ├── excel_generator.py         # MEPS report generator
+│   ├── excel_generator.py         # MEPS report generator (preserves slicers)
 │   └── utils.py                   # File/folder utilities
+├── scripts/
+│   └── verify_output.py           # Output file verification tool
 ├── data/
 │   ├── input/                     # Input files
 │   │   └── quota_urls.xlsx        # Quota list to track
 │   ├── output/                    # Output by date
 │   │   └── YYYY-MM-DD/            # Dated folders
 │   └── snapshots/                 # Historical snapshots
-├── templates/                     # Reference templates
+├── templates/
+│   └── meps_customer_template.xlsx  # MEPS template with slicers
 ├── docs/                          # Documentation
 │   ├── INSTRUCTIONS.md            # English
 │   └── INSTRUCTIONS_繁體中文.md    # Traditional Chinese
@@ -109,4 +114,4 @@ EU Quota/
 
 ---
 
-*Version 2.0 - January 2026*
+*Version 2.1 - January 2026 (Slicer support added)*

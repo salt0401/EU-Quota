@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from src import (
     EUQuotaScraper,
+    UKQuotaScraper,
     get_current_quarter_start,
     calculate_quota_metrics,
     clean_quota_data,
@@ -39,8 +40,9 @@ from src.utils import (
 )
 
 
-# Default input filename
+# Default input filenames
 DEFAULT_INPUT_FILE = "quota_urls.xlsx"
+DEFAULT_UK_INPUT_FILE = "uk_quota_urls.xlsx"
 
 
 def load_quota_urls(filepath: str) -> pd.DataFrame:
@@ -85,22 +87,26 @@ def load_quota_urls(filepath: str) -> pd.DataFrame:
 def run_scraper(
     input_file: str = None,
     output_file: str = None,
-    scrape_date: date = None
+    scrape_date: date = None,
+    uk_input_file: str = None,
+    skip_uk: bool = False
 ) -> pd.DataFrame:
     """
     Main scraping workflow
 
     Args:
-        input_file: Path to input Excel file with quota URLs
+        input_file: Path to input Excel file with EU quota URLs
         output_file: Optional custom filename for output
         scrape_date: Date for output folder (defaults to today)
+        uk_input_file: Path to UK quota URLs file (optional)
+        skip_uk: Skip UK scraping if True
 
     Returns:
-        pd.DataFrame: Scraped and processed data
+        pd.DataFrame: Scraped and processed EU data
     """
     print("""
     ================================================================
-         EU Quota Scraper - Steel Tariff Quota Tracker v2.0
+       EU/UK Quota Scraper - Steel Tariff Quota Tracker v2.1
     ================================================================
     """)
 
@@ -193,12 +199,79 @@ def run_scraper(
     save_raw_data(processed_data, raw_path)
     print(f"  Raw data: {raw_path}")
 
-    # 2. MEPS customer report
+    # 2. UK Scraping (if enabled)
+    uk_processed_data = None
+
+    if not skip_uk:
+        # Determine UK input file
+        if uk_input_file is None:
+            uk_input_file = os.path.join(get_input_folder(), DEFAULT_UK_INPUT_FILE)
+
+        if os.path.exists(uk_input_file):
+            print("\n" + "=" * 60)
+            print("UK Quota Scraping...")
+            print("=" * 60)
+
+            uk_quotas_df = load_quota_urls(uk_input_file)
+
+            if not uk_quotas_df.empty:
+                uk_scraper = UKQuotaScraper(headless=True)
+
+                # Determine UK column names
+                uk_order_col = None
+                uk_category_col = None
+                uk_country_col = None
+
+                for col in uk_quotas_df.columns:
+                    col_lower = str(col).lower()
+                    if 'order' in col_lower:
+                        uk_order_col = col
+                    if 'category' in col_lower:
+                        uk_category_col = col
+                    if 'country' in col_lower:
+                        uk_country_col = col
+
+                if uk_order_col is None:
+                    uk_order_col = uk_quotas_df.columns[0]
+
+                # Find template limit column
+                uk_limit_col = None
+                for col in uk_quotas_df.columns:
+                    col_lower = str(col).lower()
+                    if 'template' in col_lower and 'limit' in col_lower:
+                        uk_limit_col = col
+                        break
+                    if 'quota' in col_lower and 'limit' in col_lower:
+                        uk_limit_col = col
+
+                # Fetch UK data
+                uk_raw_data = uk_scraper.fetch_all_quotas(
+                    uk_quotas_df,
+                    order_col=uk_order_col,
+                    category_col=uk_category_col or 'Quota Category',
+                    country_col=uk_country_col or 'Country',
+                    template_limit_col=uk_limit_col or 'Template Quota Limit'
+                )
+
+                if not uk_raw_data.empty:
+                    uk_processed_data = uk_raw_data
+                    print(f"  UK quotas processed: {len(uk_processed_data)}")
+
+                    # Save UK raw data
+                    uk_raw_filename = generate_output_filename("uk_quota_raw", scrape_date)
+                    uk_raw_path = os.path.join(output_folder, uk_raw_filename)
+                    save_raw_data(uk_processed_data, uk_raw_path)
+                    print(f"  UK raw data: {uk_raw_path}")
+        else:
+            print(f"\n  UK input file not found: {uk_input_file}")
+            print("  Skipping UK scraping...")
+
+    # 3. MEPS customer report (with EU and optionally UK data)
     if output_file is None:
-        output_file = generate_output_filename("MEPS_EU_Quota_Update", scrape_date)
+        output_file = generate_output_filename("MEPS_Quota_Update", scrape_date)
 
     meps_path = os.path.join(output_folder, output_file)
-    generate_meps_report(processed_data, meps_path, period_display, latest_data)
+    generate_meps_report(processed_data, meps_path, period_display, latest_data, uk_df=uk_processed_data)
     print(f"  MEPS report: {meps_path}")
 
     # Display summary
@@ -207,9 +280,11 @@ def run_scraper(
     print("\n" + "=" * 60)
     print("Summary")
     print("=" * 60)
-    print(f"  Total quotas scraped: {summary['total_quotas']}")
-    print(f"  High usage (>75%): {summary['high_usage_count']}")
-    print(f"  Critical quotas: {summary['critical_count']}")
+    print(f"  EU quotas scraped: {summary['total_quotas']}")
+    print(f"  EU high usage (>75%): {summary['high_usage_count']}")
+    print(f"  EU critical quotas: {summary['critical_count']}")
+    if uk_processed_data is not None and not uk_processed_data.empty:
+        print(f"  UK quotas scraped: {len(uk_processed_data)}")
     print(f"\nOutput folder: {output_folder}")
 
     return processed_data
@@ -218,27 +293,36 @@ def run_scraper(
 def main():
     """Main entry point with argument parsing"""
     parser = argparse.ArgumentParser(
-        description='EU Quota Scraper - Steel Tariff Quota Tracker',
+        description='EU/UK Quota Scraper - Steel Tariff Quota Tracker',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python main.py
-    python main.py -i quotas.xlsx -o output.xlsx
+    python main.py                    # Scrape both EU and UK
+    python main.py --skip-uk          # Scrape EU only
+    python main.py -i eu.xlsx -u uk.xlsx -o output.xlsx
         """
     )
 
     parser.add_argument('-i', '--input',
-                       help='Input Excel file with quota URLs',
+                       help='Input Excel file with EU quota URLs',
+                       default=None)
+    parser.add_argument('-u', '--uk-input',
+                       help='Input Excel file with UK quota URLs',
                        default=None)
     parser.add_argument('-o', '--output',
                        help='Output Excel filename',
                        default=None)
+    parser.add_argument('--skip-uk',
+                       action='store_true',
+                       help='Skip UK scraping')
 
     args = parser.parse_args()
 
     result = run_scraper(
         input_file=args.input,
-        output_file=args.output
+        output_file=args.output,
+        uk_input_file=args.uk_input,
+        skip_uk=args.skip_uk
     )
 
     if result is not None:
