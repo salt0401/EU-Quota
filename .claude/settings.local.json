@@ -24,7 +24,31 @@
       "Bash(powershell.exe -Command \"Remove-Item 'C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\*' -Force; Remove-Item 'C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template_extracted' -Recurse -Force; Remove-Item 'C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\template.zip' -Force\":*)",
       "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\data\\\\output\\\\2026-01-23\\\\'' | Remove-Item -Force\")",
       "Bash(powershell.exe -Command \"Get-Content ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-lyen-Downloads-EU-Quota\\\\tasks\\\\b232bfb.output'' -Tail 30\")",
-      "Bash(powershell.exe -Command \"Start-Sleep -Seconds 10; Get-Content ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-lyen-Downloads-EU-Quota\\\\tasks\\\\b232bfb.output'' -Tail 40\")"
+      "Bash(powershell.exe -Command \"Start-Sleep -Seconds 10; Get-Content ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-lyen-Downloads-EU-Quota\\\\tasks\\\\b232bfb.output'' -Tail 40\")",
+      "Bash(powershell -Command \"Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead\\(''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\\\\templates\\\\meps_customer_template.xlsx''\\); $zip.Entries | ForEach-Object { $_FullName } | Sort-Object; $zip.Dispose\\(\\)\")",
+      "Bash(dir /s /b \"C:\\\\Python*\\\\python.exe\")",
+      "Bash(dir /s /b \"C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\*\\\\python.exe\")",
+      "Bash(py:*)",
+      "Bash(py3:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\lyen\\\\*python.exe\")",
+      "Bash(findstr:*)",
+      "Bash(\"/c/Users/lyen/AppData/Local/Programs/Python/Python314/python.exe\" -c:*)",
+      "Bash(\"/c/Users/lyen/AppData/Local/Programs/Python/Python314/python.exe\" verify_output.py)",
+      "WebSearch",
+      "WebFetch(domain:www.trade-tariff.service.gov.uk)",
+      "WebFetch(domain:www.gov.uk)",
+      "Bash(\"/c/Users/lyen/AppData/Local/Programs/Python/Python314/python.exe\" -c \"\n# Test that all imports work correctly\nfrom src import EUQuotaScraper, UKQuotaScraper\nfrom src.config import build_quota_url, UK_BASE_URL, EU_BASE_URL\n\n# Test EU URL building\neu_url = build_quota_url\\(''098967'', ''2026-01-01'', ''eu''\\)\nprint\\(f''EU URL test: {eu_url[:60]}...''\\)\n\n# Test UK URL building\nuk_url = build_quota_url\\(''058001'', region=''uk''\\)\nprint\\(f''UK URL test: {uk_url}''\\)\n\n# Test UK scraper skeleton\nscraper = UKQuotaScraper\\(headless=True\\)\nprint\\(f''UK Scraper created \\(skeleton mode\\)''\\)\n\nprint\\(''\\\\nAll imports and basic functionality working!''\\)\n\")",
+      "Bash(\"/c/Users/lyen/AppData/Local/Programs/Python/Python314/python.exe\" scripts/map_uk_orders.py)",
+      "Bash(pip install:*)",
+      "Bash(cmd.exe /c \"pip install pyinstaller\")",
+      "Bash(cmd.exe /c \"cd /d \"\"C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota\"\" && pip install pyinstaller && pyinstaller --clean quota_scraper.spec\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota''; pip install pyinstaller 2>&1\")",
+      "Bash(powershell.exe -Command \"cd ''C:\\\\Users\\\\lyen\\\\Downloads\\\\EU Quota''; python -m pip install pyinstaller 2>&1\")",
+      "Bash(powershell.exe -Command \"Get-Command python* 2>&1; Get-Command py* 2>&1; [Environment]::GetEnvironmentVariable\\(''PATH'', ''User''\\)\")",
+      "Bash(powershell.exe -Command \"& { $paths = @\\(''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python*\\\\python.exe'', ''C:\\\\Python*\\\\python.exe'', ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Microsoft\\\\WindowsApps\\\\python*.exe'', ''C:\\\\Users\\\\lyen\\\\AppData\\\\Local\\\\Programs\\\\Antigravity\\\\*python*''\\); foreach\\($p in $paths\\) { Get-Item $p -ErrorAction SilentlyContinue } }\")",
+      "Bash(powershell.exe -Command:*)",
+      "Bash(cd:*)"
     ]
   }
 }
