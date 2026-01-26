@@ -1,4 +1,4 @@
-# 歐盟配額爬蟲工具 v2.1
+# 歐盟配額爬蟲工具 v2.3
 
 自動從歐盟委員會 TARIC 資料庫擷取鋼鐵關稅配額數據。
 
@@ -30,8 +30,8 @@
 pip install -r requirements.txt
 
 # 執行爬蟲
-python main.py           # 互動模式
-python main.py --auto    # 自動模式（適合排程）
+python run.py              # 互動模式（同時抓取歐盟和英國）
+python run.py --skip-uk    # 僅抓取歐盟
 ```
 
 ## 輸出檔案
@@ -40,8 +40,9 @@ python main.py --auto    # 自動模式（適合排程）
 
 | 檔案 | 說明 |
 |------|------|
-| `eu_quota_raw_YYYYMMDD.xlsx` | 完整爬取數據 |
-| `MEPS_EU_Quota_Update_YYYYMMDD.xlsx` | 客戶報告（含交叉分析篩選器） |
+| `eu_quota_raw_YYYYMMDD.xlsx` | 完整歐盟爬取數據 |
+| `uk_quota_raw_YYYYMMDD.xlsx` | 英國配額數據 |
+| `MEPS_Quota_Update_YYYYMMDD.xlsx` | 客戶報告（含交叉分析篩選器） |
 
 快照儲存於 `data/snapshots/` 供歷史分析。
 
@@ -61,36 +62,74 @@ python main.py --auto    # 自動模式（適合排程）
 
 ```
 EU Quota/
-├── src/                           # 核心原始碼
+├── src/                           # 主程式 - 核心原始碼
+│   ├── __init__.py                # 套件匯出
+│   ├── main.py                    # 主程式入口
 │   ├── config.py                  # 設定與季度工具函數
-│   ├── scraper.py                 # Selenium 網頁爬蟲
+│   ├── scraper.py                 # 歐盟 HTTP 爬蟲（快速版）
+│   ├── scraper_selenium.py        # 歐盟 Selenium 爬蟲（備份）
+│   ├── uk_scraper.py              # 英國 API 爬蟲（快速版）
+│   ├── uk_scraper_selenium.py     # 英國 Selenium 爬蟲（備份）
 │   ├── data_processor.py          # 數據計算（MEPS 公式）
 │   ├── excel_generator.py         # MEPS 報告生成器（保留篩選器）
 │   └── utils.py                   # 檔案/資料夾工具函數
-├── scripts/
-│   └── verify_output.py           # 輸出檔案驗證工具
-├── data/
+│
+├── build/                         # 建置 EXE - 打包腳本
+│   └── build_exe.py               # PyInstaller 建置腳本
+│
+├── dist/                          # 發布輸出
+│   └── EU_Quota_Scraper/          # 可直接壓縮發布的資料夾
+│
+├── data/                          # 數據 - 執行時數據
 │   ├── input/                     # 輸入檔案
-│   │   └── quota_urls.xlsx        # 要追蹤的配額清單
+│   │   ├── quota_urls.xlsx        # 歐盟配額追蹤清單
+│   │   └── uk_quota_urls.xlsx     # 英國配額追蹤清單
 │   ├── output/                    # 按日期輸出
 │   │   └── YYYY-MM-DD/            # 日期資料夾
 │   └── snapshots/                 # 歷史快照
-├── templates/
+│
+├── templates/                     # 範本 - Excel 範本
 │   └── meps_customer_template.xlsx  # MEPS 範本（含篩選器）
-├── docs/                          # 文件
+│
+├── docs/                          # 文件 - 說明文件
+│   ├── ARCHITECTURE.md            # 系統架構
 │   ├── INSTRUCTIONS.md            # 英文說明
-│   └── INSTRUCTIONS_繁體中文.md    # 繁體中文說明
-├── main.py                        # 程式入口
+│   ├── INSTRUCTIONS_繁體中文.md    # 繁體中文說明
+│   └── TODO.md                    # 功能路線圖
+│
+├── dev/                           # 開發工具 - 開發輔助工具
+│   ├── scripts/                   # 工具腳本
+│   └── analysis/                  # 分析和除錯工具
+│
+├── run.py                         # 便捷入口點
 ├── requirements.txt               # 依賴套件
-└── README.md
+├── README.md                      # 英文說明
+└── README_繁體中文.md              # 本檔案
 ```
+
+## 建置 EXE 發布包
+
+建立獨立的 EXE 發布包：
+
+```bash
+python build/build_exe.py
+```
+
+發布包將建立於 `dist/EU_Quota_Scraper/` 資料夾。
+
+**發布步驟：**
+1. 執行建置腳本
+2. 將 `dist/` 內的 `EU_Quota_Scraper` 資料夾壓縮成 zip
+3. 將 zip 檔案發送給使用者
+4. 使用者解壓縮後雙擊 `EU_Quota_Scraper.exe` 即可執行
 
 ## 技術說明
 
 - **配額編號格式**：自動補零至 6 位數（如 `98967` → `098967`）
 - **季度週期**：Q1 (1-3月), Q2 (4-6月), Q3 (7-9月), Q4 (10-12月)
-- **請求間隔**：每次請求間隔 1 秒
-- **預估執行時間**：189 個配額約需 15-20 分鐘
+- **請求間隔**：隨機延遲（歐盟：0.3-0.8秒，英國：0.2-0.5秒）
+- **預估執行時間**：全部配額（歐盟+英國）約需 1-2 分鐘
+- **並行處理**：5 個並行請求加速爬取
 
 ## 設定每日自動更新（Windows）
 
@@ -99,14 +138,14 @@ EU Quota/
 3. 觸發程序：每天，指定時間
 4. 動作：啟動程式
    - 程式：`python`
-   - 引數：`main.py --auto`
+   - 引數：`run.py --skip-uk` 或 `run.py`
    - 開始於：`C:\path\to\EU Quota`
 
 ## 文件
 
 - [英文說明](docs/INSTRUCTIONS.md)
 - [繁體中文說明](docs/INSTRUCTIONS_繁體中文.md)
-- [數據流程分析](docs/DATA_FLOW_ANALYSIS.md)
+- [系統架構](docs/ARCHITECTURE.md)
 
 ## 資料來源
 
@@ -114,4 +153,4 @@ EU Quota/
 
 ---
 
-*版本 2.1 - 2026年1月（新增交叉分析篩選器支援）*
+*版本 2.3 - 2026年1月（快速 HTTP 爬蟲，效能提升 10 倍）*
