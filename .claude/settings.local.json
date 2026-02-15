@@ -137,7 +137,9 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "Bash(\"C:/Users/lyen/AppData/Local/Programs/gh/bin/gh.exe\" repo edit --default-branch main)",
-      "Bash(\"C:/Users/lyen/AppData/Local/Programs/gh/bin/gh.exe\" pr create --base main --head master --title \"Add Claude Code environment setup and project updates\" --body \"$\\(cat <<''EOF''\n## Summary\n- Add `.gitignore` entries for pytest cache and coverage\n- Add v2.3.0 fast HTTP scrapers with 10x performance improvement\n- Update `.claude/settings.local.json` with tool permissions for environment setup \\(pip, playwright, winget, claude plugin CLI, git clone\\)\n\n## Test plan\n- [x] Verify all 7 user skills loaded \\(`/context`\\)\n- [x] Verify all 24 plugins installed and enabled \\(`claude plugin list`\\)\n- [x] Verify crawl4ai imports successfully\n- [x] Verify Playwright browsers installed\n- [x] No hook errors on Claude Code startup\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")"
+      "Bash(\"C:/Users/lyen/AppData/Local/Programs/gh/bin/gh.exe\" pr create --base main --head master --title \"Add Claude Code environment setup and project updates\" --body \"$\\(cat <<''EOF''\n## Summary\n- Add `.gitignore` entries for pytest cache and coverage\n- Add v2.3.0 fast HTTP scrapers with 10x performance improvement\n- Update `.claude/settings.local.json` with tool permissions for environment setup \\(pip, playwright, winget, claude plugin CLI, git clone\\)\n\n## Test plan\n- [x] Verify all 7 user skills loaded \\(`/context`\\)\n- [x] Verify all 24 plugins installed and enabled \\(`claude plugin list`\\)\n- [x] Verify crawl4ai imports successfully\n- [x] Verify Playwright browsers installed\n- [x] No hook errors on Claude Code startup\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\nEOF\n\\)\")",
+      "Bash(\"C:/Users/lyen/AppData/Local/Programs/gh/bin/gh.exe\" pr merge 1 --merge)",
+      "Bash(git fetch:*)"
     ]
   }
 }
