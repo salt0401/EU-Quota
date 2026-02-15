@@ -6,8 +6,9 @@ Automated collection of EU steel tariff quota data
 Author: MEPS International
 
 Usage:
-    python main.py
-    python main.py -i custom_input.xlsx -o custom_output.xlsx
+    python -m src.main
+    python run.py
+    python run.py -i custom_input.xlsx -o custom_output.xlsx
 """
 
 import os
@@ -16,8 +17,8 @@ import argparse
 import pandas as pd
 from datetime import datetime, date
 
-# Add src directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add project root to path (parent of src/)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src import (
     EUQuotaScraper,
@@ -57,22 +58,35 @@ def load_quota_urls(filepath: str) -> pd.DataFrame:
     """
     print(f"Loading quota list from: {filepath}")
 
-    # Try to auto-detect header row by looking for key columns
-    for header_row in [0, 4, 1, 2, 3]:
+    def is_valid_header(columns):
+        """Check if columns contain 'Order Number' as a column name"""
+        for col in columns:
+            col_str = str(col).lower().strip()
+            # Must be "order number" not just contain "order" (to avoid matching URLs)
+            if col_str == 'order number' or col_str == 'order_number':
+                return True
+        return False
+
+    # Try to auto-detect header row by looking for "Order Number" column
+    # Prioritize row 5 (index 4) which is the standard format
+    for header_row in [4, 0, 1, 2, 3, 5]:
         try:
             df = pd.read_excel(filepath, header=header_row)
-            if any('order' in str(col).lower() for col in df.columns):
+            if is_valid_header(df.columns):
                 print(f"  Found header at row {header_row + 1}")
                 break
         except Exception:
             continue
     else:
+        # Default to row 5 if no header found
         df = pd.read_excel(filepath, header=4)
+        print(f"  Using default header at row 5")
 
     # Filter out rows with NaN in the order number column
     order_col = None
     for col in df.columns:
-        if 'order' in str(col).lower():
+        col_str = str(col).lower().strip()
+        if col_str == 'order number' or col_str == 'order_number':
             order_col = col
             break
 
@@ -297,9 +311,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python main.py                    # Scrape both EU and UK
-    python main.py --skip-uk          # Scrape EU only
-    python main.py -i eu.xlsx -u uk.xlsx -o output.xlsx
+    python run.py                     # Scrape both EU and UK
+    python run.py --skip-uk           # Scrape EU only
+    python run.py -i eu.xlsx -u uk.xlsx -o output.xlsx
         """
     )
 

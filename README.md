@@ -1,4 +1,4 @@
-# EU Quota Scraper v2.0
+# EU Quota Scraper v2.3
 
 Automated collection of EU steel tariff quota data from the European Commission's TARIC database.
 
@@ -30,8 +30,8 @@ Balance Remaining = balance - awaiting_allocation
 pip install -r requirements.txt
 
 # Run scraper
-python main.py           # Interactive mode
-python main.py --auto    # Automatic mode (for scheduling)
+python run.py              # Interactive mode (both EU and UK)
+python run.py --skip-uk    # Scrape EU only
 ```
 
 ## Output Files
@@ -41,7 +41,8 @@ Files are organized by date in `data/output/YYYY-MM-DD/`:
 | File | Description |
 |------|-------------|
 | `eu_quota_raw_YYYYMMDD.xlsx` | Complete scraped data |
-| `MEPS_EU_Quota_Update_YYYYMMDD.xlsx` | Customer-ready report |
+| `uk_quota_raw_YYYYMMDD.xlsx` | UK quota data |
+| `MEPS_Quota_Update_YYYYMMDD.xlsx` | Customer-ready report |
 
 Snapshots saved to `data/snapshots/` for historical analysis.
 
@@ -61,36 +62,74 @@ Snapshots saved to `data/snapshots/` for historical analysis.
 
 ```
 EU Quota/
-├── src/                           # Core source code
+├── src/                           # MAIN PROJECT - Core source code
+│   ├── __init__.py                # Package exports
+│   ├── main.py                    # Main entry point
 │   ├── config.py                  # Configuration & quarter utilities
-│   ├── scraper.py                 # Selenium web scraper
+│   ├── scraper.py                 # EU HTTP scraper (fast)
+│   ├── scraper_selenium.py        # EU Selenium scraper (backup)
+│   ├── uk_scraper.py              # UK API scraper (fast)
+│   ├── uk_scraper_selenium.py     # UK Selenium scraper (backup)
 │   ├── data_processor.py          # Data calculations (MEPS formulas)
 │   ├── excel_generator.py         # MEPS report generator (preserves slicers)
 │   └── utils.py                   # File/folder utilities
-├── scripts/
-│   └── verify_output.py           # Output file verification tool
-├── data/
+│
+├── build/                         # BUILD EXE - Packaging scripts
+│   └── build_exe.py               # PyInstaller build script
+│
+├── dist/                          # Distribution output
+│   └── EU_Quota_Scraper/          # Ready-to-zip folder for distribution
+│
+├── data/                          # DATA - Runtime data
 │   ├── input/                     # Input files
-│   │   └── quota_urls.xlsx        # Quota list to track
+│   │   ├── quota_urls.xlsx        # EU quota list to track
+│   │   └── uk_quota_urls.xlsx     # UK quota list to track
 │   ├── output/                    # Output by date
 │   │   └── YYYY-MM-DD/            # Dated folders
 │   └── snapshots/                 # Historical snapshots
-├── templates/
+│
+├── templates/                     # TEMPLATES - Excel templates
 │   └── meps_customer_template.xlsx  # MEPS template with slicers
-├── docs/                          # Documentation
-│   ├── INSTRUCTIONS.md            # English
-│   └── INSTRUCTIONS_繁體中文.md    # Traditional Chinese
-├── main.py                        # Entry point
+│
+├── docs/                          # DOCS - Documentation
+│   ├── ARCHITECTURE.md            # System architecture
+│   ├── INSTRUCTIONS.md            # English instructions
+│   ├── INSTRUCTIONS_繁體中文.md    # Traditional Chinese instructions
+│   └── TODO.md                    # Feature roadmap
+│
+├── dev/                           # DEV TOOLS - Development utilities
+│   ├── scripts/                   # Utility scripts
+│   └── analysis/                  # Analysis and debugging tools
+│
+├── run.py                         # Convenience entry point
 ├── requirements.txt               # Dependencies
-└── README.md
+├── README.md                      # This file
+└── README_繁體中文.md              # Chinese README
 ```
+
+## Building EXE Distribution
+
+To create a standalone EXE package for distribution:
+
+```bash
+python build/build_exe.py
+```
+
+The distribution package will be created in `dist/EU_Quota_Scraper/` folder.
+
+**To distribute:**
+1. Run the build script
+2. Zip the `EU_Quota_Scraper` folder inside `dist/`
+3. Send the zip file to users
+4. Users unzip and double-click `EU_Quota_Scraper.exe`
 
 ## Technical Notes
 
 - **Order Number Format**: Automatically pads to 6 digits (e.g., `98967` → `098967`)
 - **Quarterly Periods**: Q1 (Jan-Mar), Q2 (Apr-Jun), Q3 (Jul-Sep), Q4 (Oct-Dec)
-- **Rate Limiting**: 1 second delay between requests
-- **Expected Runtime**: ~15-20 minutes for 189 quotas
+- **Rate Limiting**: Random delays (EU: 0.3-0.8s, UK: 0.2-0.5s)
+- **Expected Runtime**: ~1-2 minutes for all quotas (EU + UK)
+- **Concurrent Workers**: 5 parallel requests for faster scraping
 
 ## Scheduling Daily Updates (Windows)
 
@@ -99,14 +138,14 @@ EU Quota/
 3. Trigger: Daily at preferred time
 4. Action: Start a program
    - Program: `python`
-   - Arguments: `main.py --auto`
+   - Arguments: `run.py --skip-uk` or `run.py`
    - Start in: `C:\path\to\EU Quota`
 
 ## Documentation
 
 - [English Instructions](docs/INSTRUCTIONS.md)
 - [繁體中文說明](docs/INSTRUCTIONS_繁體中文.md)
-- [Data Flow Analysis](docs/DATA_FLOW_ANALYSIS.md)
+- [System Architecture](docs/ARCHITECTURE.md)
 
 ## Data Source
 
@@ -114,4 +153,4 @@ EU Quota/
 
 ---
 
-*Version 2.1 - January 2026 (Slicer support added)*
+*Version 2.3 - January 2026 (Fast HTTP scrapers, 10x performance improvement)*

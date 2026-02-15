@@ -6,12 +6,20 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              USER INPUT                                      │
 │                                                                             │
-│   python main.py [--auto] [-i input.xlsx] [-o output.xlsx]                  │
+│   python run.py [--skip-uk] [-i input.xlsx] [-o output.xlsx]                │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              main.py                                         │
+│                              run.py                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │  Convenience wrapper that calls src/main.py                          │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            src/main.py                                       │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │  1. Parse arguments                                                  │    │
 │  │  2. Create dated output folder (YYYY-MM-DD)                         │    │
@@ -28,8 +36,9 @@
 │   INPUT FILES     │   │   SRC MODULES     │   │   OUTPUT FILES    │
 │                   │   │                   │   │                   │
 │ data/input/       │   │ src/              │   │ data/output/      │
-│ └─quota_urls.xlsx │   │ ├─config.py       │   │ └─YYYY-MM-DD/     │
-│                   │   │ ├─scraper.py      │   │   ├─raw.xlsx      │
+│ ├─quota_urls.xlsx │   │ ├─config.py       │   │ └─YYYY-MM-DD/     │
+│ └─uk_quota_urls   │   │ ├─scraper.py      │   │   ├─eu_raw.xlsx   │
+│                   │   │ ├─uk_scraper.py   │   │   ├─uk_raw.xlsx   │
 │                   │   │ ├─data_processor  │   │   └─MEPS.xlsx     │
 │                   │   │ ├─excel_generator │   │                   │
 │                   │   │ └─utils.py        │   │ data/snapshots/   │
@@ -40,7 +49,14 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                                main.py                                       │
+│                                run.py                                        │
+│                         (Convenience Wrapper)                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ imports
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            src/main.py                                       │
 │                           (Entry Point)                                      │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
@@ -54,10 +70,11 @@
          ▼              ▼               ▼               ▼
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
 │  config.py  │  │ scraper.py  │  │data_process │  │excel_genera │
-│             │  │             │  │   or.py     │  │   tor.py    │
-│ - Quarters  │  │ - Selenium  │  │ - Clean     │  │ - Template  │
-│ - URLs      │  │ - WebDriver │  │ - Calculate │  │ - Format    │
-│ - Dates     │  │ - Parse     │  │ - MEPS math │  │ - Slicers   │
+│             │  │ uk_scraper  │  │   or.py     │  │   tor.py    │
+│ - Quarters  │  │             │  │ - Clean     │  │ - Template  │
+│ - URLs      │  │ - Selenium  │  │ - Calculate │  │ - Format    │
+│ - Dates     │  │ - WebDriver │  │ - MEPS math │  │ - Slicers   │
+│             │  │ - Parse     │  │             │  │             │
 └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘
          │                               │               │
          └───────────────┬───────────────┘               │
@@ -82,7 +99,7 @@
       │                       │                       │                      │
       ▼                       ▼                       ▼                      ▼
 ┌──────────┐           ┌──────────┐           ┌──────────┐           ┌──────────┐
-│  Excel   │           │   EU     │           │  Clean   │           │  MEPS    │
+│  Excel   │           │  EU/UK   │           │  Clean   │           │  MEPS    │
 │  Input   │──────────▶│  TARIC   │──────────▶│  Data    │──────────▶│  Excel   │
 │  File    │           │ Website  │           │          │           │ Template │
 └──────────┘           └──────────┘           └──────────┘           └──────────┘
@@ -106,51 +123,63 @@
 ```
 EU Quota/
 │
-├── main.py                    ◄── Entry point (run this)
+├── run.py                         ◄── Convenience entry point (run this)
 │
-├── src/                       ◄── Source code modules
-│   ├── __init__.py               Package exports
-│   ├── config.py                 Configuration, URLs, quarters
-│   ├── scraper.py                Selenium web scraper
-│   ├── data_processor.py         Data cleaning & MEPS calculations
-│   ├── excel_generator.py        Excel template generation
-│   └── utils.py                  File/folder utilities
+├── src/                           ◄── MAIN PROJECT - Core source code
+│   ├── __init__.py                    Package exports
+│   ├── main.py                        Main entry point
+│   ├── config.py                      Configuration, URLs, quarters
+│   ├── scraper.py                     EU Selenium web scraper
+│   ├── uk_scraper.py                  UK Selenium web scraper
+│   ├── data_processor.py              Data cleaning & MEPS calculations
+│   ├── excel_generator.py             Excel template generation
+│   └── utils.py                       File/folder utilities
+│
+├── build/                         ◄── BUILD EXE - Packaging scripts
+│   └── build_exe.py                   PyInstaller build script
+│
+├── dist/                          ◄── Distribution output (generated EXE)
 │
 ├── data/
-│   ├── input/                 ◄── Input files
-│   │   └── quota_urls.xlsx       Order numbers to scrape
+│   ├── input/                     ◄── Input files
+│   │   ├── quota_urls.xlsx            EU order numbers to scrape
+│   │   └── uk_quota_urls.xlsx         UK order numbers to scrape
 │   │
-│   ├── output/                ◄── Output by date
-│   │   └── YYYY-MM-DD/           Dated folders
+│   ├── output/                    ◄── Output by date
+│   │   └── YYYY-MM-DD/                Dated folders
 │   │       ├── eu_quota_raw_*.xlsx
-│   │       └── MEPS_EU_Quota_Update_*.xlsx
+│   │       ├── uk_quota_raw_*.xlsx
+│   │       └── MEPS_Quota_Update_*.xlsx
 │   │
-│   └── snapshots/             ◄── Historical data
+│   └── snapshots/                 ◄── Historical data
 │       └── snapshot_*.xlsx
 │
-├── templates/                 ◄── Reference templates
-│   ├── meps_customer_template.xlsx  (with slicers)
+├── templates/                     ◄── Reference templates
+│   ├── meps_customer_template.xlsx    (with slicers)
 │   └── detail_reference.png
 │
-├── docs/                      ◄── Documentation
+├── docs/                          ◄── Documentation
 │   ├── INSTRUCTIONS.md
 │   ├── INSTRUCTIONS_繁體中文.md
 │   ├── DATA_FLOW_ANALYSIS.md
 │   ├── TODO.md
-│   └── ARCHITECTURE.md        (this file)
+│   └── ARCHITECTURE.md                (this file)
 │
-├── scripts/                   ◄── Development tools
+├── dev/                           ◄── Development tools
+│   ├── scripts/                       Utility scripts
+│   └── analysis/                      Analysis and debugging tools
 │
 ├── requirements.txt
-└── README.md
+├── README.md
+└── README_繁體中文.md
 ```
 
 ## Key Components
 
-### 1. Scraper (scraper.py)
+### 1. Scraper (scraper.py, uk_scraper.py)
 ```
 ┌─────────────────────────────────────────┐
-│           EUQuotaScraper                │
+│     EUQuotaScraper / UKQuotaScraper     │
 ├─────────────────────────────────────────┤
 │ • _setup_driver()   Chrome/Selenium    │
 │ • fetch_quota()     Single order       │
@@ -219,9 +248,15 @@ START
          ▼
 ┌─────────────────┐         ┌─────────────────┐
 │ FOR each quota  │────────▶│ Fetch from      │
-│ (189 orders)    │         │ EU TARIC site   │
+│ (189+ orders)   │         │ EU TARIC site   │
 └────────┬────────┘         └─────────────────┘
          │ (1 sec delay)
+         ▼
+┌─────────────────┐
+│ UK Scraping     │◀────── data/input/uk_quota_urls.xlsx
+│ (if enabled)    │
+└────────┬────────┘
+         │
          ▼
 ┌─────────────────┐
 │ Clean data      │
@@ -238,11 +273,23 @@ START
 ┌─────────────────┐
 │ Save outputs    │──────▶ data/output/YYYY-MM-DD/
 └────────┬────────┘         ├── eu_quota_raw_*.xlsx
-         │                  └── MEPS_EU_Quota_Update_*.xlsx
-         ▼
+         │                  ├── uk_quota_raw_*.xlsx
+         ▼                  └── MEPS_Quota_Update_*.xlsx
        END
 ```
 
+## Folder Purpose Summary
+
+| Folder | Purpose | When to Focus |
+|--------|---------|---------------|
+| `src/` | Core application logic | Adding features, fixing bugs |
+| `build/` | EXE packaging scripts | Adjusting distribution settings |
+| `dist/` | Generated EXE output | Distribution |
+| `data/` | Runtime data (I/O) | Managing input/output files |
+| `templates/` | Excel templates | Template changes |
+| `docs/` | Documentation | Updating docs |
+| `dev/` | Development tools | Debugging, analysis |
+
 ---
 
-*Architecture Document v2.0 - January 2026*
+*Architecture Document v2.1 - January 2026*

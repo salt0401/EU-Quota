@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 Build script for creating portable EXE package
-Creates 'execution folder' with all necessary files for distribution
+Creates 'dist' folder with all necessary files for distribution
+
+Usage:
+    python build/build_exe.py
+
+The script will:
+1. Build EXE using PyInstaller
+2. Copy necessary data files
+3. Create distribution package in dist/ folder
 """
 import os
 import sys
@@ -9,24 +17,44 @@ import shutil
 import subprocess
 from datetime import datetime
 
-# Configuration
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-EXECUTION_FOLDER = os.path.join(PROJECT_DIR, "execution folder")
-DIST_FOLDER = os.path.join(PROJECT_DIR, "dist")
-BUILD_FOLDER = os.path.join(PROJECT_DIR, "build")
+# Configuration - PROJECT_DIR is the parent of build/ folder
+BUILD_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_DIR = os.path.dirname(BUILD_SCRIPT_DIR)  # Go up one level to project root
+
+# Output folders
+DIST_FOLDER = os.path.join(PROJECT_DIR, "dist")  # Final distribution folder
+DIST_SUBFOLDER = os.path.join(DIST_FOLDER, "EU_Quota_Scraper")  # Subfolder for zipping
+
+# Temporary build folders (will be cleaned up)
+PYINSTALLER_BUILD = os.path.join(BUILD_SCRIPT_DIR, "_build_temp")
+PYINSTALLER_DIST = os.path.join(BUILD_SCRIPT_DIR, "_dist_temp")
+
 
 def clean_previous_build():
     """Remove previous build artifacts"""
     print("Cleaning previous build artifacts...")
-    for folder in [EXECUTION_FOLDER, DIST_FOLDER, BUILD_FOLDER]:
+    for folder in [DIST_FOLDER, PYINSTALLER_BUILD, PYINSTALLER_DIST]:
         if os.path.exists(folder):
             print(f"  Removing: {folder}")
             shutil.rmtree(folder)
 
+    # Remove spec file if exists
+    spec_file = os.path.join(PROJECT_DIR, "EU_Quota_Scraper.spec")
+    if os.path.exists(spec_file):
+        os.remove(spec_file)
+
+
 def run_pyinstaller():
     """Run PyInstaller to create EXE"""
     print("\nBuilding EXE with PyInstaller...")
-    
+
+    # Entry point is now run.py in project root
+    entry_point = os.path.join(PROJECT_DIR, "run.py")
+
+    if not os.path.exists(entry_point):
+        print(f"ERROR: Entry point not found: {entry_point}")
+        return False
+
     # PyInstaller command
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -35,9 +63,12 @@ def run_pyinstaller():
         "--console",  # Show console window for progress
         "--clean",
         "--noconfirm",
+        "--distpath", PYINSTALLER_DIST,
+        "--workpath", PYINSTALLER_BUILD,
+        "--specpath", BUILD_SCRIPT_DIR,
         # Add data files
-        "--add-data", f"src;src",
-        "--add-data", f"templates;templates",
+        "--add-data", f"{os.path.join(PROJECT_DIR, 'src')};src",
+        "--add-data", f"{os.path.join(PROJECT_DIR, 'templates')};templates",
         # Hidden imports that might be missed
         "--hidden-import", "openpyxl",
         "--hidden-import", "pandas",
@@ -50,63 +81,65 @@ def run_pyinstaller():
         "--hidden-import", "idna",
         "--hidden-import", "soupsieve",
         # Main script
-        "main.py"
+        entry_point
     ]
-    
-    print(f"  Command: {' '.join(cmd)}")
+
+    print(f"  Working directory: {PROJECT_DIR}")
+    print(f"  Entry point: {entry_point}")
     result = subprocess.run(cmd, cwd=PROJECT_DIR)
-    
+
     if result.returncode != 0:
         print("ERROR: PyInstaller failed!")
         return False
-    
+
     print("  PyInstaller completed successfully!")
     return True
 
-def create_execution_folder():
-    """Create execution folder with all necessary files"""
-    print("\nCreating execution folder...")
-    
-    # Create main folder
-    os.makedirs(EXECUTION_FOLDER, exist_ok=True)
-    
+
+def create_dist_folder():
+    """Create distribution folder with all necessary files"""
+    print("\nCreating distribution folder...")
+
+    # Create main folder and subfolder
+    os.makedirs(DIST_SUBFOLDER, exist_ok=True)
+
     # Source paths
-    pyinstaller_output = os.path.join(DIST_FOLDER, "EU_Quota_Scraper")
-    
+    pyinstaller_output = os.path.join(PYINSTALLER_DIST, "EU_Quota_Scraper")
+
     if not os.path.exists(pyinstaller_output):
         print(f"ERROR: PyInstaller output not found at {pyinstaller_output}")
         return False
-    
-    # Copy EXE and dependencies
+
+    # Copy EXE and dependencies to subfolder
     print("  Copying EXE and dependencies...")
     for item in os.listdir(pyinstaller_output):
         src = os.path.join(pyinstaller_output, item)
-        dst = os.path.join(EXECUTION_FOLDER, item)
+        dst = os.path.join(DIST_SUBFOLDER, item)
         if os.path.isdir(src):
             shutil.copytree(src, dst, dirs_exist_ok=True)
         else:
             shutil.copy2(src, dst)
-    
+
     # Copy data/input folder
     print("  Copying data/input folder...")
     input_src = os.path.join(PROJECT_DIR, "data", "input")
-    input_dst = os.path.join(EXECUTION_FOLDER, "data", "input")
+    input_dst = os.path.join(DIST_SUBFOLDER, "data", "input")
     if os.path.exists(input_src):
         os.makedirs(os.path.dirname(input_dst), exist_ok=True)
         shutil.copytree(input_src, input_dst, dirs_exist_ok=True)
-    
+
     # Create empty output folder structure
     print("  Creating output folder structure...")
-    output_folder = os.path.join(EXECUTION_FOLDER, "data", "output")
+    output_folder = os.path.join(DIST_SUBFOLDER, "data", "output")
     os.makedirs(output_folder, exist_ok=True)
-    
+
     # Copy templates folder (should already be included by PyInstaller, but ensure it's there)
     print("  Ensuring templates folder exists...")
     templates_src = os.path.join(PROJECT_DIR, "templates")
-    templates_dst = os.path.join(EXECUTION_FOLDER, "templates")
+    templates_dst = os.path.join(DIST_SUBFOLDER, "templates")
     if os.path.exists(templates_src) and not os.path.exists(templates_dst):
         shutil.copytree(templates_src, templates_dst)
-    
+
     # Create README for users
     readme_content = """
 ================================================================================
@@ -128,66 +161,71 @@ def create_execution_folder():
 
 ================================================================================
 """
-    readme_path = os.path.join(EXECUTION_FOLDER, "使用說明.txt")
+    readme_path = os.path.join(DIST_SUBFOLDER, "使用說明.txt")
     with open(readme_path, 'w', encoding='utf-8') as f:
         f.write(readme_content)
-    
+
     print("  Created 使用說明.txt")
-    
+
     return True
 
+
 def cleanup_build_artifacts():
-    """Remove intermediate build artifacts but keep execution folder"""
+    """Remove intermediate build artifacts but keep dist folder"""
     print("\nCleaning up build artifacts...")
-    for folder in [DIST_FOLDER, BUILD_FOLDER]:
+    for folder in [PYINSTALLER_BUILD, PYINSTALLER_DIST]:
         if os.path.exists(folder):
             print(f"  Removing: {folder}")
             shutil.rmtree(folder)
-    
+
     # Remove .spec file
-    spec_file = os.path.join(PROJECT_DIR, "EU_Quota_Scraper.spec")
+    spec_file = os.path.join(BUILD_SCRIPT_DIR, "EU_Quota_Scraper.spec")
     if os.path.exists(spec_file):
         os.remove(spec_file)
         print(f"  Removed: {spec_file}")
+
 
 def main():
     print("="*70)
     print("EU Quota Scraper - Build Script")
     print(f"Build time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*70)
-    
+    print(f"\nProject directory: {PROJECT_DIR}")
+    print(f"Distribution folder: {DIST_SUBFOLDER}")
+
     # Step 1: Clean previous build
     clean_previous_build()
-    
+
     # Step 2: Run PyInstaller
     if not run_pyinstaller():
         print("\nBuild FAILED!")
         return 1
-    
-    # Step 3: Create execution folder
-    if not create_execution_folder():
+
+    # Step 3: Create dist folder
+    if not create_dist_folder():
         print("\nBuild FAILED!")
         return 1
-    
+
     # Step 4: Cleanup
     cleanup_build_artifacts()
-    
+
     print("\n" + "="*70)
     print("BUILD SUCCESSFUL!")
     print("="*70)
-    print(f"\nExecution folder created at:")
-    print(f"  {EXECUTION_FOLDER}")
-    print("\nContents:")
-    for item in os.listdir(EXECUTION_FOLDER):
-        item_path = os.path.join(EXECUTION_FOLDER, item)
+    print(f"\nDistribution folder created at:")
+    print(f"  {DIST_SUBFOLDER}")
+    print("\nContents of EU_Quota_Scraper folder:")
+    for item in os.listdir(DIST_SUBFOLDER):
+        item_path = os.path.join(DIST_SUBFOLDER, item)
         if os.path.isdir(item_path):
             print(f"  [DIR]  {item}")
         else:
             size = os.path.getsize(item_path)
             print(f"  [FILE] {item} ({size:,} bytes)")
-    
-    print("\nYou can now zip the 'execution folder' and distribute it!")
+
+    print("\nTo distribute: Zip the 'EU_Quota_Scraper' folder inside dist/")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

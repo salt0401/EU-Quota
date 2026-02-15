@@ -1,12 +1,12 @@
 # Python
 __pycache__/
+.pytest_cache/
+.coverage
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
@@ -30,6 +30,14 @@ env/
 *.manifest
 *.spec
 
+# Build temporary folders (inside build/)
+build/_build_temp/
+build/_dist_temp/
+
+# Distribution output (generated EXE)
+dist/
+dist_old_exe/
+
 # IDE
 .idea/
 .vscode/
@@ -43,13 +51,7 @@ logs/
 
 # Output data (keep input data)
 data/output/
-data/snapshot/
-
-# Execution folder (generated)
-execution folder/
-
-# Backup folders
-backup_analysis/
+data/snapshots/
 
 # Windows reserved names
 nul

@@ -1,0 +1,26 @@
+﻿================================================================================
+python.exe : Traceback (most recent call last):
+At line:1 char:1
++ & "C:\Users\lyen\AppData\Local\Programs\Python\Python3
+14\python.exe"  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback  
+   (most recent call last)::String) [], RemoteExceptio  
+  n
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\lyen\Downloads\EU 
+Quota\compare_uk_data.py", line 6, in <module>
+    print("UK 
+\u914d\u984d\u8cc7\u6599\u6bd4\u5c0d\u5206\u6790")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lyen\AppData\Local\Programs\Python\Pyth
+on314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encod
+ing_table)[0]
+           
+~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode 
+characters in position 3-10: character maps to 
+<undefined>

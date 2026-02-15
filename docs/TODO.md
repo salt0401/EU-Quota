@@ -14,7 +14,7 @@
   - [x] Add explanatory text sections
   - [x] Preserve MEPS logo image
 
-## Priority 3: UK Support (In Progress - Skeleton Ready)
+## Priority 3: UK Support (Completed)
 
 ### Research Completed (Jan 2026)
 
@@ -46,32 +46,34 @@
 | 25B | Large welded tube (2) |
 | 26 | Other welded tube |
 
+### 2026 Q1 Order Number Updates (Jan 2026)
+
+**Invalid order numbers replaced:**
+- `058003` (Category 1B) → `058110`, `058111`, `058112` (3 sub-quotas)
+- `058019` (Rebars All others) → `058020`
+
+**New individual country quotas for Rebars:**
+- `058130` - Algeria*
+- `058131` - Egypt*
+- `058133` - New Zealand*
+- `058134` - Norway*
+- `058136` - Vietnam*
+
 ### Files Created/Updated
 
-- [x] `src/uk_scraper.py` - Skeleton class with order numbers reference
+- [x] `src/uk_scraper.py` - Full implementation with order numbers reference (updated 2026-01-25)
 - [x] `src/config.py` - UK_BASE_URL and UK_QUOTA_FIELDS added
 - [x] `src/__init__.py` - UKQuotaScraper exported
-- [ ] `data/input/uk_quota_urls.xlsx` - **PENDING: Need from user**
+- [x] `data/input/uk_quota_urls.xlsx` - Created with EU-matching format (updated 2026-01-25)
+- [x] `dev/scripts/update_uk_input.py` - Script to regenerate UK input file
 
-### Remaining Tasks
+### Completed Tasks
 
-1. **Get UK input file** (`uk_quota_urls.xlsx`)
-   - Same format as EU: Order Number, Quota Category, Country
-
-2. **Implement UK scraper fetch logic**
-   - Parse HTML from quota_search results
-   - Extract: Opening Balance, Current Balance, Status, etc.
-   - Convert kg to tonnes
-
-3. **Update excel_generator.py**
-   - Modify `_update_uk_sheet_xml()` to write actual UK data
-   - Update table2.xml for UK data range
-
-4. **Testing Checklist**
-   - [x] Verify UK URL structure
-   - [ ] Test single quota fetch
-   - [ ] Test batch processing
-   - [ ] Verify data mapping to template
+- [x] UK input file created matching EU format exactly
+- [x] UK scraper implementation complete
+- [x] Excel generator handles UK data
+- [x] All order numbers validated against UK website
+- [x] Template quota limits fetched from live data
 
 ## Priority 4: Auto-Scheduling (After UK Success)
 
