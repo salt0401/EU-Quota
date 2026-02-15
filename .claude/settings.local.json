@@ -112,7 +112,8 @@
       "Bash(cmd.exe:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(\"C:/Users/lyen/AppData/Local/Programs/Python/Python314/python.exe\" --version)"
     ]
   }
 }
