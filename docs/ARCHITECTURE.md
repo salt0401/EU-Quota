@@ -125,20 +125,29 @@ EU Quota/
 │
 ├── run.py                         ◄── Convenience entry point (run this)
 │
-├── src/                           ◄── MAIN PROJECT - Core source code
+├── src/                           ◄── MAIN PIPELINE — scraping + reporting
 │   ├── __init__.py                    Package exports
 │   ├── main.py                        Main entry point
 │   ├── config.py                      Configuration, URLs, quarters
-│   ├── scraper.py                     EU Selenium web scraper
-│   ├── uk_scraper.py                  UK Selenium web scraper
+│   ├── scraper.py                     EU fast HTTP scraper
+│   ├── uk_scraper.py                  UK API scraper
 │   ├── data_processor.py              Data cleaning & MEPS calculations
 │   ├── excel_generator.py             Excel template generation
+│   ├── snapshot_scheduler.py          Daily snapshot idempotent check
 │   └── utils.py                       File/folder utilities
 │
-├── build/                         ◄── BUILD EXE - Packaging scripts
-│   └── build_exe.py                   PyInstaller build script
+├── beta/                          ◄── EXPERIMENTAL — isolated from src/
+│   ├── README.md                      Usage & status docs
+│   ├── requirements.txt               Prophet + scipy (Phase 2+)
+│   ├── forecasting/                   Quota depletion prediction
+│   │   ├── __init__.py                Public API exports
+│   │   ├── data_loader.py            Snapshot loading & Prophet prep
+│   │   ├── preprocessor.py           Feature engineering (skeleton)
+│   │   └── simple_models.py          Baseline models (skeleton)
+│   └── tests/
+│       └── test_forecasting_data_loader.py
 │
-├── dist/                          ◄── Distribution output (generated EXE)
+├── dist/                          ◄── Distribution output (EXE)
 │
 ├── data/
 │   ├── input/                     ◄── Input files
@@ -146,30 +155,33 @@ EU Quota/
 │   │   └── uk_quota_urls.xlsx         UK order numbers to scrape
 │   │
 │   ├── output/                    ◄── Output by date
-│   │   └── YYYY-MM-DD/                Dated folders
+│   │   └── YYYY-MM-DD/
 │   │       ├── eu_quota_raw_*.xlsx
 │   │       ├── uk_quota_raw_*.xlsx
 │   │       └── MEPS_Quota_Update_*.xlsx
 │   │
-│   └── snapshots/                 ◄── Historical data
-│       └── snapshot_*.xlsx
+│   └── snapshots/                 ◄── Historical data (auto-collected daily)
+│       └── snapshot_YYYYMMDD_HHMMSS.xlsx
 │
 ├── templates/                     ◄── Reference templates
 │   ├── meps_customer_template.xlsx    (with slicers)
 │   └── detail_reference.png
 │
 ├── docs/                          ◄── Documentation
+│   ├── ARCHITECTURE.md                (this file)
+│   ├── TODO.md
 │   ├── INSTRUCTIONS.md
 │   ├── INSTRUCTIONS_繁體中文.md
-│   ├── DATA_FLOW_ANALYSIS.md
-│   ├── TODO.md
-│   └── ARCHITECTURE.md                (this file)
+│   └── DATA_FLOW_ANALYSIS.md
 │
-├── dev/                           ◄── Development tools
-│   ├── scripts/                       Utility scripts
-│   └── analysis/                      Analysis and debugging tools
+├── tests/                         ◄── Main pipeline unit tests
+│   ├── test_config.py
+│   ├── test_data_processor.py
+│   ├── test_utils.py
+│   ├── test_scraper.py
+│   └── test_uk_scraper.py
 │
-├── requirements.txt
+├── requirements.txt                   Core dependencies only
 ├── README.md
 └── README_繁體中文.md
 ```
@@ -181,10 +193,10 @@ EU Quota/
 ┌─────────────────────────────────────────┐
 │     EUQuotaScraper / UKQuotaScraper     │
 ├─────────────────────────────────────────┤
-│ • _setup_driver()   Chrome/Selenium    │
 │ • fetch_quota()     Single order       │
-│ • fetch_all_quotas() Batch process     │
+│ • fetch_all_quotas() Batch (5 workers) │
 │ • _parse_value()    Clean raw data     │
+│ • Fast HTTP / API   No browser needed  │
 └─────────────────────────────────────────┘
 ```
 
@@ -241,8 +253,8 @@ START
          │
          ▼
 ┌─────────────────┐
-│ Init Selenium   │
-│ (Chrome)        │
+│ Init scraper    │
+│ (Fast HTTP)     │
 └────────┬────────┘
          │
          ▼
@@ -278,18 +290,51 @@ START
        END
 ```
 
+## Module Boundary: src/ vs beta/
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     src/ — MAIN PIPELINE (production)                        │
+│                                                                             │
+│   run.py → src/main.py → scraper → data_processor → excel_generator        │
+│                                                                             │
+│   Input: data/input/quota_urls.xlsx                                         │
+│   Output: data/output/YYYY-MM-DD/MEPS_Quota_Update_*.xlsx                  │
+│                                                                             │
+│   Dependencies: requirements.txt                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+         │ snapshot_*.xlsx (written daily)
+         │
+         ▼
+┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+│                     beta/ — EXPERIMENTAL (isolated)                          │
+│                                                                             │
+│   from beta.forecasting import load_all_snapshots                           │
+│                                                                             │
+│   Reads: data/snapshots/snapshot_*.xlsx  (read-only)                        │
+│   Dependencies: beta/requirements.txt                                       │
+│                                                                             │
+│   - Lives in separate top-level directory                                   │
+│   - Zero imports from/to src/                                               │
+│   - Cannot affect main pipeline in any way                                  │
+└ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+```
+
+The only shared touchpoint is `data/snapshots/` — the main pipeline writes snapshots,
+the beta forecasting module reads them. No code dependency exists between the two.
+
 ## Folder Purpose Summary
 
 | Folder | Purpose | When to Focus |
 |--------|---------|---------------|
-| `src/` | Core application logic | Adding features, fixing bugs |
-| `build/` | EXE packaging scripts | Adjusting distribution settings |
+| `src/` | Core scraping + reporting pipeline | Adding features, fixing bugs |
+| `beta/` | Experimental features (forecasting) | Isolated experimentation |
 | `dist/` | Generated EXE output | Distribution |
 | `data/` | Runtime data (I/O) | Managing input/output files |
 | `templates/` | Excel templates | Template changes |
 | `docs/` | Documentation | Updating docs |
-| `dev/` | Development tools | Debugging, analysis |
+| `tests/` | Main pipeline unit tests | Testing core logic |
 
 ---
 
-*Architecture Document v2.1 - January 2026*
+*Architecture Document v2.3 - February 2026*

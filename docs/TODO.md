@@ -84,18 +84,54 @@
 - [x] `src/utils.py` — Added `get_logs_folder()`, logs in `ensure_directories()`
 - [x] Tested: first run scrapes, second run skips, logs written to `data/logs/`
 
-## Priority 5: Prophet Time-Series Forecasting (Next)
+## Priority 5: Prophet Time-Series Forecasting [EXPERIMENTAL]
 
-- [ ] Accumulate 30+ daily snapshots (in progress — auto-collecting)
+> Forecasting lives in `beta/forecasting/` — a completely separate top-level
+> directory with zero imports from/to `src/`. Changes in beta/ cannot break
+> the main scraping + MEPS report pipeline.
+
+### Phase 1: Data Loader (Completed — Feb 2026)
+
+- [x] `beta/forecasting/data_loader.py` — 5 public functions
+  - `load_all_snapshots()` — glob + merge + deduplicate snapshots
+  - `get_quota_time_series()` — extract per-quota `{ds, y}` for Prophet
+  - `get_all_quota_ids()` — list unique quota identifiers
+  - `get_snapshot_summary()` — count, date range, `prophet_ready` flag
+  - `prepare_prophet_df()` — add `cap`/`floor` for logistic growth
+- [x] `beta/forecasting/__init__.py` — public API exports
+- [x] `beta/tests/test_forecasting_data_loader.py` — 30 unit tests passing
+- [x] `beta/requirements.txt` — separated from core requirements
+
+### Phase 2: Preprocessing + Baseline Models (Pending)
+
+- [ ] Accumulate 30+ daily snapshots (in progress — 3/30 as of 2026-02-18)
+- [ ] `preprocessor.py` — rolling features, seasonality flags, outlier detection
+- [ ] `simple_models.py` — naive, moving average, linear trend baselines
+
+### Phase 3: Prophet Models (Pending)
+
 - [ ] Build Prophet model for quota depletion forecasting
-- [ ] Generate depletion date predictions per quota
+- [ ] Generate "days to exhaustion" predictions per quota
+- [ ] Cross-validation and accuracy evaluation
 - [ ] Add forecasting visualizations
+
+### Current Snapshot Status
+
+| Item | Value |
+|------|-------|
+| Snapshots collected | 3 |
+| Date range | 2026-01-24 → 2026-02-18 |
+| Unique quotas | 189 |
+| Prophet ready | No (need 30+ days) |
+| Est. ready date | ~late Feb 2026 |
 
 ## Notes
 
 - EU scraping: ~1-2 minutes for 189 quotas (fast HTTP)
 - UK scraping: ~30 seconds for 73 quotas (API)
 - Combined runtime: ~2-3 minutes
+- **Main pipeline focus**: Correct data + correct format in `meps_customer_template.xlsx`
+- **Forecasting**: Experimental, completely independent of main pipeline
 
 ---
 *Last updated: 18-Feb-2026*

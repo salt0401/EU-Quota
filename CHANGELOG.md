@@ -2,6 +2,82 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.5.0] - 2026-02-18
+
+### Project Reorganization — Forecasting Isolation & Cleanup
+
+Major structural reorganization to isolate experimental forecasting code from
+the production pipeline and remove all unused files.
+
+**Design Principle:**
+The main pipeline (`src/` → scraping + MEPS Excel dashboard) must never be
+affected by experimental forecasting work. All forecasting code now lives in
+`beta/`, a completely separate top-level directory with zero imports from/to
+`src/`.
+
+**New Directory: `beta/`**
+
+| File | Purpose |
+|------|---------|
+| `beta/__init__.py` | Package marker |
+| `beta/README.md` | Status, usage, test instructions |
+| `beta/requirements.txt` | Prophet + scipy (Phase 2+ only) |
+| `beta/forecasting/__init__.py` | Public API exports |
+| `beta/forecasting/data_loader.py` | Snapshot loading, Prophet-format prep (5 functions) |
+| `beta/forecasting/preprocessor.py` | Phase 2 skeleton (feature engineering) |
+| `beta/forecasting/simple_models.py` | Phase 2 skeleton (baseline models) |
+| `beta/tests/__init__.py` | Test package marker |
+| `beta/tests/test_forecasting_data_loader.py` | 30 unit tests |
+
+**Files Moved (src/ → beta/):**
+- `src/forecasting/__init__.py` → `beta/forecasting/__init__.py`
+- `src/forecasting/data_loader.py` → `beta/forecasting/data_loader.py`
+- `src/forecasting/preprocessor.py` → `beta/forecasting/preprocessor.py`
+- `src/forecasting/simple_models.py` → `beta/forecasting/simple_models.py`
+- `tests/test_forecasting_data_loader.py` → `beta/tests/test_forecasting_data_loader.py`
+- `requirements-forecasting.txt` → `beta/requirements.txt`
+
+**Key Code Change in data_loader.py:**
+Replaced `from ..utils import get_snapshot_folder` (dependency on `src/`) with
+a self-contained `_get_snapshot_folder()` that resolves the path independently:
+```python
+def _get_snapshot_folder() -> str:
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(project_root, "data", "snapshots")
+```
+
+**Files Deleted (no longer needed):**
+
+| File / Directory | Reason |
+|------------------|--------|
+| `dev/` (entire directory) | Analysis scripts, comparison outputs — development-only |
+| `build/build_exe.py` | EXE build script — `dist/` already contains the built EXE |
+| `src/scraper_selenium.py` | Old Selenium EU scraper — replaced by fast HTTP in v2.3.0 |
+| `src/uk_scraper_selenium.py` | Old Selenium UK scraper — replaced by API scraper in v2.3.0 |
+| `src/forecasting/` | Moved to `beta/forecasting/` |
+
+**Changes to Existing Files:**
+- `src/__init__.py` — Removed all forecasting imports; kept version at `2.4.0`
+- `src/utils.py` — Removed `get_forecasting_folder()` and its call in `ensure_directories()`
+- `requirements.txt` — Removed `prophet` and `scipy` (now in `beta/requirements.txt`)
+- `.gitignore` — Removed `build/` entries (directory deleted)
+- `docs/ARCHITECTURE.md` — Updated to v2.3: new file tree, module boundary diagram, beta/ section
+- `docs/TODO.md` — Updated all forecasting paths from `src/` to `beta/`, added snapshot status table
+
+**Module Boundary:**
+```
+src/  (production)  ──writes──▶  data/snapshots/  ◀──reads──  beta/  (experimental)
+```
+The only shared touchpoint is `data/snapshots/`. No code dependency exists.
+
+**Verification:**
+- Main pipeline: `python run.py` — 189 EU + 73 UK quotas scraped, MEPS report generated ✓
+- Main tests: 143 passed (19 pre-existing Selenium-era failures in test_scraper.py) ✓
+- Beta tests: 30/30 passed ✓
+- Cross-import: `import src` has no forecasting references, `from beta.forecasting import ...` works independently ✓
+
+---
+
 ## [2.4.0] - 2026-02-18
 
 ### Daily Auto-Snapshot for Prophet Forecasting
@@ -49,9 +125,8 @@ All notable changes to the EU Quota Scraper project will be documented in this f
 - Session reuse for connection efficiency
 
 **Backup Files Created:**
-- `src/scraper_selenium.py` - Original Selenium-based EU scraper
-- `src/uk_scraper_selenium.py` - Original Selenium-based UK scraper
-- Use these if any issues arise with the fast scrapers
+- `src/scraper_selenium.py` - Original Selenium-based EU scraper *(removed in v2.5.0)*
+- `src/uk_scraper_selenium.py` - Original Selenium-based UK scraper *(removed in v2.5.0)*
 
 **New Dependencies:**
 - `requests>=2.28.0` - HTTP library
@@ -189,19 +264,17 @@ When UK quota order numbers change (typically at quarter boundaries):
    # Visit: https://www.trade-tariff.service.gov.uk/quota_search?order_number=058XXX
    ```
 
-2. Update the `uk_quotas` list in `dev/scripts/update_uk_input.py`
+2. Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py`
 
-3. Regenerate the input file:
-   ```bash
-   python dev/scripts/update_uk_input.py
-   ```
+3. Update `data/input/uk_quota_urls.xlsx` with the new order numbers
 
-4. Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py`
-
-5. Test the scraper:
+4. Test the scraper:
    ```bash
    python run.py
    ```
+
+> **Note:** The `dev/scripts/update_uk_input.py` helper was removed in v2.5.0.
+> Update the input Excel file manually or recreate a helper script as needed.
 
 ---
 

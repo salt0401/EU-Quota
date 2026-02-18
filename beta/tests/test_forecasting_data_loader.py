@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Tests for src/forecasting/data_loader.py — Snapshot loading and time-series prep
+Tests for beta/forecasting/data_loader.py — Snapshot loading and time-series prep
 """
 import pytest
 import pandas as pd
@@ -9,10 +9,10 @@ from datetime import datetime
 import sys
 import os
 
-# Add src to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path so beta/ is importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.forecasting.data_loader import (
+from beta.forecasting.data_loader import (
     load_all_snapshots,
     get_quota_time_series,
     get_all_quota_ids,
@@ -20,7 +20,7 @@ from src.forecasting.data_loader import (
     prepare_prophet_df,
     _snapshot_cache,
 )
-import src.forecasting.data_loader as data_loader_module
+import beta.forecasting.data_loader as data_loader_module
 
 
 def _make_snapshot_df(order_numbers, balance_values, origin="European Union"):
