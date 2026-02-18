@@ -239,6 +239,12 @@ def _update_shared_strings(filepath: str, period_display: str, latest_data: str)
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
 
+    # Update the Instructions title (e.g., "MEPS Quota Update - December 2025" -> current month/year)
+    current_month_year = date.today().strftime("%B %Y")
+    title_pattern = r'MEPS Quota Update - [^<]+'
+    new_title = f'MEPS Quota Update - {current_month_year}'
+    content = re.sub(title_pattern, new_title, content)
+
     # Update the period string (matches pattern like "Current quota period: XX-XXX-XXXX to XX-XXX-XXXX")
     period_pattern = r'Current quota period: [^<]+'
     new_period = f'Current quota period: {period_display}'
@@ -495,6 +501,11 @@ def _generate_from_scratch(
     ws_inst.title = "Instructions"
     ws_eu = wb.create_sheet("European Union")
     ws_uk = wb.create_sheet("United Kingdom")
+
+    # Instructions sheet title (dynamic month/year)
+    current_month_year = date.today().strftime("%B %Y")
+    ws_inst['A1'] = f"MEPS Quota Update - {current_month_year}"
+    ws_inst['A1'].font = TITLE_FONT
 
     # Build EU Data sheet
     # Set header background
