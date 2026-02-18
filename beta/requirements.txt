@@ -1,0 +1,9 @@
+# Forecasting Module — EXPERIMENTAL (src/forecasting/)
+# Install only when ready to run Prophet time-series models:
+#   pip install -r requirements-forecasting.txt
+#
+# Phase 1 (data_loader) works with just pandas — no extra install needed.
+# Phase 2+ will require these:
+
+prophet>=1.1.5
+scipy>=1.10.0

@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Forecasting Data Loader
+Forecasting Data Loader  [EXPERIMENTAL — beta/]
 Loads daily snapshots, merges into time series, and prepares Prophet-format DataFrames.
 
+This module is fully independent of the main src/ pipeline.
+
 Usage:
-    from src.forecasting import load_all_snapshots, get_quota_time_series
+    from beta.forecasting import load_all_snapshots, get_quota_time_series
     data = load_all_snapshots()
     ts = get_quota_time_series(data, order_number=98967)
 """
 
 import os
+import sys
 import re
 import glob
 from datetime import datetime
@@ -17,7 +20,12 @@ from typing import Optional
 
 import pandas as pd
 
-from ..utils import get_snapshot_folder
+
+def _get_snapshot_folder() -> str:
+    """Get the snapshots folder path (self-contained, no dependency on src/)."""
+    # beta/ is one level inside project root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(project_root, "data", "snapshots")
 
 # Module-level cache to avoid re-reading Excel files on repeated calls
 _snapshot_cache: Optional[pd.DataFrame] = None
@@ -39,7 +47,7 @@ def load_all_snapshots(
 
     Args:
         snapshot_folder: Path to folder containing snapshot files.
-            Defaults to ``get_snapshot_folder()``.
+            Defaults to ``_get_snapshot_folder()``.
         use_cache: If True, return cached result on subsequent calls.
 
     Returns:
@@ -52,7 +60,7 @@ def load_all_snapshots(
         return _snapshot_cache.copy()
 
     if snapshot_folder is None:
-        snapshot_folder = get_snapshot_folder()
+        snapshot_folder = _get_snapshot_folder()
 
     pattern = os.path.join(snapshot_folder, "snapshot_*.xlsx")
     files = glob.glob(pattern)
