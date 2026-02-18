@@ -30,13 +30,22 @@ PYINSTALLER_BUILD = os.path.join(BUILD_SCRIPT_DIR, "_build_temp")
 PYINSTALLER_DIST = os.path.join(BUILD_SCRIPT_DIR, "_dist_temp")
 
 
+def _force_rmtree(path):
+    """Remove directory tree, handling read-only and locked files (e.g. OneDrive)"""
+    import stat
+    def onerror(func, fpath, exc_info):
+        os.chmod(fpath, stat.S_IWRITE)
+        func(fpath)
+    shutil.rmtree(path, onerror=onerror)
+
+
 def clean_previous_build():
     """Remove previous build artifacts"""
     print("Cleaning previous build artifacts...")
     for folder in [DIST_FOLDER, PYINSTALLER_BUILD, PYINSTALLER_DIST]:
         if os.path.exists(folder):
             print(f"  Removing: {folder}")
-            shutil.rmtree(folder)
+            _force_rmtree(folder)
 
     # Remove spec file if exists
     spec_file = os.path.join(PROJECT_DIR, "EU_Quota_Scraper.spec")
@@ -54,6 +63,21 @@ def run_pyinstaller():
     if not os.path.exists(entry_point):
         print(f"ERROR: Entry point not found: {entry_point}")
         return False
+
+    # Modules not needed by this project (saves ~600MB)
+    exclude_modules = [
+        "torch", "torchvision", "torchaudio",
+        "transformers", "huggingface_hub", "hf_xet", "tokenizers", "safetensors",
+        "scipy", "sklearn", "scikit-learn",
+        "matplotlib", "PIL", "Pillow",
+        "llvmlite", "numba",
+        "tiktoken",
+        "tkinter", "_tkinter",
+        "pydantic", "pydantic_core",
+        "IPython", "notebook", "jupyter",
+        "cv2", "tensorflow",
+        "psutil",
+    ]
 
     # PyInstaller command
     cmd = [
@@ -83,6 +107,10 @@ def run_pyinstaller():
         # Main script
         entry_point
     ]
+
+    # Add exclude flags
+    for mod in exclude_modules:
+        cmd.extend(["--exclude-module", mod])
 
     print(f"  Working directory: {PROJECT_DIR}")
     print(f"  Entry point: {entry_point}")
@@ -141,31 +169,35 @@ def create_dist_folder():
         shutil.copytree(templates_src, templates_dst)
 
     # Create README for users
-    readme_content = """
-================================================================================
-       EU Quota Scraper - 歐盟/英國鋼鐵配額抓取工具
-================================================================================
+    readme_content = """# EU Quota Scraper
 
-使用方式：
-1. 雙擊 EU_Quota_Scraper.exe 執行程式
-2. 等待程式抓取最新配額資料（約需 1-3 分鐘）
-3. 完成後，輸出檔案會在 data/output/<今日日期>/ 資料夾中
+Automated collection of EU/UK steel tariff quota data.
 
-輸出檔案：
-- MEPS_Quota_Update_YYYYMMDD.xlsx - 客戶報告格式
+## Usage
 
-注意事項：
-- 需要網路連線才能抓取資料
-- 如果抓取失敗，請檢查網路連線後重試
-- 輸入資料檔案在 data/input/ 資料夾中
+1. Double-click `EU_Quota_Scraper.exe` to run
+2. Wait for the scraper to fetch the latest quota data (~1-3 minutes)
+3. Output files will be saved to `data/output/YYYY-MM-DD/`
 
-================================================================================
+## Output Files
+
+| File | Description |
+|------|-------------|
+| `MEPS_Quota_Update_YYYYMMDD.xlsx` | Customer-ready report with slicers |
+| `eu_quota_raw_YYYYMMDD.xlsx` | Complete EU raw data |
+| `uk_quota_raw_YYYYMMDD.xlsx` | Complete UK raw data |
+
+## Notes
+
+- Internet connection required
+- Input quota lists are in `data/input/`
+- Output is organized by date in `data/output/`
 """
-    readme_path = os.path.join(DIST_SUBFOLDER, "使用說明.txt")
+    readme_path = os.path.join(DIST_SUBFOLDER, "README.md")
     with open(readme_path, 'w', encoding='utf-8') as f:
         f.write(readme_content)
 
-    print("  Created 使用說明.txt")
+    print("  Created README.md")
 
     return True
 
