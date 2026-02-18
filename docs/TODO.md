@@ -75,42 +75,27 @@
 - [x] All order numbers validated against UK website
 - [x] Template quota limits fetched from live data
 
-## Priority 4: Auto-Scheduling (After UK Success)
+## Priority 4: Auto-Scheduling (Completed)
 
-### Windows Task Scheduler Setup
+- [x] `daily_snapshot.py` — Entry point with file logging
+- [x] `src/snapshot_scheduler.py` — Idempotent check + orchestration
+- [x] `setup_scheduler.bat` — Task Scheduler registration (At log on, `pythonw`)
+- [x] `remove_scheduler.bat` — Clean task removal
+- [x] `src/utils.py` — Added `get_logs_folder()`, logs in `ensure_directories()`
+- [x] Tested: first run scrapes, second run skips, logs written to `data/logs/`
 
-1. **Create Batch File** (`run_scraper.bat`)
-   ```batch
-   @echo off
-   cd /d "C:\Users\lyen\Downloads\EU Quota"
-   python main.py --auto >> logs\scraper_%date:~-4,4%%date:~-10,2%%date:~-7,2%.log 2>&1
-   ```
+## Priority 5: Prophet Time-Series Forecasting (Next)
 
-2. **Task Scheduler Configuration**
-   - Name: "EU Quota Daily Scraper"
-   - Trigger: Daily at 6:00 AM (or preferred time)
-   - Action: Run `run_scraper.bat`
-   - Settings: Run whether user is logged on or not
-
-3. **Files to Create**
-   - `scripts/run_scraper.bat` - Windows batch launcher
-   - `scripts/run_scraper.sh` - Linux/Mac launcher (optional)
-
-4. **Error Handling**
-   - Add email notification on failure
-   - Log rotation for old log files
-   - Retry logic for network failures
-
-5. **Monitoring**
-   - Check `data/output/` for new dated folders
-   - Review `logs/` for error messages
+- [ ] Accumulate 30+ daily snapshots (in progress — auto-collecting)
+- [ ] Build Prophet model for quota depletion forecasting
+- [ ] Generate depletion date predictions per quota
+- [ ] Add forecasting visualizations
 
 ## Notes
 
-- EU scraping: ~15-20 minutes for 189 quotas
-- UK scraping: TBD (depends on number of quotas)
-- Combined runtime estimate: ~25-30 minutes
+- EU scraping: ~1-2 minutes for 189 quotas (fast HTTP)
+- UK scraping: ~30 seconds for 73 quotas (API)
+- Combined runtime: ~2-3 minutes
 
 ---
-*Last updated: 23-Jan-2026*
-*Slicer fix: String-based XML manipulation in excel_generator.py to preserve namespace prefixes*
+*Last updated: 18-Feb-2026*

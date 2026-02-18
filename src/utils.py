@@ -52,6 +52,12 @@ def get_input_folder() -> str:
     return os.path.join(root, "data", "input")
 
 
+def get_logs_folder() -> str:
+    """Get the logs folder path"""
+    root = get_project_root()
+    return os.path.join(root, "data", "logs")
+
+
 def get_templates_folder() -> str:
     """Get the templates folder path"""
     root = get_project_root()
@@ -73,6 +79,7 @@ def ensure_directories(scrape_date: Optional[date] = None) -> dict:
         "snapshots": get_snapshot_folder(),
         "input": get_input_folder(),
         "templates": get_templates_folder(),
+        "logs": get_logs_folder(),
     }
 
     for name, path in paths.items():

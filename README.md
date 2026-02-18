@@ -1,4 +1,4 @@
-# EU Quota Scraper v2.3
+# EU Quota Scraper v2.4
 
 Automated collection of EU steel tariff quota data from the European Commission's TARIC database.
 
@@ -14,6 +14,7 @@ This tool scrapes quota usage data from the EU TARIC system to track steel impor
 - **MEPS logo and branding** preserved in output
 - **Automatic date detection** for quota periods
 - **Dated output folders** (YYYY-MM-DD) for historical tracking
+- **Daily auto-snapshot** on Windows login (Task Scheduler) with idempotent skip
 - **189 EU quotas** tracked across multiple steel products and origin countries
 
 ### Calculations (MEPS Formula)
@@ -72,6 +73,7 @@ EU Quota/
 │   ├── uk_scraper_selenium.py     # UK Selenium scraper (backup)
 │   ├── data_processor.py          # Data calculations (MEPS formulas)
 │   ├── excel_generator.py         # MEPS report generator (preserves slicers)
+│   ├── snapshot_scheduler.py      # Daily auto-snapshot logic
 │   └── utils.py                   # File/folder utilities
 │
 ├── build/                         # BUILD EXE - Packaging scripts
@@ -86,7 +88,8 @@ EU Quota/
 │   │   └── uk_quota_urls.xlsx     # UK quota list to track
 │   ├── output/                    # Output by date
 │   │   └── YYYY-MM-DD/            # Dated folders
-│   └── snapshots/                 # Historical snapshots
+│   ├── snapshots/                 # Historical snapshots
+│   └── logs/                      # Daily auto-snapshot logs
 │
 ├── templates/                     # TEMPLATES - Excel templates
 │   └── meps_customer_template.xlsx  # MEPS template with slicers
@@ -102,6 +105,9 @@ EU Quota/
 │   └── analysis/                  # Analysis and debugging tools
 │
 ├── run.py                         # Convenience entry point
+├── daily_snapshot.py              # Auto-snapshot entry point (Task Scheduler)
+├── setup_scheduler.bat            # Register Windows Task Scheduler job
+├── remove_scheduler.bat           # Remove the scheduled task
 ├── requirements.txt               # Dependencies
 ├── README.md                      # This file
 └── README_繁體中文.md              # Chinese README
@@ -131,15 +137,23 @@ The distribution package will be created in `dist/EU_Quota_Scraper/` folder.
 - **Expected Runtime**: ~1-2 minutes for all quotas (EU + UK)
 - **Concurrent Workers**: 5 parallel requests for faster scraping
 
-## Scheduling Daily Updates (Windows)
+## Daily Auto-Snapshot (Windows)
 
-1. Open Task Scheduler → Create Basic Task
-2. Name: "EU Quota Scraper"
-3. Trigger: Daily at preferred time
-4. Action: Start a program
-   - Program: `python`
-   - Arguments: `run.py --skip-uk` or `run.py`
-   - Start in: `C:\path\to\EU Quota`
+Automatically collects a snapshot every time you log into Windows. Idempotent — skips if today's snapshot already exists.
+
+```bash
+# One-time setup (right-click → Run as Administrator)
+setup_scheduler.bat
+
+# Manual test
+python daily_snapshot.py        # First run: full scrape (~2-3 min)
+python daily_snapshot.py        # Second run: "Already scraped today", instant skip
+
+# Remove scheduled task
+remove_scheduler.bat
+```
+
+Logs saved to `data/logs/daily_YYYYMMDD.log`. After 30+ daily snapshots, the dataset is ready for Prophet time-series forecasting.
 
 ## Documentation
 
@@ -153,4 +167,4 @@ The distribution package will be created in `dist/EU_Quota_Scraper/` folder.
 
 ---
 
-*Version 2.3 - January 2026 (Fast HTTP scrapers, 10x performance improvement)*
+*Version 2.4 - February 2026 (Daily auto-snapshot with Windows Task Scheduler)*
