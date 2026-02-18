@@ -52,6 +52,7 @@ logs/
 # Output data (keep input data)
 data/output/
 data/snapshots/
+data/logs/
 
 # Windows reserved names
 nul

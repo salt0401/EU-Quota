@@ -2,6 +2,33 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.4.0] - 2026-02-18
+
+### Daily Auto-Snapshot for Prophet Forecasting
+
+**New Files:**
+- `src/snapshot_scheduler.py` — Core scheduling logic with idempotent daily check
+- `daily_snapshot.py` — Entry point for Task Scheduler (runs silently via `pythonw`)
+- `setup_scheduler.bat` — One-click Windows Task Scheduler registration (At log on)
+- `remove_scheduler.bat` — Clean removal of the scheduled task
+
+**How It Works:**
+1. On every Windows login, Task Scheduler runs `pythonw daily_snapshot.py`
+2. Checks `data/snapshots/` for `snapshot_YYYYMMDD_*.xlsx` matching today's date
+3. If exists: logs "Already scraped today" and exits silently
+4. If not: runs full EU + UK scraper pipeline, saves snapshot + log
+
+**Key Functions:**
+- `has_today_snapshot()` — Glob-based idempotency check
+- `get_snapshot_count()` — Tracks progress toward 30+ days for Prophet training
+- `run_daily_snapshot()` — Orchestrates check → scrape → result
+
+**Changes to Existing Files:**
+- `src/utils.py` — Added `get_logs_folder()`, included `"logs"` in `ensure_directories()`
+- `.gitignore` — Added `data/logs/` exclusion
+
+---
+
 ## [2.3.0] - 2026-01-25
 
 ### Performance Optimization - 5-10x Faster Scraping
