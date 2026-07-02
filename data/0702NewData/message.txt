@@ -1,0 +1,15 @@
+Hi Lin,
+
+With only one day to go we finally have the full details of the new UK & EU quota system including all of the order numbers that are used to track the quota usage.
+
+For the UK the new system is very similar to the current one.
+
+The EU system will have new complications in the way each quota is administered (some countries may be able to use more than one quota), but for the sake of the quota update we are essentially working to the same scheme.
+
+In both cases quotas will be managed quarterly, with the six-digit order numbers being the key to extracting the data from the source websites.
+
+I have attached details of the EU quotas - the order numbers are in the final column of Annex 1. And linked to the UK quota announcement here - quota volumes and order numbers are in Tables 3 and 4, respectively.
+
+Let's run through these on Friday. I'll need to have this ready and tested by the 17th July if possible.
+
+Thanks
