@@ -1,5 +1,14 @@
 # EU Quota Scraper - System Architecture
 
+> **July 2026 regime migration:** The old EU/UK steel safeguard ended on 30 June 2026.
+> From 1 July 2026 the pipeline tracks the replacement measures — EU: Regulation (EU)
+> 2026/1384 + Implementing Regulation (EU) 2026/1457 (283 quotas, order numbers
+> 099491–099955); UK: DBT's steel trade measure under the Taxation (Cross-Border
+> Trade) Act 2018 (75 quotas, order numbers 058600–058671 plus authorised-use
+> 058673–058675). The architecture below is unchanged in shape; the input workbooks
+> carry the new order numbers, and the pre-July-2026 safeguard inputs and template
+> are archived in `data/input/archive/` and `templates/archive/`.
+
 ## Program Flow Diagram
 
 ```
@@ -72,8 +81,8 @@
 │  config.py  │  │ scraper.py  │  │data_process │  │excel_genera │
 │             │  │ uk_scraper  │  │   or.py     │  │   tor.py    │
 │ - Quarters  │  │             │  │ - Clean     │  │ - Template  │
-│ - URLs      │  │ - Selenium  │  │ - Calculate │  │ - Format    │
-│ - Dates     │  │ - WebDriver │  │ - MEPS math │  │ - Slicers   │
+│ - URLs      │  │ - Fast HTTP │  │ - Calculate │  │ - Format    │
+│ - Dates     │  │ - requests  │  │ - MEPS math │  │ - Slicers   │
 │             │  │ - Parse     │  │             │  │             │
 └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘
          │                               │               │
@@ -147,12 +156,15 @@ EU Quota/
 │   └── tests/
 │       └── test_forecasting_data_loader.py
 │
+├── build/                         ◄── EXE build script (build_exe.py)
+│
 ├── dist/                          ◄── Distribution output (EXE)
 │
 ├── data/
 │   ├── input/                     ◄── Input files
-│   │   ├── quota_urls.xlsx            EU order numbers to scrape
-│   │   └── uk_quota_urls.xlsx         UK order numbers to scrape
+│   │   ├── quota_urls.xlsx            EU order numbers to scrape (283)
+│   │   ├── uk_quota_urls.xlsx         UK order numbers to scrape (75)
+│   │   └── archive/                   Pre-July-2026 safeguard inputs
 │   │
 │   ├── output/                    ◄── Output by date
 │   │   └── YYYY-MM-DD/
@@ -165,7 +177,8 @@ EU Quota/
 │
 ├── templates/                     ◄── Reference templates
 │   ├── meps_customer_template.xlsx    (with slicers)
-│   └── detail_reference.png
+│   ├── detail_reference.png
+│   └── archive/                       Pre-July-2026 safeguard template
 │
 ├── docs/                          ◄── Documentation
 │   ├── ARCHITECTURE.md                (this file)
@@ -222,11 +235,11 @@ EU Quota/
 ├─────────────────────────────────────────┤
 │                                         │
 │  1. Copy meps_customer_template.xlsx    │
-│  2. Open with openpyxl                  │
-│  3. Update dates in A2, A3              │
-│  4. Clear existing data rows            │
-│  5. Insert new data                     │
-│  6. Save → Slicers preserved!           │
+│  2. Unzip & edit worksheet XML directly │
+│  3. Update banner dates + cached        │
+│     Instructions-sheet formula values   │
+│  4. Replace data rows, resize tables    │
+│  5. Repackage → Slicers preserved!      │
 │                                         │
 └─────────────────────────────────────────┘
 ```
@@ -260,9 +273,9 @@ START
          ▼
 ┌─────────────────┐         ┌─────────────────┐
 │ FOR each quota  │────────▶│ Fetch from      │
-│ (189+ orders)   │         │ EU TARIC site   │
+│ (283 orders)    │         │ EU TARIC site   │
 └────────┬────────┘         └─────────────────┘
-         │ (1 sec delay)
+         │ (0.3–0.8s delay, 5 workers)
          ▼
 ┌─────────────────┐
 │ UK Scraping     │◀────── data/input/uk_quota_urls.xlsx
@@ -337,4 +350,4 @@ the beta forecasting module reads them. No code dependency exists between the tw
 
 ---
 
-*Architecture Document v2.3 - February 2026*
+*Architecture Document v2.4 - July 2026*

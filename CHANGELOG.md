@@ -2,6 +2,60 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.6.0] - 2026-07-06
+
+### July 2026 Regime Migration — New EU/UK Quota Systems
+
+The EU steel safeguard expired 30 June 2026. From 1 July 2026 the pipeline
+tracks the EU's new quota system (Regulation (EU) 2026/1384 + Commission
+Implementing Regulation (EU) 2026/1457) and the UK's steel trade measure
+(implemented under the Taxation (Cross-Border Trade) Act 2018). Both systems
+apply a **50% out-of-quota duty** and allocate quarterly on a
+first-come-first-served basis.
+
+**New Input Workbooks:**
+- `data/input/quota_urls.xlsx` — 283 EU quotas: 30 product category codes
+  (1.A/1.B … 28; codes 11 and 23 do not exist), order numbers in the
+  `099491`–`099955` range, covering country-specific quotas (MFN + FTA parts
+  under one order number), `FTA Quota - CSQ`, `Other countries`, and
+  `FTA Quota - Other countries` residuals
+- `data/input/uk_quota_urls.xlsx` — 75 UK quotas: Table 4 order numbers
+  `058600`–`058671` (20 categories) plus Category-1 authorised-use quotas
+  `058673`/`058674`/`058675` (published only on the UK Integrated Online Tariff)
+- Old safeguard inputs archived in `data/input/archive/`
+- Reference data extracted from the regulations lives in `data/0702NewData/`
+
+**Scraper Parsing Fixes:**
+- EU: validity-period parsing now matches the two DD-MM-YYYY dates directly,
+  tolerating NBSP/newline separators on the new TARIC pages (`src/config.py`)
+- EU: `Total awaiting allocation (indicative)` field captured correctly
+- EU: origin strings stripped of stray whitespace
+- Percentages written on the 0–1 scale so the template's Excel percent
+  formatting displays correctly (was double-scaled)
+- Failed scrapes are excluded from the customer report with a console warning
+  (both EU and UK); the rows remain in the raw-data outputs
+
+**UK Order Numbers:**
+- `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py` replaced with the new-regime
+  dictionary (`058600`–`058675`; `058672` returns no data — the authorised-use
+  quotas were verified live on the UK Integrated Online Tariff on 2026-07-06)
+
+**Template Refresh (`templates/meps_customer_template.xlsx`):**
+- 25% → 50% out-of-quota duty in the explanatory text
+- Notes updated for the new EU/UK regimes
+- Stale filter removed; cached values on the Instructions sheet refreshed
+- Old safeguard template archived in `templates/archive/`
+
+**Restored:**
+- `build/build_exe.py` (removed in v2.5.0) restored; EXE rebuilt for the new
+  regime
+
+**Verification:**
+- 163 tests passing
+- Two full production runs: 283 EU + 75 UK quotas scraped, 0 failures ✓
+
+---
+
 ## [2.5.0] - 2026-02-18
 
 ### Project Reorganization — Forecasting Isolation & Cleanup
@@ -255,18 +309,22 @@ The only shared touchpoint is `data/snapshots/`. No code dependency exists.
 
 ---
 
-## How to Update UK Order Numbers
+## Quarterly Input Maintenance (from 1 July 2026)
 
-When UK quota order numbers change (typically at quarter boundaries):
+Under the UK steel trade measure, order numbers (`058600`–`058675`) are not
+expected to rotate at quarter boundaries. At each quarter turn:
 
-1. Check validity of current order numbers:
+1. Update the `Current Quarter` column in `data/input/quota_urls.xlsx` and
+   `data/input/uk_quota_urls.xlsx` to the new quarter start date
+
+2. Update the UK `Template Quota Limit` column to that quarter's tonnage
+   (columns `q1_jul_sep_t`–`q4_apr_jun_t` in `data/0702NewData/uk_quotas.csv`)
+
+3. Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py` **only** if HMRC
+   changes order numbers:
    ```bash
-   # Visit: https://www.trade-tariff.service.gov.uk/quota_search?order_number=058XXX
+   # Verify at: https://www.trade-tariff.service.gov.uk/quota_search?order_number=058XXX
    ```
-
-2. Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py`
-
-3. Update `data/input/uk_quota_urls.xlsx` with the new order numbers
 
 4. Test the scraper:
    ```bash
@@ -282,4 +340,4 @@ When UK quota order numbers change (typically at quarter boundaries):
 
 - **EU**: [TARIC Quota Database](https://ec.europa.eu/taxation_customs/dds2/taric/quota_consultation.jsp)
 - **UK**: [UK Integrated Online Tariff](https://www.trade-tariff.service.gov.uk/quota_search)
-- **UK Trade Notices**: [GOV.UK Trade Remedies Notices](https://www.gov.uk/government/publications/trade-remedies-notices-tariff-rate-quotas-on-steel-goods)
+- **UK Trade Notice**: [UK's steel trade measure from 1 July 2026 (DBT)](https://www.gov.uk/government/publications/uks-steel-trade-measure-from-1-july-2026/uks-steel-trade-measure-from-1-july-2026)

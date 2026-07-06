@@ -4,6 +4,16 @@
 
 This document describes how data flows from input sources through the scraping system to the final customer-facing MEPS Excel report.
 
+> **July 2026 regime migration:** The old EU/UK steel safeguard ended on 30 June 2026.
+> From 1 July 2026 the pipeline tracks the replacement measures — EU: Regulation (EU)
+> 2026/1384 + Implementing Regulation (EU) 2026/1457 (283 quotas, order numbers
+> 099491–099955, 50% out-of-quota duty); UK: DBT's steel trade measure under the
+> Taxation (Cross-Border Trade) Act 2018 (75 quotas, order numbers 058600–058671
+> plus authorised-use 058673–058675, 50% out-of-quota duty). The flow below is
+> unchanged in shape; the input workbooks carry the new order numbers, and the
+> pre-July-2026 safeguard inputs and template are archived in `data/input/archive/`
+> and `templates/archive/`.
+
 ---
 
 ## 1. INPUT DATA
@@ -12,13 +22,18 @@ This document describes how data flows from input sources through the scraping s
 
 | Column | Description | Example |
 |--------|-------------|---------|
-| Order Number | EU quota order number | 098967 |
-| Quota Category | Steel product category | Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1a |
-| Country | Origin country | Türkiye, India, Korea, Republic of |
-| Current Quarter | Quarter start date | 2026-01-01 |
+| Order Number | EU quota order number | 099801 |
+| Quota Category | Steel product category | Non Alloy and Other Alloy Hot Rolled Sheets and Strips - 1.A |
+| Country | Annex I allocation name | Türkiye, India, Korea, Republic of |
+| Current Quarter | Quarter start date | 2026-07-01 |
 | URL | Link to EU TARIC page | https://ec.europa.eu/taxation_customs/dds2/taric/... |
 
-**Total quotas tracked:** ~189 EU quotas
+**Total quotas tracked:** 283 EU quotas
+
+A companion file `data/input/uk_quota_urls.xlsx` (75 UK quotas, order numbers
+058600–058675) has the same layout plus a `Template Quota Limit` column holding the
+current quarter's tonnage. Pre-July-2026 safeguard inputs are archived in
+`data/input/archive/`.
 
 ---
 
@@ -37,7 +52,7 @@ https://ec.europa.eu/taxation_customs/dds2/taric/quota_tariff_details.jsp
 | Field | Type | Description |
 |-------|------|-------------|
 | order_number | string | Quota identifier |
-| validity_period | string | "01-01-2026 - 31-03-2026" |
+| validity_period | string | "01-07-2026 - 30-09-2026" |
 | origin | string | Country/region of origin |
 | initial_amount | float | Initial quota amount (kg) |
 | amount | float | Current quota amount (kg) |
@@ -57,28 +72,38 @@ https://ec.europa.eu/taxation_customs/dds2/taric/quota_tariff_details.jsp
 
 | Field | Formula | Description |
 |-------|---------|-------------|
-| validity_start | parsed from validity_period | Quarter start |
-| validity_end | parsed from validity_period | Quarter end |
-| quota_used | initial_amount - balance | Tonnage used |
-| quota_used_pct | (quota_used / initial_amount) * 100 | Usage percentage |
-| quota_remaining_pct | (balance / initial_amount) * 100 | Remaining percentage |
-| days_remaining_in_quarter | validity_end - today | Days until quarter ends |
-| daily_burn_rate | quota_used / days_elapsed | Daily usage rate |
-| est_days_until_exhaustion | balance / daily_burn_rate | Estimated exhaustion |
+| validity_start | regex-matched DD-MM-YYYY dates in validity_period | Quarter start |
+| validity_end | regex-matched DD-MM-YYYY dates in validity_period | Quarter end |
+| quota_limit | amount + transferred_amount | MEPS Quota Limit |
+| balance_remaining | balance - awaiting_allocation (floored at 0) | MEPS Balance Remaining |
+| quota_allocated | quota_limit - balance_remaining | Tonnage used |
+| pct_allocated | (quota_allocated / quota_limit) * 100 | Usage percentage (internal 0-100 scale) |
+| pct_remaining | (balance_remaining / quota_limit) * 100 | Remaining percentage (internal 0-100 scale) |
+| days_remaining | validity_end - today | Days until quarter ends |
+| daily_burn_rate | quota_allocated / days_elapsed | Daily usage rate |
+| est_days_to_exhaustion | balance_remaining / daily_burn_rate | Estimated exhaustion |
+
+Validity dates are extracted by regex (the two `DD-MM-YYYY` dates are matched
+directly), so the parser tolerates whatever separator TARIC renders between them
+(spaces, NBSP, newlines).
 
 ---
 
 ## 3. OUTPUT FILES
 
 ### 3.1 Raw Scraping Output
-**File:** `data/output/eu_quota_report_YYYYMMDD.xlsx`
+**Files:** `data/output/YYYY-MM-DD/eu_quota_raw_YYYYMMDD.xlsx` and `uk_quota_raw_YYYYMMDD.xlsx`
 
-Contains all scraped fields plus input data and calculated metrics.
+Contains all scraped fields plus input data and calculated metrics. Rows whose
+scrape failed remain here, flagged `scrape_status = failed`.
 
 ### 3.2 Customer Report
-**File:** `data/output/eu_quota_report_YYYYMMDD_customer.xlsx`
+**File:** `data/output/YYYY-MM-DD/MEPS_Quota_Update_YYYYMMDD.xlsx`
 
-Simplified view with selected columns for customer delivery.
+Simplified view with selected columns for customer delivery, generated
+automatically from the MEPS template (EU and UK sheets). Failed scrapes are
+excluded from this report, with a console warning listing the affected order
+numbers.
 
 ### 3.3 Historical Snapshot
 **File:** `data/snapshots/snapshot_YYYYMMDD_HHMMSS.xlsx`
@@ -95,8 +120,8 @@ Timestamped snapshot for trend analysis.
 
 ```
 Sheet 1: Instructions
-├── Title: "MEPS Quota Update - December 2025"
-├── Overview of EU and UK safeguard systems
+├── Title: "MEPS Quota Update - <Month Year>" (auto-updated at generation)
+├── Overview of the EU and UK quota systems
 ├── Notes on source data
 └── Instructions for using slicers/filters
 
@@ -116,12 +141,15 @@ Sheet 3: United Kingdom
 | Column | Source | Calculation |
 |--------|--------|-------------|
 | Quota Category | input_quota_category | Direct mapping |
-| Country | origin | Direct mapping |
+| Country | input Country column (Annex I allocation names; falls back to scraped origin) | Direct mapping |
 | Quota Limit (Tonnes) | **amount + transferred_amount** | Calculated |
-| Quota Allocated (Tonnes) | quota_used (initial_amount - balance) | Calculated |
-| % Quota Allocated | quota_used_pct | Calculated |
+| Quota Allocated (Tonnes) | quota_allocated (quota_limit - balance_remaining) | Calculated |
+| % Quota Allocated | pct_allocated | 0-1 fraction, Excel '0%' format |
 | Balance Remaining (Tonnes) | **balance - awaiting_allocation** | Calculated |
-| % Balance Remaining | 100 - quota_used_pct | Calculated |
+| % Balance Remaining | pct_remaining (balance_remaining / quota_limit) | 0-1 fraction, Excel '0%' format |
+
+Percentages are converted from the internal 0-100 scale to 0-1 fractions in
+`prepare_customer_data` and written as-is for Excel's `'0%'` number format.
 
 ---
 
@@ -138,16 +166,14 @@ balance - awaiting_allocation = Balance Remaining
 (Left side = source data, Right side = published information)
 ```
 
-### Current Issue
-The existing `data_processor.py` calculates differently than the MEPS template expects:
+### Status: implemented
+`data_processor.py` implements the MEPS formulas directly:
 
-| Current Code | MEPS Template Expects |
-|--------------|----------------------|
-| `initial_amount - balance` → quota_used | Same |
-| `balance` → remaining | `balance - awaiting_allocation` |
-| Not calculated | `amount + transferred_amount` → Quota Limit |
-
-**This mapping needs to be fixed in the rebuild.**
+| MEPS Column | Code |
+|-------------|------|
+| Quota Limit | `quota_limit = amount + transferred_amount` |
+| Balance Remaining | `balance_remaining = balance - awaiting_allocation` (floored at 0) |
+| Quota Allocated | `quota_allocated = quota_limit - balance_remaining` |
 
 ---
 
@@ -160,8 +186,8 @@ The existing `data_processor.py` calculates differently than the MEPS template e
 - Clear filter buttons included
 
 ### Excel Tables
-- `EU_Quotas4`: European Union data (rows 15-204)
-- `UK_Quotas`: United Kingdom data (rows 15-86)
+- `EU_Quotas4`: European Union data (header row 15; table ref resized at generation to the row count — 283 EU rows → A15:G298)
+- `UK_Quotas`: United Kingdom data (header row 15; 75 UK rows → A15:G90)
 - Features: Auto-filter headers, row stripes, header styling
 
 ### Sheet Protection
@@ -172,6 +198,9 @@ The existing `data_processor.py` calculates differently than the MEPS template e
 - Instructions sheet pulls dates from data sheets:
   - `'European Union'!A2` → Current quota period
   - `'European Union'!A3` → Latest available data
+- The formulas' cached values (stored in sheet1.xml) are patched at generation
+  time, so previewers that don't recalculate on load (LibreOffice, pandas) still
+  show the fresh dates; `fullCalcOnLoad` is also set for Excel
 
 ### Hyperlinks
 - Links to EU TARIC consultation page
@@ -185,49 +214,51 @@ The existing `data_processor.py` calculates differently than the MEPS template e
 - All quota data values
 - Percentage calculations
 - Order numbers and categories
-- Country/origin information
+- Country information (from the input file's Annex I allocation names)
 - Balance and allocation figures
+- "Current quota period" / "Latest available data" banners (extracted from
+  scraped validity periods and scrape timestamps)
+- **UK data** (`src/uk_scraper.py`, UK Trade Tariff JSON API)
 
 ### Manual (Analyst Input Required)
-- "Current quota period: 01-Oct-2025 to 30-Dec-2025"
-- "Latest available data: 12-Dec-2025"
 - Explanatory notes about policy changes
-- Special annotations (e.g., Russian slab quota changes)
-- **UK data** (requires separate scraper - different source)
+- Special annotations
+- Quarterly input maintenance: at each quarter turn, update the "Current Quarter"
+  column in both input workbooks and the UK "Template Quota Limit" column to that
+  quarter's tonnage
 
 ---
 
 ## 8. DATA REFRESH WORKFLOW
 
 ```
-1. Update input file with any new quotas
+1. Update input files with any new quotas
          ↓
-2. Run scraper (main.py)
+2. Run scraper (run.py / src/main.py)
          ↓
 3. Raw data saved to output/
          ↓
 4. Snapshot saved to snapshots/
          ↓
-5. [MANUAL] Copy data to MEPS template
+5. MEPS report generated from template
+   (data, tables, and period dates auto-filled)
          ↓
-6. [MANUAL] Update period dates
+6. [MANUAL] Review; add analyst notes if needed
          ↓
-7. [MANUAL] Add analyst notes
-         ↓
-8. Deliver to customer
+7. Deliver to customer
 ```
 
 ---
 
 ## 9. KEY OBSERVATIONS FOR REBUILD
 
-1. **Calculation Mismatch**: Current processor uses `initial_amount`, but MEPS template uses `amount + transferred_amount` for Quota Limit
+1. **Calculation Mismatch** *(resolved)*: `data_processor.py` now uses `amount + transferred_amount` for Quota Limit
 
-2. **Missing Field**: Need to calculate `balance - awaiting_allocation` for Balance Remaining
+2. **Missing Field** *(resolved)*: `balance - awaiting_allocation` is calculated for Balance Remaining (floored at 0)
 
-3. **UK Data Gap**: No scraper exists for UK quotas (different data source)
+3. **UK Data Gap** *(resolved)*: `src/uk_scraper.py` scrapes UK quotas via the UK Trade Tariff JSON API
 
-4. **Manual Steps**: Template requires manual updates for dates and analyst notes
+4. **Manual Steps** *(mostly resolved)*: Dates are auto-filled at generation; analyst notes remain manual
 
 5. **Slicer Dependency**: Interactive features rely on Excel table structure
 

@@ -16,6 +16,14 @@
 
 ## Priority 3: UK Support (Completed)
 
+> **Superseded (1 July 2026):** The order numbers and category list below describe
+> the old UK steel safeguard, which expired 30 June 2026. The current UK steel
+> trade measure uses order numbers `058600`-`058671` (20 categories, Table 4 of
+> the DBT notice) plus Category-1 authorised-use quotas `058673`/`058674`/`058675`
+> — 75 quotas total. See `data/0702NewData/uk_quota_findings.md` and
+> `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py`. Section kept as a historical
+> record of the completed work.
+
 ### Research Completed (Jan 2026)
 
 **UK Data Source Verified:**
@@ -23,7 +31,7 @@
 - URL: `https://www.trade-tariff.service.gov.uk/quota_search?order_number={ORDER_NUMBER}`
 - Data updated: Daily (excluding weekends and bank holidays)
 - Units: **Kilograms** (must convert to Tonnes for MEPS report)
-- Order numbers: 6 digits starting with "058" (e.g., 058001, 058006)
+- Order numbers: 6 digits starting with "058" (e.g., 058001, 058006 — old safeguard; now 058600+)
 
 **UK Categories (17 total):**
 | Category | Name |
@@ -65,7 +73,7 @@
 - [x] `src/config.py` - UK_BASE_URL and UK_QUOTA_FIELDS added
 - [x] `src/__init__.py` - UKQuotaScraper exported
 - [x] `data/input/uk_quota_urls.xlsx` - Created with EU-matching format (updated 2026-01-25)
-- [x] `dev/scripts/update_uk_input.py` - Script to regenerate UK input file
+- [x] `dev/scripts/update_uk_input.py` - Script to regenerate UK input file *(removed in v2.5.0; update the input workbook manually)*
 
 ### Completed Tasks
 
@@ -104,9 +112,15 @@
 
 ### Phase 2: Preprocessing + Baseline Models (Pending)
 
-- [ ] Accumulate 30+ daily snapshots (in progress — 3/30 as of 2026-02-18)
+- [ ] Accumulate 30+ daily snapshots **from the new regime** (restarted at the
+      1 July 2026 regime boundary — 1/30 new-regime days as of 2026-07-06)
 - [ ] `preprocessor.py` — rolling features, seasonality flags, outlier detection
 - [ ] `simple_models.py` — naive, moving average, linear trend baselines
+- [ ] **Regime boundary guard**: models must never train across 1 July 2026.
+      The old safeguard (189 EU quotas) ended 30 June 2026; the new regime
+      (283 EU quotas, different order numbers and volumes) started 1 July 2026.
+      Pre-July and post-July series are different quota populations — filter
+      snapshots to a single regime before fitting.
 
 ### Phase 3: Prophet Models (Pending)
 
@@ -119,19 +133,39 @@
 
 | Item | Value |
 |------|-------|
-| Snapshots collected | 3 |
-| Date range | 2026-01-24 → 2026-02-18 |
-| Unique quotas | 189 |
-| Prophet ready | No (need 30+ days) |
-| Est. ready date | ~late Feb 2026 |
+| Snapshot days collected | 4 (3 old regime + 1 new regime) |
+| Date range | 2026-01-24 → 2026-07-06 |
+| Unique quotas | 472 (189 old regime + 283 new regime — do not mix) |
+| Prophet ready | No (need 30+ new-regime days) |
+| Est. ready date | ~early Aug 2026 |
+
+## Priority 6: New-Regime Maintenance (Open)
+
+The EU/UK quota systems changed on 1 July 2026 (EU: Regulation (EU) 2026/1384 +
+Implementing Regulation (EU) 2026/1457; UK: steel trade measure under the
+Taxation (Cross-Border Trade) Act 2018). Recurring/upcoming tasks:
+
+- [ ] **1 Oct 2026 quarter turn**: update the `Current Quarter` column in
+      `data/input/quota_urls.xlsx` and `data/input/uk_quota_urls.xlsx` to
+      `2026-10-01`, and update the UK `Template Quota Limit` column to the
+      Oct-Dec tonnages (`q2_oct_dec_t` in `data/0702NewData/uk_quotas.csv`).
+      Repeat each quarter (`q3_jan_mar_t` on 1 Jan, `q4_apr_jun_t` on 1 Apr).
+- [ ] **Jan 2027**: Implementing Regulation (EU) 2026/1457 defines the EU quotas
+      only for 1 Jul - 31 Dec 2026; renewal expected January 2027. Check the new
+      IR and update `data/input/quota_urls.xlsx` if order numbers/volumes change.
+- [ ] Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py` **only** if HMRC
+      changes order numbers (they are not expected to rotate quarterly under the
+      new measure).
+- [ ] `beta/` forecasting: enforce the 1 July 2026 regime boundary before any
+      Phase 2/3 training (see Priority 5).
 
 ## Notes
 
-- EU scraping: ~1-2 minutes for 189 quotas (fast HTTP)
-- UK scraping: ~30 seconds for 73 quotas (API)
+- EU scraping: ~1-2 minutes for 283 quotas (fast HTTP)
+- UK scraping: ~30 seconds for 75 quotas (API)
 - Combined runtime: ~2-3 minutes
 - **Main pipeline focus**: Correct data + correct format in `meps_customer_template.xlsx`
 - **Forecasting**: Experimental, completely independent of main pipeline
 
 ---
-*Last updated: 18-Feb-2026*
+*Last updated: 06-Jul-2026*

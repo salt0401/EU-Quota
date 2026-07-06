@@ -1,10 +1,10 @@
-# EU Quota Scraper v2.4
+# EU Quota Scraper v2.6
 
-Automated collection of EU steel tariff quota data from the European Commission's TARIC database.
+Automated collection of EU and UK steel tariff quota data from the European Commission's TARIC database and the UK Integrated Online Tariff.
 
 ## Overview
 
-This tool scrapes quota usage data from the EU TARIC system to track steel import quotas. When quotas are exhausted, a **25% tariff** applies to additional imports.
+This tool scrapes quota usage data from the EU TARIC system to track steel import quotas. When quotas are exhausted, a **50% tariff** applies to additional imports (Regulation (EU) 2026/1384, effective 1 July 2026). UK quotas are tracked from the UK Integrated Online Tariff under the UK's steel trade measure (also effective 1 July 2026, also with a 50% out-of-quota duty).
 
 ### Key Features
 
@@ -15,7 +15,7 @@ This tool scrapes quota usage data from the EU TARIC system to track steel impor
 - **Automatic date detection** for quota periods
 - **Dated output folders** (YYYY-MM-DD) for historical tracking
 - **Daily auto-snapshot** on Windows login (Task Scheduler) with idempotent skip
-- **189 EU quotas** tracked across multiple steel products and origin countries
+- **283 EU quotas** and **75 UK quotas** tracked across multiple steel products and origin countries (new regimes effective 1 July 2026)
 
 ### Calculations (MEPS Formula)
 
@@ -68,9 +68,7 @@ EU Quota/
 │   ├── main.py                    # Main entry point
 │   ├── config.py                  # Configuration & quarter utilities
 │   ├── scraper.py                 # EU HTTP scraper (fast)
-│   ├── scraper_selenium.py        # EU Selenium scraper (backup)
 │   ├── uk_scraper.py              # UK API scraper (fast)
-│   ├── uk_scraper_selenium.py     # UK Selenium scraper (backup)
 │   ├── data_processor.py          # Data calculations (MEPS formulas)
 │   ├── excel_generator.py         # MEPS report generator (preserves slicers)
 │   ├── snapshot_scheduler.py      # Daily auto-snapshot logic
@@ -84,15 +82,18 @@ EU Quota/
 │
 ├── data/                          # DATA - Runtime data
 │   ├── input/                     # Input files
-│   │   ├── quota_urls.xlsx        # EU quota list to track
-│   │   └── uk_quota_urls.xlsx     # UK quota list to track
+│   │   ├── quota_urls.xlsx        # EU quota list to track (283 quotas)
+│   │   ├── uk_quota_urls.xlsx     # UK quota list to track (75 quotas)
+│   │   └── archive/               # Old safeguard inputs (pre-July 2026)
+│   ├── 0702NewData/               # Reference data for the July 2026 regimes
 │   ├── output/                    # Output by date
 │   │   └── YYYY-MM-DD/            # Dated folders
 │   ├── snapshots/                 # Historical snapshots
 │   └── logs/                      # Daily auto-snapshot logs
 │
 ├── templates/                     # TEMPLATES - Excel templates
-│   └── meps_customer_template.xlsx  # MEPS template with slicers
+│   ├── meps_customer_template.xlsx  # MEPS template with slicers
+│   └── archive/                   # Old safeguard template (pre-July 2026)
 │
 ├── docs/                          # DOCS - Documentation
 │   ├── ARCHITECTURE.md            # System architecture
@@ -100,9 +101,11 @@ EU Quota/
 │   ├── INSTRUCTIONS_繁體中文.md    # Traditional Chinese instructions
 │   └── TODO.md                    # Feature roadmap
 │
-├── dev/                           # DEV TOOLS - Development utilities
-│   ├── scripts/                   # Utility scripts
-│   └── analysis/                  # Analysis and debugging tools
+├── beta/                          # EXPERIMENTAL - Forecasting (isolated from src/)
+│   ├── forecasting/               # Prophet data loader + Phase 2 skeletons
+│   └── tests/                     # Beta-only unit tests
+│
+├── tests/                         # Main pipeline unit tests
 │
 ├── run.py                         # Convenience entry point
 ├── daily_snapshot.py              # Auto-snapshot entry point (Task Scheduler)
@@ -131,10 +134,10 @@ The distribution package will be created in `dist/EU_Quota_Scraper/` folder.
 
 ## Technical Notes
 
-- **Order Number Format**: Automatically pads to 6 digits (e.g., `98967` → `098967`)
-- **Quarterly Periods**: Q1 (Jan-Mar), Q2 (Apr-Jun), Q3 (Jul-Sep), Q4 (Oct-Dec)
+- **Order Number Format**: Automatically pads to 6 digits (e.g., `99801` → `099801`; EU order numbers are `0994xx`-`0999xx`, UK order numbers are `0586xx`)
+- **Quarterly Periods**: Q1 (Jan-Mar), Q2 (Apr-Jun), Q3 (Jul-Sep), Q4 (Oct-Dec); note the UK quota year runs 1 July - 30 June
 - **Rate Limiting**: Random delays (EU: 0.3-0.8s, UK: 0.2-0.5s)
-- **Expected Runtime**: ~1-2 minutes for all quotas (EU + UK)
+- **Expected Runtime**: ~2-3 minutes for all quotas (EU + UK)
 - **Concurrent Workers**: 5 parallel requests for faster scraping
 
 ## Daily Auto-Snapshot (Windows)
@@ -161,10 +164,11 @@ Logs saved to `data/logs/daily_YYYYMMDD.log`. After 30+ daily snapshots, the dat
 - [繁體中文說明](docs/INSTRUCTIONS_繁體中文.md)
 - [System Architecture](docs/ARCHITECTURE.md)
 
-## Data Source
+## Data Sources
 
-[EU TARIC Quota Database](https://ec.europa.eu/taxation_customs/dds2/taric/quota_consultation.jsp)
+- [EU TARIC Quota Database](https://ec.europa.eu/taxation_customs/dds2/taric/quota_consultation.jsp)
+- [UK Integrated Online Tariff](https://www.trade-tariff.service.gov.uk/quota_search)
 
 ---
 
-*Version 2.4 - February 2026 (Daily auto-snapshot with Windows Task Scheduler)*
+*Version 2.6 - July 2026 (new EU/UK quota regimes effective 1 July 2026)*

@@ -1,0 +1,56 @@
+DECISION NEEDED — UK Category 1 "authorised use" quotas (discuss Friday)
+=========================================================================
+Date raised: 6 July 2026
+Deadline context: quota update must be ready and tested by 17 July 2026.
+
+THE QUESTION
+------------
+Should the MEPS report track the UK Category 1 authorised-use quotas?
+They are currently INCLUDED (3 extra rows on the United Kingdom sheet).
+This goes slightly beyond the brief, which scoped the UK update to
+"quota volumes and order numbers ... in Tables 3 and 4" of the DBT notice.
+
+THE FACTS
+---------
+- The DBT notice "UK's steel trade measure from 1 July 2026" opens, in
+  addition to the ordinary Table 3/4 quotas, a separate authorised-use
+  quota for Category 1 (hot-rolled sheet/strip imported for downstream
+  processing) — Table 1 of the notice: 595,950 t in Q1 with a 40%
+  per-country per-quarter cap.
+- That is roughly FIVE TIMES the combined ordinary Category 1 quotas
+  (116,750 t/quarter), so it is most of the true UK hot-rolled headroom.
+- Its order numbers are NOT in Table 4; they are only published on the
+  UK Integrated Online Tariff. Verified live on the HMRC quota API
+  (2026-07-06):
+      058673  European Union   238,380 t/quarter   (6,030 t already drawn)
+      058674  India            238,380 t/quarter
+      058675  Residual         119,190 t/quarter
+      (058672 returns no data — unused)
+- They are scraped through the exact same API as every other UK quota;
+  no code changes were needed.
+
+CURRENT STATE
+-------------
+- data/input/uk_quota_urls.xlsx contains the 3 rows (75 UK rows total),
+  category label: "Non-alloy and other alloy hot-rolled sheets and strips
+  (authorised use) - 1".
+- UK_QUOTA_ORDER_NUMBERS in src/uk_scraper.py includes them
+  ('1_Authorised_Use_*' keys).
+- The customer template's UK analyst note mentions the authorised-use
+  quota exists.
+
+TO KEEP (no action needed)
+--------------------------
+Nothing to do. Customers importing hot-rolled coil for processing see
+the full picture.
+
+TO REMOVE (if MEPS wants strict Table 3/4 scope)
+------------------------------------------------
+1. Delete the 3 rows (order numbers 058673-058675) from
+   data/input/uk_quota_urls.xlsx.
+2. Delete the three '1_Authorised_Use_*' entries in
+   src/uk_scraper.py UK_QUOTA_ORDER_NUMBERS.
+3. In tests/test_uk_scraper.py, revert test_expected_order_number_set
+   to expect 72 numbers = range(058600..058671).
+4. Optionally reword the United Kingdom sheet analyst note (template) to
+   say authorised-use usage is NOT included in this report.
