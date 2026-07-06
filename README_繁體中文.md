@@ -29,11 +29,9 @@
 自 2026 年 7 月起，爬蟲每天早上（05:30 UTC）在 GitHub Actions 上自動執行，無需任何人手動操作：
 
 1. GitHub 伺服器自動爬取所有歐盟與英國配額並產生報告（`.github/workflows/daily-quota-update.yml`）。
-2. 結果會提交到 `data/published/`：
-   - `MEPS_Quota_Update_latest.xlsx` — 最新客戶報告
-   - `quota_history.csv` — 每個配額每天一列（資料分析用資料集）
-   - `Quota_History.xlsx` — 同樣的歷史資料（格式化活頁簿）
-   - `metadata.json` — 時間戳記與執行摘要
+2. 結果發布到兩個位置：
+   - 提交到 `data/published/`：`quota_history.csv`（每個配額每天一列，資料分析用資料集）與 `metadata.json`（執行摘要）
+   - 上傳到滾動式 **latest-data** release：`MEPS_Quota_Update_latest.xlsx`（最新客戶報告）與 `Quota_History.xlsx`（格式化歷史活頁簿）— 不進入 git，避免每日活頁簿檔案使儲存庫不斷膨脹
 3. 同事執行 **`MEPS_Quota_Downloader.exe`**（單一小檔案，由 `download.py` 建置），透過公開 raw URL 下載上述檔案。儲存庫必須保持**公開**，如此便無需任何 token 或登入。
 
 手動觸發：GitHub → Actions → 「Daily quota update」→ Run workflow。

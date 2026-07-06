@@ -181,6 +181,28 @@ def run_scraper(
         date_col = '_start_date'
         print(f"  Using current quarter start date: {quarter_start}")
 
+    # Guard against a stale 'Current Quarter' column after a quarter turn:
+    # TARIC happily serves the frozen final state of an expired window as a
+    # successful scrape, which would publish old data under fresh dates.
+    def _as_date_str(v):
+        return v.strftime('%Y-%m-%d') if hasattr(v, 'strftime') else str(v)[:10]
+
+    stale_mask = quotas_df[date_col].map(
+        lambda v: pd.notna(v) and _as_date_str(v) < quarter_start)
+    if stale_mask.any():
+        n_stale = int(stale_mask.sum())
+        if publish:
+            print(f"  WARNING: {n_stale} row(s) carry a start date from a past "
+                  f"quarter — overriding with current quarter start "
+                  f"{quarter_start} for this published run. Please update the "
+                  f"'Current Quarter' column in the input workbook.")
+            quotas_df = quotas_df.copy()
+            quotas_df.loc[stale_mask, date_col] = quarter_start
+        else:
+            print(f"  WARNING: {n_stale} row(s) carry a start date from a past "
+                  f"quarter ({_as_date_str(quotas_df.loc[stale_mask, date_col].iloc[0])}); "
+                  f"TARIC will return the frozen state of that expired window.")
+
     # Fetch all quotas
     raw_data = scraper.fetch_all_quotas(quotas_df, order_col=order_col, date_col=date_col)
 
@@ -294,6 +316,15 @@ def run_scraper(
 
     # 4. Published data for the downloader (daily GitHub Actions run)
     if publish:
+        # A publish without UK rows would silently drop the UK from the
+        # customer-facing dataset (and, on a same-date re-run, from that
+        # date's history). Missing input file / empty sheet must fail loudly.
+        if not skip_uk and (uk_processed_data is None or uk_processed_data.empty):
+            print("\nERROR: --publish requested but UK scraping produced no rows "
+                  "(missing or empty uk_quota_urls.xlsx?). Refusing to publish "
+                  "a UK-less dataset; fix the input or pass --skip-uk explicitly.")
+            return None
+
         from src.publisher import publish_data
         print("\nPublishing data for the downloader...")
         publish_dir = os.path.join(os.path.dirname(get_input_folder()), "published")

@@ -103,6 +103,20 @@ class TestHistoryCsv:
         total = update_history_csv(path, rows, '2026-07-06')  # re-run same day
         assert total == 2  # replaced, not duplicated
 
+    def test_single_region_rerun_preserves_other_region(self, tmp_path):
+        # A same-date re-run that produced only EU rows must NOT delete the
+        # date's existing UK rows (e.g. workflow retry with a broken UK input)
+        path = str(tmp_path / 'quota_history.csv')
+        both = (build_eu_history_rows(_eu_df(), '2026-07-06')
+                + build_uk_history_rows(_uk_df(), '2026-07-06'))
+        assert update_history_csv(path, both, '2026-07-06') == 3
+        eu_only = build_eu_history_rows(_eu_df(), '2026-07-06')
+        total = update_history_csv(path, eu_only, '2026-07-06')
+        assert total == 3  # UK row survived
+        with io.open(path, encoding='utf-8-sig', newline='') as f:
+            regions = {r['region'] for r in csv.DictReader(f)}
+        assert regions == {'EU', 'UK'}
+
     def test_unicode_country_survives_roundtrip(self, tmp_path):
         path = str(tmp_path / 'quota_history.csv')
         update_history_csv(path, build_eu_history_rows(_eu_df(), '2026-07-06'),
@@ -135,6 +149,34 @@ class TestPublishData:
         with io.open(os.path.join(publish_dir, 'metadata.json'), encoding='utf-8') as f:
             on_disk = json.load(f)
         assert on_disk['quota_period'] == '01-Jul-2026 to 30-Sep-2026'
+
+    def test_refuses_mostly_failed_scrape(self, tmp_path):
+        # >50% failures means the source is broken (or the regulation was
+        # renewed with new order numbers) — publishing would serve garbage
+        from datetime import date
+        report = tmp_path / 'report.xlsx'
+        report.write_bytes(b'PK\x03\x04fake')
+        df = _eu_df()
+        df['scrape_status'] = ['failed', 'failed']
+        with pytest.raises(RuntimeError, match='failed to scrape'):
+            publish_data(df, _uk_df(), str(report), str(tmp_path / 'pub'),
+                         run_date=date(2026, 7, 6))
+
+    def test_refuses_expired_quota_window(self, tmp_path):
+        # Stale StartDate: TARIC returns the frozen state of an expired
+        # window as a successful scrape — the gate must catch it
+        from datetime import date
+        report = tmp_path / 'report.xlsx'
+        report.write_bytes(b'PK\x03\x04fake')
+        df = _eu_df()
+        df['validity_end'] = ['30-09-2026', '30-09-2026']
+        with pytest.raises(RuntimeError, match='stale'):
+            publish_data(df, _uk_df(), str(report), str(tmp_path / 'pub'),
+                         run_date=date(2026, 10, 2))
+        # ...and passes while the window is still open
+        meta = publish_data(df, _uk_df(), str(report), str(tmp_path / 'pub2'),
+                            run_date=date(2026, 7, 6))
+        assert meta['eu_quotas'] == 2
 
     def test_history_xlsx_has_region_sheets(self, tmp_path):
         path = str(tmp_path / 'quota_history.csv')

@@ -1,12 +1,17 @@
 name: Daily quota update
 
-# Scrapes EU TARIC + UK Trade Tariff every morning and commits the published
-# data files (latest report, daily history, metadata) back to the repository.
-# The colleague-facing downloader program fetches these over public raw URLs.
+# Scrapes EU TARIC + UK Trade Tariff every morning and publishes the results:
+#   - quota_history.csv + metadata.json  -> committed to data/published/
+#   - the two workbooks                  -> rolling release assets
+#     ("latest-data" release; keeps daily xlsx blobs out of git history)
+# The colleague-facing downloader fetches both over public URLs (repo must
+# stay PUBLIC — that is what makes anonymous downloads work).
 #
 # 05:30 UTC ~ after the UK Trade Tariff daily refresh and the TARIC morning
 # allocation, before European business hours. Runs every day: EU balances
-# move on weekends too. Note GitHub cron can fire up to ~15 min late.
+# move on weekends too. GitHub cron can fire up to ~15 min late.
+#
+# RUNBOOK: see docs/DAILY_UPDATE_RUNBOOK.md (failures open a GitHub issue).
 
 on:
   schedule:
@@ -15,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: daily-quota-update
@@ -37,30 +43,76 @@ jobs:
           cache-dependency-path: requirements-ci.txt
 
       - name: Install dependencies
-        run: pip install -r requirements-ci.txt
+        run: pip install -r requirements-ci.txt pytest
+
+      - name: Sanity-test the publish pipeline before scraping
+        run: python -m pytest tests/test_publisher.py tests/test_downloader.py tests/test_data_processor.py -q
 
       - name: Scrape quotas and publish data
         run: python run.py --publish
 
-      - name: Commit published data
+      - name: Commit published data (csv + metadata only)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/published
+          git add data/published/quota_history.csv data/published/metadata.json
           if git diff --cached --quiet; then
             echo "No data changes to publish."
           else
             git commit -m "data: daily quota update $(date -u +%F)"
             # tolerate a manual push that landed while we were scraping
-            git pull --rebase origin main
+            git pull --rebase origin main || { git rebase --abort; git pull --rebase -X theirs origin main; }
             git push origin main
+          fi
+
+      - name: Publish workbooks as rolling release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest-data >/dev/null 2>&1 || \
+            gh release create latest-data \
+              --title "Latest quota data" \
+              --notes "Rolling data release — assets are overwritten every day by the Daily quota update workflow. Use MEPS_Quota_Downloader.exe (or download.py) to fetch them." \
+              --latest=false
+          gh release upload latest-data \
+            data/published/MEPS_Quota_Update_latest.xlsx \
+            data/published/Quota_History.xlsx \
+            --clobber
+
+      - name: Upload scrape output as artifact (for recovery)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-run-output
+          path: |
+            data/published/
+            data/output/
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Open or update tracking issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          EXISTING=$(gh issue list --state open --search 'Daily quota update failing in:title' --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "Failed again on $(date -u +%F): $RUN_URL"
+          else
+            gh issue create \
+              --title "Daily quota update failing" \
+              --body "The scheduled quota scrape failed on $(date -u +%F). Run: $RUN_URL — see docs/DAILY_UPDATE_RUNBOOK.md. Colleagues' downloads keep serving the LAST successful day until this is fixed. Note: if the workflow keeps failing with no commits for ~60 days, GitHub disables the schedule (re-enable under the Actions tab)."
           fi
 
       - name: Run summary
         if: always()
         run: |
+          echo '## Daily quota update' >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ job.status }}" != "success" ]; then
+            echo '> :warning: **This run FAILED — any metadata below is from the last successful run, not this one.**' >> "$GITHUB_STEP_SUMMARY"
+          fi
           if [ -f data/published/metadata.json ]; then
-            echo '## Daily quota update' >> "$GITHUB_STEP_SUMMARY"
             echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat data/published/metadata.json >> "$GITHUB_STEP_SUMMARY"
             echo '' >> "$GITHUB_STEP_SUMMARY"

@@ -31,11 +31,13 @@ GitHub Actions — nobody needs to run the scraper by hand:
 
 1. A GitHub-hosted runner scrapes all EU + UK quotas and generates the report
    (`.github/workflows/daily-quota-update.yml`).
-2. The results are committed to `data/published/`:
-   - `MEPS_Quota_Update_latest.xlsx` — latest customer report
-   - `quota_history.csv` — one row per quota per day (the analysis dataset)
-   - `Quota_History.xlsx` — the same history as a formatted workbook
-   - `metadata.json` — timestamp and run summary
+2. The results are published in two places:
+   - committed to `data/published/`: `quota_history.csv` (one row per quota
+     per day — the analysis dataset) and `metadata.json` (run summary)
+   - uploaded to the rolling **latest-data** release:
+     `MEPS_Quota_Update_latest.xlsx` (latest customer report) and
+     `Quota_History.xlsx` (the history as a formatted workbook) — kept out
+     of git so daily workbook blobs don't grow the repository
 3. Colleagues run **`MEPS_Quota_Downloader.exe`** (a single small file, built
    from `download.py`), which fetches those files over public raw URLs.
    The repository must stay **public** — that way no token or login is needed.

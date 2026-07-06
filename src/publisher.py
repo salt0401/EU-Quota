@@ -101,11 +101,19 @@ def build_uk_history_rows(uk_df: pd.DataFrame, run_date: str) -> List[Dict]:
 
 def update_history_csv(history_path: str, new_rows: List[Dict], run_date: str) -> int:
     """Append today's rows to the history CSV, replacing any existing rows for
-    the same date (idempotent re-runs). Returns the total row count."""
+    the same date (idempotent re-runs). Returns the total row count.
+
+    Replacement is per (date, region): a re-run that produced rows for only
+    one region keeps the other region's existing rows for that date instead
+    of silently deleting them.
+    """
+    new_regions = {r['region'] for r in new_rows}
     existing = []
     if os.path.exists(history_path):
         with io.open(history_path, 'r', encoding='utf-8-sig', newline='') as f:
-            existing = [row for row in csv.DictReader(f) if row.get('date') != run_date]
+            existing = [row for row in csv.DictReader(f)
+                        if not (row.get('date') == run_date
+                                and row.get('region') in new_regions)]
 
     all_rows = existing + new_rows
     all_rows.sort(key=lambda r: (r['date'], r['region'], r['order_number']))
@@ -165,6 +173,36 @@ def generate_history_xlsx(history_path: str, xlsx_path: str):
     wb.save(xlsx_path)
 
 
+def _check_publish_gates(eu_df: pd.DataFrame, eu_rows: List[Dict],
+                         uk_rows: List[Dict], run_date: date):
+    """Refuse to publish datasets that would mislead: a mostly-failed scrape,
+    or EU data whose quota window already expired (stale StartDate — TARIC
+    serves expired windows as successful scrapes)."""
+    for label, rows in (('EU', eu_rows), ('UK', uk_rows)):
+        if rows:
+            failed = sum(1 for r in rows if r['scrape_status'] != 'ok')
+            if failed / len(rows) > 0.5:
+                raise RuntimeError(
+                    f"Refusing to publish: {failed}/{len(rows)} {label} quotas "
+                    f"failed to scrape — the source site is likely broken or "
+                    f"the quota definitions no longer exist (regulation "
+                    f"renewal?). Fix the scrape before publishing.")
+
+    if eu_df is not None and not eu_df.empty and 'validity_end' in eu_df.columns:
+        ends = eu_df['validity_end'].dropna().astype(str)
+        if len(ends) > 0:
+            try:
+                modal_end = datetime.strptime(ends.mode().iloc[0], '%d-%m-%Y').date()
+                if modal_end < run_date:
+                    raise RuntimeError(
+                        f"Refusing to publish: the dominant EU quota window "
+                        f"ended {modal_end} (before run date {run_date}) — the "
+                        f"input workbook's 'Current Quarter' StartDate is stale "
+                        f"and TARIC returned a frozen expired window.")
+            except ValueError:
+                pass  # unparseable dates: don't block on the gate itself
+
+
 def publish_data(
     eu_df: pd.DataFrame,
     uk_df: Optional[pd.DataFrame],
@@ -173,28 +211,28 @@ def publish_data(
     run_date: Optional[date] = None,
     period_display: str = '',
 ) -> dict:
-    """Write/update everything in data/published/. Returns a summary dict."""
+    """Write/update everything in data/published/. Returns a summary dict.
+
+    Write order: canonical text data (csv, metadata) first, lock-prone xlsx
+    artifacts last — a workbook left open in Excel locally must not leave the
+    canonical data half-published.
+    """
     if run_date is None:
         run_date = date.today()
     date_str = run_date.strftime('%Y-%m-%d')
     os.makedirs(publish_dir, exist_ok=True)
 
-    # 1. latest customer report
-    latest_report = os.path.join(publish_dir, PUBLISHED_FILES['report'])
-    shutil.copy2(report_path, latest_report)
-
-    # 2. history csv (idempotent per date)
     eu_rows = build_eu_history_rows(eu_df, date_str)
     uk_rows = build_uk_history_rows(uk_df, date_str)
+    _check_publish_gates(eu_df, eu_rows, uk_rows, run_date)
+
+    # 1. history csv (idempotent per date+region)
     history_path = os.path.join(publish_dir, PUBLISHED_FILES['history_csv'])
     total_rows = update_history_csv(history_path, eu_rows + uk_rows, date_str)
 
-    # 3. history workbook
-    generate_history_xlsx(history_path, os.path.join(publish_dir, PUBLISHED_FILES['history_xlsx']))
-
-    # 4. metadata for the downloader's freshness check
     eu_failed = sum(1 for r in eu_rows if r['scrape_status'] != 'ok')
     uk_failed = sum(1 for r in uk_rows if r['scrape_status'] != 'ok')
+    # 2. metadata for the downloader's freshness check
     metadata = {
         'generated_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
         'data_date': date_str,
@@ -208,6 +246,20 @@ def publish_data(
     }
     with io.open(os.path.join(publish_dir, PUBLISHED_FILES['metadata']), 'w', encoding='utf-8') as f:
         json.dump(metadata, f, indent=2)
+
+    # 3. latest customer report + history workbook (lock-prone: a file open in
+    # Excel locally must not crash the publish after the canonical data landed)
+    try:
+        shutil.copy2(report_path, os.path.join(publish_dir, PUBLISHED_FILES['report']))
+    except PermissionError:
+        print(f"  Warning: {PUBLISHED_FILES['report']} is locked (open in "
+              f"Excel?) — skipped updating it; csv/metadata are current.")
+    try:
+        generate_history_xlsx(history_path,
+                              os.path.join(publish_dir, PUBLISHED_FILES['history_xlsx']))
+    except PermissionError:
+        print(f"  Warning: {PUBLISHED_FILES['history_xlsx']} is locked (open in "
+              f"Excel?) — skipped regenerating it; quota_history.csv is current.")
 
     print(f"  Published to {publish_dir}: report + history ({total_rows} rows, "
           f"{len(eu_rows)} EU / {len(uk_rows)} UK today)")

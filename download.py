@@ -17,6 +17,7 @@ Usage:
 """
 
 import argparse
+import http.client
 import json
 import os
 import sys
@@ -28,6 +29,9 @@ from datetime import date, datetime, timezone
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"
 BASE_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/data/published"
+# Workbooks are published as rolling release assets (not committed to git,
+# to keep the repository small); this URL is public and needs no login.
+RELEASE_BASE = f"https://github.com/{REPO}/releases/download/latest-data"
 
 METADATA_FILE = "metadata.json"
 DATA_FILES = [
@@ -35,11 +39,18 @@ DATA_FILES = [
     "Quota_History.xlsx",
     "quota_history.csv",
 ]
+FILE_SOURCES = {
+    "MEPS_Quota_Update_latest.xlsx": RELEASE_BASE,
+    "Quota_History.xlsx": RELEASE_BASE,
+    "quota_history.csv": BASE_URL,
+    METADATA_FILE: BASE_URL,
+}
 
-USER_AGENT = "MEPS-Quota-Downloader/1.0"
+USER_AGENT = "MEPS-Quota-Downloader/1.1"
 TIMEOUT = 60
 RETRIES = 3
-STALE_AFTER_DAYS = 3  # weekend gap is fine; older than this gets a warning
+STALE_AFTER_DAYS = 3   # weekend gap is fine; older than this gets a warning
+CONSISTENCY_RETRY_WAIT = 30  # seconds; covers the raw CDN's cache window
 
 
 def app_root() -> str:
@@ -50,19 +61,29 @@ def app_root() -> str:
 
 
 def fetch(url: str) -> bytes:
-    """Download a URL with retries. Raises the last error if all attempts fail."""
+    """Download a URL with retries. Raises the last error if all attempts fail.
+
+    OSError covers URLError/HTTPError plus mid-transfer failures like
+    ConnectionResetError and SSL errors; HTTPException covers IncompleteRead
+    and BadStatusLine. 4xx client errors (except 429) are not retried —
+    the file genuinely isn't there.
+    """
     last_err = None
     for attempt in range(1, RETRIES + 1):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
                 return resp.read()
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:
+        except urllib.error.HTTPError as e:
+            if 400 <= e.code < 500 and e.code != 429:
+                raise
             last_err = e
-            if attempt < RETRIES:
-                wait = 2 * attempt
-                print(f"    attempt {attempt} failed ({e}); retrying in {wait}s...")
-                time.sleep(wait)
+        except (OSError, http.client.HTTPException) as e:
+            last_err = e
+        if attempt < RETRIES:
+            wait = 2 * attempt
+            print(f"    attempt {attempt} failed ({last_err}); retrying in {wait}s...")
+            time.sleep(wait)
     raise last_err
 
 
@@ -86,6 +107,9 @@ def check_freshness(metadata: dict) -> None:
                   f"update may have stopped. Please report this.")
     except (ValueError, TypeError):
         pass
+    if not metadata.get('eu_quotas') or not metadata.get('uk_quotas'):
+        print("\n  WARNING: the last run published zero quotas for one region — "
+              "the dataset is incomplete. Please report this.")
     failed = (metadata.get('eu_failed') or 0) + (metadata.get('uk_failed') or 0)
     if failed:
         print(f"\n  NOTE: {failed} quota(s) failed to scrape in the last run; "
@@ -117,17 +141,43 @@ def run(dest: str = None) -> int:
     print(f"\nDownloading to: {dest}")
 
     ok, failed = 0, 0
+    csv_payload = None
     for name in DATA_FILES:
         try:
             print(f"  {name} ...", end=" ", flush=True)
-            payload = fetch(f"{BASE_URL}/{name}")
+            payload = fetch(f"{FILE_SOURCES[name]}/{name}")
             with open(os.path.join(dest, name), "wb") as f:
                 f.write(payload)
             print(f"OK ({len(payload):,} bytes)")
+            if name == "quota_history.csv":
+                csv_payload = payload
             ok += 1
         except Exception as e:
             print(f"FAILED ({e})")
             failed += 1
+
+    # Consistency check: the raw CDN caches for a few minutes, so metadata and
+    # the CSV can briefly come from different daily commits. Retry once.
+    if csv_payload is not None and metadata.get("history_rows"):
+        csv_rows = max(csv_payload.count(b"\n") - 1, 0)
+        if csv_rows != metadata["history_rows"]:
+            print(f"\n  History row count ({csv_rows}) does not match metadata "
+                  f"({metadata['history_rows']}) — the source may be mid-update; "
+                  f"retrying in {CONSISTENCY_RETRY_WAIT}s...")
+            time.sleep(CONSISTENCY_RETRY_WAIT)
+            try:
+                metadata = json.loads(fetch(f"{BASE_URL}/{METADATA_FILE}").decode("utf-8"))
+                csv_payload = fetch(f"{FILE_SOURCES['quota_history.csv']}/quota_history.csv")
+                with open(os.path.join(dest, "quota_history.csv"), "wb") as f:
+                    f.write(csv_payload)
+                csv_rows = max(csv_payload.count(b"\n") - 1, 0)
+            except Exception as e:
+                print(f"  retry failed: {e}")
+            if csv_rows != metadata.get("history_rows"):
+                print("  WARNING: files are still inconsistent — the daily update "
+                      "is probably running right now. Re-run this program in a "
+                      "few minutes.")
+                failed += 1
 
     print(f"\nDone: {ok} file(s) downloaded" + (f", {failed} failed" if failed else ""))
     if ok:
@@ -146,6 +196,10 @@ def main():
         code = run(dest=args.dest)
     except KeyboardInterrupt:
         code = 130
+    except Exception as e:
+        # never let the console window vanish before the pause on double-click
+        print(f"\nUNEXPECTED ERROR: {e}")
+        code = 1
 
     if not args.no_pause and sys.stdin is not None and sys.stdin.isatty():
         try:

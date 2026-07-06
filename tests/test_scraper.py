@@ -101,6 +101,62 @@ class TestEUQuotaScraperInit:
         assert scraper.session is None
 
 
+class _FakeResponse:
+    def __init__(self, text):
+        self.text = text
+
+    def raise_for_status(self):
+        pass
+
+
+class _FakeSession:
+    def __init__(self, text):
+        self._text = text
+
+    def get(self, url, timeout=None):
+        return _FakeResponse(self._text)
+
+
+def _page(rows):
+    trs = ''.join(
+        f'<tr class="ecl-table__row"><td class="label">{k}</td><td>{v}</td></tr>'
+        for k, v in rows)
+    return f'<html><table class="ecl-table table-result">{trs}</table></html>'
+
+
+class TestEmptyShellDetection:
+    """TARIC serves a blank-field table for code/period combos it has no
+    quota for (e.g. after a regulation expires) — that must count as a
+    failure, not as a successful scrape full of zeros"""
+
+    def _fetch(self, html):
+        scraper = EUQuotaScraper()
+        scraper.session = _FakeSession(html)
+        return scraper.fetch_quota('099801', '2026-07-01')
+
+    def test_valid_page_parses(self):
+        result = self._fetch(_page([
+            ('Order number', '099801'),
+            ('Validity period', '01-07-2026 - 30-09-2026'),
+            ('Balance', '160573740 Kilogram'),
+        ]))
+        assert result is not None
+        assert result['order_number'] == '099801'
+        assert result['validity_start'] == '01-07-2026'
+
+    def test_empty_shell_returns_none(self):
+        result = self._fetch(_page([
+            ('Order number', ''),
+            ('Origin', ''),
+            ('Balance', ''),
+        ]))
+        assert result is None
+
+    def test_missing_validity_returns_none(self):
+        result = self._fetch(_page([('Order number', '099801')]))
+        assert result is None
+
+
 class TestEUQuotaScraperContextManager:
     """Tests for context manager functionality"""
 

@@ -196,6 +196,14 @@ class EUQuotaScraper:
                 except Exception:
                     continue
 
+            # TARIC serves an empty-shell table (all blank fields) for
+            # code/period combinations it has no quota for — e.g. after a
+            # regulation expires. Treat that as a failure, not a success:
+            # otherwise the blanks become zeros downstream and publish as
+            # 'all quotas exhausted'. Valid pages always carry both fields.
+            if not data.get('order_number') or not data.get('validity_period'):
+                return None
+
             # Extract validity period into start and end dates.
             # TARIC renders the separator with NBSP/newlines, so match the two
             # DD-MM-YYYY dates directly instead of splitting on ' - '.

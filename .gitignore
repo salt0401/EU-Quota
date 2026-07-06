@@ -69,3 +69,6 @@ desktop.ini
 *.tmp
 *.temp
 *.bak
+
+# Published workbooks are rolling release assets, not git files (repo-size control)
+data/published/*.xlsx
