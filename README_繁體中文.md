@@ -24,6 +24,21 @@
 剩餘餘額 = balance - awaiting_allocation
 ```
 
+## 每日自動更新（GitHub Actions）
+
+自 2026 年 7 月起，爬蟲每天早上（05:30 UTC）在 GitHub Actions 上自動執行，無需任何人手動操作：
+
+1. GitHub 伺服器自動爬取所有歐盟與英國配額並產生報告（`.github/workflows/daily-quota-update.yml`）。
+2. 結果會提交到 `data/published/`：
+   - `MEPS_Quota_Update_latest.xlsx` — 最新客戶報告
+   - `quota_history.csv` — 每個配額每天一列（資料分析用資料集）
+   - `Quota_History.xlsx` — 同樣的歷史資料（格式化活頁簿）
+   - `metadata.json` — 時間戳記與執行摘要
+3. 同事執行 **`MEPS_Quota_Downloader.exe`**（單一小檔案，由 `download.py` 建置），透過公開 raw URL 下載上述檔案。儲存庫必須保持**公開**，如此便無需任何 token 或登入。
+
+手動觸發：GitHub → Actions → 「Daily quota update」→ Run workflow。
+歷史資料每天累積，可直接用 `quota_history.csv` / `Quota_History.xlsx` 分析配額的每日變化。
+
 ## 快速開始
 
 ```bash

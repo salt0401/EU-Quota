@@ -1,0 +1,68 @@
+name: Daily quota update
+
+# Scrapes EU TARIC + UK Trade Tariff every morning and commits the published
+# data files (latest report, daily history, metadata) back to the repository.
+# The colleague-facing downloader program fetches these over public raw URLs.
+#
+# 05:30 UTC ~ after the UK Trade Tariff daily refresh and the TARIC morning
+# allocation, before European business hours. Runs every day: EU balances
+# move on weekends too. Note GitHub cron can fire up to ~15 min late.
+
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-quota-update
+  cancel-in-progress: false
+
+jobs:
+  scrape-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-ci.txt
+
+      - name: Scrape quotas and publish data
+        run: python run.py --publish
+
+      - name: Commit published data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/published
+          if git diff --cached --quiet; then
+            echo "No data changes to publish."
+          else
+            git commit -m "data: daily quota update $(date -u +%F)"
+            # tolerate a manual push that landed while we were scraping
+            git pull --rebase origin main
+            git push origin main
+          fi
+
+      - name: Run summary
+        if: always()
+        run: |
+          if [ -f data/published/metadata.json ]; then
+            echo '## Daily quota update' >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat data/published/metadata.json >> "$GITHUB_STEP_SUMMARY"
+            echo '' >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,7 @@
+# Minimal dependencies for the daily GitHub Actions scrape
+# (no Selenium/webdriver — the scrapers are direct HTTP; no test tooling)
+requests>=2.28.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+pandas>=2.0.0
+openpyxl>=3.1.0

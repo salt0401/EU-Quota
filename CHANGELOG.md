@@ -2,6 +2,28 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.7.0] - 2026-07-06
+
+### Automated Daily Updates + Downloader Distribution
+
+The workflow changed from "colleague runs the scraper" to "GitHub scrapes
+daily, colleague downloads the data":
+
+- **GitHub Actions** (`.github/workflows/daily-quota-update.yml`): scrapes
+  all EU + UK quotas every day at 05:30 UTC (plus manual trigger) on a free
+  public-repo runner and commits the results to `data/published/`
+- **Published data** (`src/publisher.py`, `run.py --publish`):
+  `MEPS_Quota_Update_latest.xlsx` (latest report), `quota_history.csv`
+  (append-only daily history, one row per quota per day — idempotent
+  re-runs), `Quota_History.xlsx` (formatted history workbook, EU/UK sheets),
+  `metadata.json` (freshness stamp)
+- **Downloader** (`download.py` → `dist/MEPS_Quota_Downloader.exe` via
+  `build/build_downloader_exe.py`): standard-library-only single-file EXE
+  that fetches the published files over public raw URLs (no token needed;
+  repository must stay public), with freshness warning when data is stale
+- `requirements-ci.txt`: minimal dependency set for the Actions runner
+- Tests: 179 passing (new publisher + downloader suites)
+
 ## [2.6.0] - 2026-07-06
 
 ### July 2026 Regime Migration — New EU/UK Quota Systems

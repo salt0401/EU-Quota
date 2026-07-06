@@ -1,0 +1,16 @@
+{
+  "generated_utc": "2026-07-06T20:07:41Z",
+  "data_date": "2026-07-06",
+  "quota_period": "01-Jul-2026 to 30-Sep-2026",
+  "eu_quotas": 283,
+  "uk_quotas": 75,
+  "eu_failed": 1,
+  "uk_failed": 0,
+  "history_rows": 358,
+  "files": [
+    "MEPS_Quota_Update_latest.xlsx",
+    "quota_history.csv",
+    "Quota_History.xlsx",
+    "metadata.json"
+  ]
+}

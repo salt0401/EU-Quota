@@ -103,7 +103,8 @@ def run_scraper(
     output_file: str = None,
     scrape_date: date = None,
     uk_input_file: str = None,
-    skip_uk: bool = False
+    skip_uk: bool = False,
+    publish: bool = False
 ) -> pd.DataFrame:
     """
     Main scraping workflow
@@ -114,6 +115,8 @@ def run_scraper(
         scrape_date: Date for output folder (defaults to today)
         uk_input_file: Path to UK quota URLs file (optional)
         skip_uk: Skip UK scraping if True
+        publish: Also update data/published/ (latest report, daily history
+                 CSV/XLSX, metadata) — used by the daily GitHub Actions run
 
     Returns:
         pd.DataFrame: Scraped and processed EU data
@@ -285,8 +288,18 @@ def run_scraper(
         output_file = generate_output_filename("MEPS_Quota_Update", scrape_date)
 
     meps_path = os.path.join(output_folder, output_file)
-    generate_meps_report(processed_data, meps_path, period_display, latest_data, uk_df=uk_processed_data)
+    meps_path = generate_meps_report(processed_data, meps_path, period_display,
+                                     latest_data, uk_df=uk_processed_data)
     print(f"  MEPS report: {meps_path}")
+
+    # 4. Published data for the downloader (daily GitHub Actions run)
+    if publish:
+        from src.publisher import publish_data
+        print("\nPublishing data for the downloader...")
+        publish_dir = os.path.join(os.path.dirname(get_input_folder()), "published")
+        publish_data(processed_data, uk_processed_data, meps_path,
+                     publish_dir, run_date=scrape_date,
+                     period_display=period_display)
 
     # Display summary
     summary = get_quota_summary(processed_data)
@@ -329,6 +342,10 @@ Examples:
     parser.add_argument('--skip-uk',
                        action='store_true',
                        help='Skip UK scraping')
+    parser.add_argument('--publish',
+                       action='store_true',
+                       help='Also update data/published/ (latest report + daily '
+                            'history) for the downloader program')
 
     args = parser.parse_args()
 
@@ -336,7 +353,8 @@ Examples:
         input_file=args.input,
         output_file=args.output,
         uk_input_file=args.uk_input,
-        skip_uk=args.skip_uk
+        skip_uk=args.skip_uk,
+        publish=args.publish
     )
 
     if result is not None:

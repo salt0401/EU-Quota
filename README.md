@@ -24,6 +24,26 @@ Quota Limit = amount + transferred_amount
 Balance Remaining = balance - awaiting_allocation
 ```
 
+## Automated Daily Updates (GitHub Actions)
+
+Since July 2026 the scraping runs automatically every morning (05:30 UTC) on
+GitHub Actions — nobody needs to run the scraper by hand:
+
+1. A GitHub-hosted runner scrapes all EU + UK quotas and generates the report
+   (`.github/workflows/daily-quota-update.yml`).
+2. The results are committed to `data/published/`:
+   - `MEPS_Quota_Update_latest.xlsx` — latest customer report
+   - `quota_history.csv` — one row per quota per day (the analysis dataset)
+   - `Quota_History.xlsx` — the same history as a formatted workbook
+   - `metadata.json` — timestamp and run summary
+3. Colleagues run **`MEPS_Quota_Downloader.exe`** (a single small file, built
+   from `download.py`), which fetches those files over public raw URLs.
+   The repository must stay **public** — that way no token or login is needed.
+
+Manual trigger: GitHub → Actions → "Daily quota update" → Run workflow.
+Because the history grows daily, day-over-day quota movements can be analysed
+directly from `quota_history.csv` / `Quota_History.xlsx`.
+
 ## Quick Start
 
 ```bash
@@ -33,6 +53,10 @@ pip install -r requirements.txt
 # Run scraper
 python run.py              # Interactive mode (both EU and UK)
 python run.py --skip-uk    # Scrape EU only
+python run.py --publish    # Scrape + update data/published/ (what the daily CI run does)
+
+# Download the latest published data (what colleagues' EXE does)
+python download.py
 ```
 
 ## Output Files
@@ -118,19 +142,20 @@ EU Quota/
 
 ## Building EXE Distribution
 
-To create a standalone EXE package for distribution:
+Two executables can be built:
 
 ```bash
-python build/build_exe.py
+python build/build_downloader_exe.py   # MEPS_Quota_Downloader.exe (what colleagues use)
+python build/build_exe.py              # EU_Quota_Scraper.exe (full local scraper, optional)
 ```
 
-The distribution package will be created in `dist/EU_Quota_Scraper/` folder.
+**To distribute the downloader (recommended):** send colleagues the single
+file `dist/MEPS_Quota_Downloader.exe`. Double-clicking it downloads the
+latest published data into `data/output/YYYY-MM-DD/` next to the EXE —
+no scraping happens on their machine, so it finishes in seconds.
 
-**To distribute:**
-1. Run the build script
-2. Zip the `EU_Quota_Scraper` folder inside `dist/`
-3. Send the zip file to users
-4. Users unzip and double-click `EU_Quota_Scraper.exe`
+**The full scraper bundle** (`dist/EU_Quota_Scraper/`) is only needed if
+someone must scrape locally, e.g. while GitHub is unreachable.
 
 ## Technical Notes
 
