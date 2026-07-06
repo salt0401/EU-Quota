@@ -55,6 +55,20 @@ EU Quota/
 
 3. 不需要 Chrome 瀏覽器 — 爬蟲使用直接 HTTP 請求
 
+## 每日自動化（自 2026 年 7 月起）
+
+現在不需要任何人手動執行爬蟲：
+
+- GitHub Actions 工作流程（`.github/workflows/daily-quota-update.yml`）每天
+  05:30 UTC 自動爬取所有歐盟與英國配額並發布結果 — `quota_history.csv` 與
+  `metadata.json` 提交到 `data/published/`，兩個活頁簿上傳到滾動式
+  **latest-data** release。維運與故障處理請見 `docs/DAILY_UPDATE_RUNBOOK.md`。
+- 同事使用 **`MEPS_Quota_Downloader.exe`**（由 `download.py` 建置）取得資料：
+  數秒內將最新報告與每日歷史下載到 EXE 旁的 `data/output/YYYY-MM-DD/`。
+  無需登入或 token；儲存庫必須保持公開。
+
+以下章節為爬蟲本身的手動／開發者使用說明。
+
 ## 使用方式
 
 ### 基本使用
@@ -176,7 +190,13 @@ python build/build_exe.py
 未用完的配額可轉移至下一季度，但不可轉入下一個配額年度（7月1日至隔年6月30日）。
 烏克蘭原產鋼鐵豁免。
 
-## 排程設定（Windows 工作排程器）
+## 排程設定
+
+> **已被取代（2026 年 7 月）：** 每日爬取已由 GitHub Actions 處理
+> （`.github/workflows/daily-quota-update.yml`，05:30 UTC），不再需要本機排程。
+> Windows 工作排程器僅適用於完全離線的環境（每日觸發 `python run.py`）。
+
+### 舊：Windows 工作排程器（僅供離線環境參考）
 
 1. 開啟工作排程器 → 建立基本工作
 2. 名稱：「EU Quota 爬蟲」

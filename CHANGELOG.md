@@ -2,6 +2,29 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.7.1] - 2026-07-06
+
+### Hardening After Adversarial Review (17 confirmed findings)
+
+- **Repository made public** (required for anonymous downloads) and the two
+  published workbooks moved from git commits to the rolling `latest-data`
+  release - daily xlsx commits would have grown the repository ~1 GB/year
+- **Silent-failure gates:** TARIC empty-shell pages (unknown code/period,
+  e.g. after a regulation renewal) now count as failed scrapes instead of
+  publishing all-zero balances; publishing refuses mostly-failed runs,
+  expired EU quota windows (stale `Current Quarter` - also auto-overridden
+  on published runs), and UK-less datasets; history replacement is per
+  (date, region) so a partial re-run cannot delete the other region's rows
+- **Workflow operations:** pre-scrape pytest gate; failures open/update a
+  tracking GitHub issue and upload the run's output as a 14-day recovery
+  artifact; run summary labels failed runs; `requirements-ci.txt` major
+  versions capped; `docs/DAILY_UPDATE_RUNBOOK.md` added
+- **Downloader:** workbooks fetched from release assets; retries cover
+  mid-transfer errors (4xx not retried); CSV row count cross-checked against
+  metadata with a delayed retry (CDN race); zero-region warning; unexpected
+  errors no longer skip the exit pause
+- Tests: 188 passing
+
 ## [2.7.0] - 2026-07-06
 
 ### Automated Daily Updates + Downloader Distribution

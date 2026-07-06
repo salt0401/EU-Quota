@@ -55,6 +55,22 @@ EU Quota/
 
 3. Chrome browser is NOT required — the scraper uses direct HTTP requests
 
+## Daily Automation (since July 2026)
+
+Nobody needs to run the scraper by hand anymore:
+
+- A GitHub Actions workflow (`.github/workflows/daily-quota-update.yml`)
+  scrapes all EU + UK quotas every day at 05:30 UTC and publishes the results
+  - `quota_history.csv` + `metadata.json` are committed to `data/published/`,
+  and the two workbooks go to the rolling **latest-data** release.
+  Operations and failure handling: `docs/DAILY_UPDATE_RUNBOOK.md`.
+- Colleagues fetch the data with **`MEPS_Quota_Downloader.exe`** (built from
+  `download.py`): it downloads the latest report plus the day-by-day history
+  into `data/output/YYYY-MM-DD/` next to the EXE in seconds. No login or
+  token is needed; the repository must stay public.
+
+The sections below cover manual/developer usage of the scraper itself.
+
 ## Usage
 
 ### Basic Usage
@@ -78,6 +94,19 @@ python run.py -i custom_quotas.xlsx -o custom_report.xlsx
 ```bash
 python run.py -i eu.xlsx -u uk.xlsx -o output.xlsx --skip-uk
 ```
+
+### Publish (what the daily CI run does)
+```bash
+python run.py --publish
+```
+Also updates `data/published/` (history CSV, metadata, workbooks).
+
+### Download Published Data (no scraping)
+```bash
+python download.py
+```
+Fetches the latest published files - exactly what the colleague-facing
+`MEPS_Quota_Downloader.exe` does.
 
 ## Input File Format
 
@@ -141,13 +170,16 @@ These fields are automatically detected from scraped data:
 
 ## Building EXE Distribution
 
-To create a standalone EXE package for distribution:
+Two executables can be built:
 
 ```bash
-python build/build_exe.py
+python build/build_downloader_exe.py   # MEPS_Quota_Downloader.exe (what colleagues use)
+python build/build_exe.py              # EU_Quota_Scraper.exe (full local scraper, optional)
 ```
 
-The distribution package will be created in `dist/` folder.
+The downloader is a single file (`dist/MEPS_Quota_Downloader.exe`) - send just
+that file. The full scraper bundle (`dist/EU_Quota_Scraper/`) is only needed if
+someone must scrape locally while GitHub is unreachable.
 
 ## Quarterly Maintenance
 
@@ -161,6 +193,11 @@ At the start of each new quarter (1 January, 1 April, 1 July, 1 October):
    (columns `q1_jul_sep_t` through `q4_apr_jun_t`)
 3. Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py` only if HMRC
    changes the order numbers
+
+The pipeline protects itself while you do this: on published runs a stale
+`Current Quarter` date is overridden with the computed quarter start, and
+publish gates refuse expired quota windows or mostly-failed scrapes (see
+`docs/DAILY_UPDATE_RUNBOOK.md`).
 
 Note: Commission Implementing Regulation (EU) 2026/1457 defines the EU quotas
 for 1 July - 31 December 2026; a renewal is expected in January 2027 and may
@@ -184,16 +221,12 @@ The three authorised-use quotas are published only on the UK Integrated Online
 Tariff, not in the DBT notice. Unused quota rolls over to the next quarter but
 not into the next quota year (1 July - 30 June). Ukraine-origin steel is exempt.
 
-## Scheduling (Windows Task Scheduler)
+## Scheduling
 
-For automatic daily scraping, use Windows Task Scheduler:
-
-1. Create a new task
-2. Set trigger (e.g., daily at 6:00 AM)
-3. Action: Start a program
-   - Program: `python`
-   - Arguments: `run.py` or `run.py --skip-uk`
-   - Start in: `C:\path\to\EU Quota`
+> **Superseded (July 2026):** daily scraping is handled by GitHub Actions
+> (`.github/workflows/daily-quota-update.yml`, 05:30 UTC) - no local
+> scheduling is needed. Windows Task Scheduler remains an option only for
+> fully offline setups (trigger `python run.py` daily).
 
 ## Troubleshooting
 

@@ -83,7 +83,13 @@
 - [x] All order numbers validated against UK website
 - [x] Template quota limits fetched from live data
 
-## Priority 4: Auto-Scheduling (Completed)
+## Priority 4: Auto-Scheduling (Completed - superseded July 2026)
+
+> **Superseded:** daily collection now runs on GitHub Actions
+> (`.github/workflows/daily-quota-update.yml`) and records every quota every
+> day in `data/published/quota_history.csv`, independent of any local machine.
+> The Windows Task-Scheduler snapshot below still works but is no longer the
+> primary data-collection path.
 
 - [x] `daily_snapshot.py` — Entry point with file logging
 - [x] `src/snapshot_scheduler.py` — Idempotent check + orchestration
@@ -129,13 +135,19 @@
 - [ ] Cross-validation and accuracy evaluation
 - [ ] Add forecasting visualizations
 
-### Current Snapshot Status
+### Current Data Status
+
+> **New (July 2026):** the preferred forecasting dataset is now
+> `data/published/quota_history.csv` - 358 rows/day (283 EU + 75 UK),
+> collected by the daily GitHub Actions run regardless of local machines.
+> **Open task:** re-point `beta/forecasting/data_loader.py` at the history
+> CSV (map date->ds, balance_remaining_t->y per region+order_number, filter
+> scrape_status == 'ok', respect the 1 July 2026 regime boundary).
 
 | Item | Value |
 |------|-------|
-| Snapshot days collected | 4 (3 old regime + 1 new regime) |
-| Date range | 2026-01-24 → 2026-07-06 |
-| Unique quotas | 472 (189 old regime + 283 new regime — do not mix) |
+| History days collected (CSV) | 1 new-regime day (from 2026-07-06, grows daily) |
+| Legacy snapshots | 4 days (3 old regime + 1 new - do not mix regimes) |
 | Prophet ready | No (need 30+ new-regime days) |
 | Est. ready date | ~early Aug 2026 |
 

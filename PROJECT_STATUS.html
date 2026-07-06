@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEPS Quota Tracker — Project Status · July 2026</title>
+<style>
+  :root{
+    --paper:#F0EEE6; --surface:#FAF9F5; --card:#FFFFFF;
+    --ink:#141413; --muted:#66645C; --faint:#8A877D;
+    --line:#E3DFD3; --accent:#CC785C; --accent-ink:#9C4B32;
+    --accent-wash:#F4E6DE; --olive:#6C8455; --olive-wash:#EDF0E4;
+    --slate:#5C7E9E; --slate-wash:#E8EEF4;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font:16px/1.65 "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    padding:0 20px 72px;
+  }
+  .page{max-width:860px; margin:0 auto;}
+  h1,h2,.stat b{font-family:Georgia, "Times New Roman", serif; font-weight:600; letter-spacing:-0.01em;}
+
+  /* masthead */
+  header{padding:56px 0 36px; border-bottom:1px solid var(--line);}
+  .kicker{font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:var(--accent-ink); font-weight:600;}
+  h1{font-size:clamp(30px,5vw,42px); line-height:1.15; margin:14px 0 18px; max-width:16em;}
+  .meta-row{display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; color:var(--muted); font-size:14px;}
+  .pill{display:inline-flex; align-items:center; gap:7px; background:var(--olive-wash); color:var(--olive);
+        border:1px solid #D8DEC8; border-radius:999px; padding:4px 13px; font-size:13px; font-weight:600;}
+  .pill .dot{width:8px; height:8px; border-radius:50%; background:var(--olive); box-shadow:0 0 0 3px #6C845522;}
+
+  .lead{font-size:18.5px; line-height:1.7; color:#33322D; margin:30px 0 8px; max-width:44em;}
+  .lead + .lead{margin-top:14px;}
+
+  section{margin-top:48px;}
+  h2{font-size:24px; margin-bottom:6px;}
+  .sub{color:var(--muted); font-size:15px; margin-bottom:20px; max-width:46em;}
+
+  /* cards */
+  .grid{display:grid; gap:14px;}
+  .grid.three{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px;}
+  .card h3{font-size:15.5px; margin-bottom:8px;}
+  .card p{font-size:14.5px; color:var(--muted);}
+  .step-n{display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--accent-wash);
+          color:var(--accent-ink); font-weight:700; font-size:13px; align-items:center; justify-content:center; margin-bottom:12px;}
+
+  /* action card */
+  .action{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--accent);
+          border-radius:14px; padding:26px 28px;}
+  .action h3{font-family:Georgia,serif; font-size:20px; margin-bottom:10px;}
+  .action p{color:#3B3A34; font-size:15.5px; max-width:44em;}
+  .action p + p{margin-top:10px;}
+  code, .mono{font:13.5px/1.5 Consolas, "Cascadia Mono", Menlo, monospace; background:var(--surface);
+        border:1px solid var(--line); border-radius:6px; padding:1px 6px; white-space:nowrap;}
+
+  table{width:100%; border-collapse:collapse; margin-top:16px; font-size:14.5px;}
+  th{ text-align:left; font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint);
+      font-weight:600; padding:0 14px 8px 0;}
+  td{padding:10px 14px 10px 0; border-top:1px solid var(--line); vertical-align:top;}
+  td:first-child{white-space:nowrap;}
+  td .file{font-weight:600;}
+
+  /* stats */
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; text-align:center;}
+  .stat b{display:block; font-size:30px; color:var(--accent-ink);}
+  .stat span{font-size:13px; color:var(--muted);}
+
+  /* callout */
+  .callout{background:var(--accent-wash); border:1px solid #E5CDBF; border-radius:14px; padding:22px 26px; font-size:15px; color:#4A3327;}
+  .callout b{color:var(--accent-ink);}
+  .callout .why{display:block; margin-top:8px; color:#7A5A48; font-size:14px;}
+
+  /* timeline */
+  .timeline{list-style:none; border-left:2px solid var(--line); margin-left:8px; padding-left:24px;}
+  .timeline li{position:relative; padding-bottom:20px;}
+  .timeline li:last-child{padding-bottom:0;}
+  .timeline li::before{content:""; position:absolute; left:-31px; top:6px; width:12px; height:12px;
+                       border-radius:50%; background:var(--paper); border:3px solid var(--accent);}
+  .timeline .when{font-size:12px; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); font-weight:600;}
+  .timeline .what{font-size:15px; color:#33322D; max-width:44em;}
+  .timeline .what b{font-weight:600;}
+
+  /* notes */
+  .note{background:var(--slate-wash); border:1px solid #CFDCE8; border-radius:14px; padding:20px 24px; font-size:14.5px; color:#33404D;}
+  .note b{color:var(--slate);}
+  ul.plain{list-style:none;}
+  ul.plain li{padding:8px 0; border-top:1px solid var(--line); font-size:14.5px; color:#3B3A34;}
+  ul.plain li:first-child{border-top:none;}
+  ul.plain .tag{display:inline-block; min-width:86px; font-size:12px; font-weight:700; letter-spacing:0.06em;
+                color:var(--accent-ink); text-transform:uppercase; margin-right:8px;}
+
+  footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--line);
+         font-size:13px; color:var(--faint); display:flex; flex-wrap:wrap; gap:6px 24px;}
+  a{color:var(--accent-ink); text-decoration:none; border-bottom:1px solid #D9B7A6;}
+  a:hover{border-bottom-color:var(--accent-ink);}
+  @media (max-width:560px){ .action{padding:22px 18px;} td{padding-right:8px;} }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="kicker">MEPS &middot; EU/UK Steel Quota Tracker</div>
+  <h1>The quota tracker now runs itself.</h1>
+  <div class="meta-row">
+    <span class="pill"><span class="dot"></span>Live &mdash; updates daily at 05:30 UTC</span>
+    <span>Status as of 6 July 2026</span>
+    <span>Ready ahead of the 17 July deadline</span>
+  </div>
+</header>
+
+<p class="lead">
+  Since 1 July the EU and UK have run brand-new steel import quota systems, and the
+  tracker has been fully rebuilt around them. More importantly for you: <b>you no longer
+  run the scraper.</b> A GitHub server collects every quota every morning, keeps a
+  day-by-day history, and all you do is double-click one small program to fetch the
+  latest files.
+</p>
+
+<section>
+  <h2>What you do now</h2>
+  <div class="action">
+    <h3>Double-click <span class="mono">MEPS_Quota_Downloader.exe</span> &mdash; that's it.</h3>
+    <p>It's a single small file (no installation, no login). In a few seconds it fetches
+       the latest data into <code>data\output\&lt;today's date&gt;\</code> next to the program,
+       and tells you when the data was generated. Run it whenever you want fresh numbers
+       &mdash; daily, weekly, or right before a meeting.</p>
+    <table>
+      <tr><th>You receive</th><th>What it is</th></tr>
+      <tr><td class="file">MEPS_Quota_Update_latest.xlsx</td>
+          <td>The familiar customer report (EU + UK tabs, slicers), for the latest day.</td></tr>
+      <tr><td class="file">Quota_History.xlsx</td>
+          <td>One row per quota per day, EU and UK sheets &mdash; this grows every day, so you can
+              filter any quota and watch it drain over time. Built for your analysis.</td></tr>
+      <tr><td class="file">quota_history.csv</td>
+          <td>The same history as plain data, ready for pivot tables, Power Query, or Python.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>How it works</h2>
+  <p class="sub">The scraping moved from your desktop to GitHub's servers (free for public projects).</p>
+  <div class="grid three">
+    <div class="card"><span class="step-n">1</span>
+      <h3>GitHub scrapes, every morning</h3>
+      <p>At 05:30 UTC a GitHub Actions job queries all 283 EU quotas on TARIC and all 75 UK
+         quotas on the UK tariff API. A full run takes about 90 seconds.</p></div>
+    <div class="card"><span class="step-n">2</span>
+      <h3>Results are published</h3>
+      <p>The report and the growing history are published to the public repository &mdash;
+         each day adds 358 rows to the history, one per quota.</p></div>
+    <div class="card"><span class="step-n">3</span>
+      <h3>You download</h3>
+      <p>The downloader fetches the published files over plain public links.
+         No account, no token, no VPN &mdash; if you have internet, it works.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>The numbers today</h2>
+  <div class="stats">
+    <div class="stat"><b>283</b><span>EU quotas tracked<br>(30 categories)</span></div>
+    <div class="stat"><b>75</b><span>UK quotas tracked<br>(20 categories)</span></div>
+    <div class="stat"><b>50%</b><span>out-of-quota duty<br>(both regimes)</span></div>
+    <div class="stat"><b>358</b><span>history rows added<br>every day</span></div>
+  </div>
+  <p style="margin-top:18px"></p>
+  <div class="callout">
+    <b>The new data is already telling a story.</b> Five days into the new EU regime,
+    26 quotas are past 75% allocated, and hot-rolled coil from T&uuml;rkiye (category 1.A)
+    is oversubscribed 2.3&times; &mdash; 374,000 tonnes requested against a 160,600-tonne
+    quarterly quota.
+    <span class="why">This is exactly what the daily history is for: day-over-day drain
+    rates show which quotas will exhaust weeks before they do.</span>
+  </div>
+</section>
+
+<section>
+  <h2>How we got here</h2>
+  <ul class="timeline">
+    <li><span class="when">1 July</span>
+        <div class="what">The old steel safeguards expired. New regimes began: EU Regulation 2026/1384
+        (new order numbers, MFN + FTA quota parts) and the UK steel trade measure
+        (volumes cut 51%, Ukraine exempt).</div></li>
+    <li><span class="when">2 July</span>
+        <div class="what">Your brief arrived with the EU regulation attached. The UK announcement
+        (Tables 3 &amp; 4) was tracked down independently and cross-checked against the live HMRC API.</div></li>
+    <li><span class="when">6 July</span>
+        <div class="what"><b>Everything shipped.</b> All 358 new order numbers wired in and verified against
+        the regulations to the tonne; the report template rewritten for the new rules (50% duty,
+        new quota types); several long-standing data bugs fixed &mdash; including one that hid
+        "awaiting allocation" volumes, which today decide whether a quota is really open.</div></li>
+    <li><span class="when">6 July</span>
+        <div class="what">Daily automation switched on and stress-tested: 188 automated tests, an
+        adversarial review that fixed 17 further weaknesses, and three full live runs with
+        zero failed quotas.</div></li>
+  </ul>
+</section>
+
+<section>
+  <h2>One decision for Friday</h2>
+  <div class="note">
+    <b>UK Category 1 "authorised use" quotas.</b> Besides the ordinary quotas in the UK notice,
+    there's a separate authorised-use quota for hot-rolled coil going into downstream processing
+    &mdash; about <b>five times larger</b> than the ordinary Category 1 quotas (595,950 t/quarter).
+    Its order numbers aren't in the notice, but we found them on the online tariff and the tracker
+    currently <b>includes</b> them (three extra rows on the UK tab). If you'd rather stick strictly
+    to Tables 3 &amp; 4, they're trivial to remove &mdash; details in
+    <span class="mono">DECISION_NEEDED_UK_authorised_use.txt</span>.
+  </div>
+</section>
+
+<section>
+  <h2>Good to know</h2>
+  <ul class="plain">
+    <li><span class="tag">Freshness</span> The downloader shows the data's date and warns if the daily
+        update has stopped (a weekend gap is normal for the UK; TARIC moves daily).</li>
+    <li><span class="tag">Failures</span> If a morning run fails, it automatically opens a GitHub issue and
+        your downloads simply keep serving the last good day &mdash; nothing breaks quietly.</li>
+    <li><span class="tag">1 October</span> Quarter turn &mdash; a small input-file update on the maintainer's side.
+        The pipeline self-checks against stale-quarter data in the meantime.</li>
+    <li><span class="tag">January 2027</span> The EU implementing regulation runs to 31 December 2026; its renewal
+        may bring new order numbers. The system is designed to fail loudly (not publish nonsense) when that lands.</li>
+  </ul>
+</section>
+
+<footer>
+  <span>Repository: <a href="https://github.com/salt0401/EU-Quota">github.com/salt0401/EU-Quota</a></span>
+  <span>Latest data: <a href="https://github.com/salt0401/EU-Quota/releases/tag/latest-data">latest-data release</a></span>
+  <span>Operations guide: docs/DAILY_UPDATE_RUNBOOK.md</span>
+  <span>Generated 6 July 2026</span>
+</footer>
+
+</div>
+</body>
+</html>

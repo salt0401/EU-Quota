@@ -303,6 +303,40 @@ START
        END
 ```
 
+## Daily Automation Layer (July 2026)
+
+Since July 2026 the pipeline runs unattended on GitHub Actions; colleagues
+receive data through a downloader instead of running the scraper.
+
+```
+GitHub Actions (05:30 UTC daily, public repo = free)
+  run.py --publish
+     |- scrape EU (283) + UK (75)            src/scraper.py, src/uk_scraper.py
+     |- generate MEPS report                 src/excel_generator.py
+     '- publish                              src/publisher.py
+          |- data/published/quota_history.csv   (append-only daily history,
+          |                                      idempotent per date+region)
+          |- data/published/metadata.json       (freshness stamp)  -> git commit
+          '- MEPS_Quota_Update_latest.xlsx,
+             Quota_History.xlsx                 -> 'latest-data' release assets
+                                                   (kept out of git history)
+
+Colleague: MEPS_Quota_Downloader.exe (download.py, stdlib-only, onefile)
+  -> fetches csv/metadata from raw.githubusercontent.com
+  -> fetches workbooks from the latest-data release
+  -> saves to data/output/YYYY-MM-DD/ next to the EXE
+```
+
+Safety gates (added after adversarial review): TARIC empty-shell pages count
+as failed scrapes; publishing refuses mostly-failed runs, expired quota
+windows (stale `Current Quarter`), and UK-less datasets; history replacement
+is per (date, region). Workflow failures open a GitHub issue and upload the
+run's output as a recovery artifact. Operations: `docs/DAILY_UPDATE_RUNBOOK.md`.
+
+New files in this layer: `.github/workflows/daily-quota-update.yml`,
+`src/publisher.py`, `download.py`, `build/build_downloader_exe.py`,
+`requirements-ci.txt`, `docs/DAILY_UPDATE_RUNBOOK.md`.
+
 ## Module Boundary: src/ vs beta/
 
 ```

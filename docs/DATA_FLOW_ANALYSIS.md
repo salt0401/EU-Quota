@@ -263,3 +263,24 @@ balance - awaiting_allocation = Balance Remaining
 5. **Slicer Dependency**: Interactive features rely on Excel table structure
 
 6. **Units**: All values stored in kg but displayed as Tonnes (divide by 1000)
+
+## 10. PUBLISHED DATA & DISTRIBUTION (July 2026)
+
+The daily GitHub Actions run (`run.py --publish`) adds a final stage after
+report generation (`src/publisher.py`):
+
+| Output | Location | Purpose |
+|--------|----------|---------|
+| `quota_history.csv` | `data/published/` (git) | One row per quota per day: date, region, order_number, category, country, tonnes, percentages, scrape_status. The analysis dataset. |
+| `metadata.json` | `data/published/` (git) | Timestamp, data date, quota period, row/failure counts - the downloader's freshness check. |
+| `MEPS_Quota_Update_latest.xlsx` | `latest-data` release asset | Latest customer report (overwritten daily; kept out of git). |
+| `Quota_History.xlsx` | `latest-data` release asset | The history CSV as a formatted workbook (EU/UK sheets, autofilter). |
+
+History updates are idempotent per (date, region): a re-run replaces that
+date's rows for the regions it scraped and preserves the rest. Publish gates
+refuse mostly-failed scrapes, expired EU quota windows, and UK-less datasets.
+
+Distribution: `MEPS_Quota_Downloader.exe` (from `download.py`, standard
+library only) fetches all four files anonymously and saves them under
+`data/output/YYYY-MM-DD/` beside the EXE, warning when the published data
+looks stale or incomplete. See `docs/DAILY_UPDATE_RUNBOOK.md`.
