@@ -15,102 +15,85 @@ from src.uk_scraper import (
     UKQuotaScraper,
     convert_kg_to_tonnes,
     calculate_uk_metrics,
+    normalize_order_number,
     UK_QUOTA_ORDER_NUMBERS,
 )
 
 
-class TestUKQuotaScraperParseKgValue:
-    """Tests for _parse_kg_value method"""
+class TestNormalizeOrderNumber:
+    """One blank cell flips the workbook column to float64; the normalizer
+    must survive int, float, and string forms"""
 
-    @pytest.fixture
-    def scraper(self):
-        return UKQuotaScraper(headless=True)
+    def test_int(self):
+        assert normalize_order_number(58600) == '058600'
 
-    def test_parse_standard_format(self, scraper):
-        result = scraper._parse_kg_value("183,592,000.000 Kilogram (kg)")
-        assert result == 183592000.0
+    def test_float_from_dtype_drift(self):
+        assert normalize_order_number(58600.0) == '058600'
 
-    def test_parse_with_commas(self, scraper):
-        result = scraper._parse_kg_value("1,234,567 Kilogram")
-        assert result == 1234567.0
+    def test_string_with_leading_zero(self):
+        assert normalize_order_number('058600') == '058600'
 
-    def test_parse_lowercase_kg(self, scraper):
-        result = scraper._parse_kg_value("1000 kg")
-        assert result == 1000.0
-
-    def test_parse_without_unit(self, scraper):
-        result = scraper._parse_kg_value("1,000,000")
-        assert result == 1000000.0
-
-    def test_parse_decimal(self, scraper):
-        result = scraper._parse_kg_value("165,243,093.260 Kilogram (kg)")
-        assert result == 165243093.26
-
-    def test_parse_empty_returns_none(self, scraper):
-        result = scraper._parse_kg_value("")
-        assert result is None
-
-    def test_parse_none_returns_none(self, scraper):
-        result = scraper._parse_kg_value(None)
-        assert result is None
-
-    def test_parse_just_kilogram(self, scraper):
-        result = scraper._parse_kg_value("500000 Kilogram")
-        assert result == 500000.0
+    def test_plain_string(self):
+        assert normalize_order_number('58600') == '058600'
 
 
-class TestUKQuotaScraperParseDateRange:
-    """Tests for _parse_date_range method"""
+class _FakeResponse:
+    """Minimal stand-in for requests.Response"""
 
-    @pytest.fixture
-    def scraper(self):
-        return UKQuotaScraper(headless=True)
+    def __init__(self, payload):
+        self._payload = payload
 
-    def test_parse_standard_range(self, scraper):
-        start, end = scraper._parse_date_range("1 January 2026 to 31 March 2026")
-        assert start == "1 January 2026"
-        assert end == "31 March 2026"
+    def raise_for_status(self):
+        pass
 
-    def test_parse_q2_range(self, scraper):
-        start, end = scraper._parse_date_range("1 April 2026 to 30 June 2026")
-        assert start == "1 April 2026"
-        assert end == "30 June 2026"
-
-    def test_parse_empty_returns_none(self, scraper):
-        start, end = scraper._parse_date_range("")
-        assert start is None
-        assert end is None
-
-    def test_parse_none_returns_none(self, scraper):
-        start, end = scraper._parse_date_range(None)
-        assert start is None
-        assert end is None
-
-    def test_parse_invalid_format(self, scraper):
-        start, end = scraper._parse_date_range("invalid date range")
-        assert start is None
-        assert end is None
+    def json(self):
+        return self._payload
 
 
-class TestUKQuotaScraperBuildUrl:
-    """Tests for _build_url method"""
+class _FakeSession:
+    """Records the requested URL and returns a canned JSON payload"""
 
-    @pytest.fixture
-    def scraper(self):
-        return UKQuotaScraper(headless=True)
+    def __init__(self, payload):
+        self._payload = payload
+        self.last_url = None
 
-    def test_build_url_6_digit(self, scraper):
-        url = scraper._build_url("058001")
-        assert "order_number=058001" in url
-        assert scraper.base_url in url
+    def get(self, url, timeout=None):
+        self.last_url = url
+        return _FakeResponse(self._payload)
 
-    def test_build_url_pads_short_number(self, scraper):
-        url = scraper._build_url("58001")
-        assert "order_number=058001" in url
 
-    def test_build_url_integer_input(self, scraper):
-        url = scraper._build_url(58001)
-        assert "order_number=058001" in url
+class TestUKQuotaScraperFetchParsing:
+    """Tests for fetch_quota JSON parsing against a mocked API session"""
+
+    def _scraper_with(self, payload):
+        scraper = UKQuotaScraper(headless=True)
+        scraper.session = _FakeSession(payload)
+        return scraper
+
+    def test_parses_balances_and_status(self):
+        # Shape taken from a live 058600 response (steel trade measure, Q1 2026-27)
+        payload = {'data': [{'attributes': {
+            'balance': '90248498.8',
+            'initial_volume': '93750000.0',
+            'validity_start_date': '2026-07-01T00:00:00.000Z',
+            'validity_end_date': '2026-09-30T23:59:59.000Z',
+            'status': 'Open',
+        }}]}
+        result = self._scraper_with(payload).fetch_quota('058600')
+        assert result['current_balance_kg'] == 90248498.8
+        assert result['opening_balance_kg'] == 93750000.0
+        assert result['status'] == 'Open'
+        assert '2026' in result['validity_period']
+
+    def test_pads_order_number_in_url(self):
+        scraper = self._scraper_with({'data': []})
+        scraper.fetch_quota('58600')
+        assert 'order_number=058600' in scraper.session.last_url
+
+    def test_no_data_returns_no_data_status(self):
+        result = self._scraper_with({'data': []}).fetch_quota('058600')
+        assert result['status'] == 'No Data'
+        assert result['current_balance_kg'] is None
 
 
 class TestConvertKgToTonnes:
@@ -199,7 +182,8 @@ class TestCalculateUKMetrics:
 
 
 class TestUKQuotaOrderNumbers:
-    """Tests for UK_QUOTA_ORDER_NUMBERS constant"""
+    """UK_QUOTA_ORDER_NUMBERS pins Table 4 of the DBT steel trade measure
+    effective 1 July 2026 (order numbers 058600-058671)"""
 
     def test_all_order_numbers_6_digits(self):
         for key, order_num in UK_QUOTA_ORDER_NUMBERS.items():
@@ -209,41 +193,64 @@ class TestUKQuotaOrderNumbers:
         for key, order_num in UK_QUOTA_ORDER_NUMBERS.items():
             assert order_num.startswith('058'), f"Order number {order_num} for {key} doesn't start with 058"
 
-    def test_category_1a_exists(self):
-        assert '1A_EU' in UK_QUOTA_ORDER_NUMBERS
-        assert '1A_All_others' in UK_QUOTA_ORDER_NUMBERS
+    def test_expected_order_number_set(self):
+        nums = sorted(UK_QUOTA_ORDER_NUMBERS.values())
+        assert len(nums) == 75
+        assert len(set(nums)) == 75, "duplicate order numbers"
+        # Table 4 block (058600-058671) plus the three Category-1
+        # authorised-use quotas (058673-058675; 058672 is unused)
+        expected = list(range(58600, 58672)) + [58673, 58674, 58675]
+        assert [int(n) for n in nums] == expected
 
-    def test_category_1b_updated_for_2026(self):
-        # Old 058003 should be replaced with 058110, 058111, 058112
-        assert '1B_All_others_1' in UK_QUOTA_ORDER_NUMBERS
-        assert '1B_All_others_2' in UK_QUOTA_ORDER_NUMBERS
-        assert '1B_All_others_3' in UK_QUOTA_ORDER_NUMBERS
-        assert UK_QUOTA_ORDER_NUMBERS['1B_All_others_1'] == '058110'
-        assert UK_QUOTA_ORDER_NUMBERS['1B_All_others_2'] == '058111'
-        assert UK_QUOTA_ORDER_NUMBERS['1B_All_others_3'] == '058112'
+    def test_twenty_categories(self):
+        cats = {k.split('_', 1)[0] for k in UK_QUOTA_ORDER_NUMBERS}
+        assert len(cats) == 20
+        assert cats == {'1', '4', '5', '6', '7', '12A', '12B', '13', '14', '15',
+                        '16', '17', '19', '20', '21', '25A', '25B', '26', '27', '28'}
 
-    def test_category_13_updated_for_2026(self):
-        # Old 058019 should be replaced with 058020
-        assert UK_QUOTA_ORDER_NUMBERS['13_All_others'] == '058020'
-        # New individual country quotas
-        assert '13_Egypt' in UK_QUOTA_ORDER_NUMBERS
-        assert '13_Vietnam' in UK_QUOTA_ORDER_NUMBERS
-        assert '13_Algeria' in UK_QUOTA_ORDER_NUMBERS
-        assert '13_New_Zealand' in UK_QUOTA_ORDER_NUMBERS
-        assert '13_Norway' in UK_QUOTA_ORDER_NUMBERS
+    def test_spot_checks_against_table4(self):
+        assert UK_QUOTA_ORDER_NUMBERS['1_European_Union'] == '058600'
+        assert UK_QUOTA_ORDER_NUMBERS['1_Residual'] == '058603'
+        assert UK_QUOTA_ORDER_NUMBERS['13_Turkey'] == '058626'
+        assert UK_QUOTA_ORDER_NUMBERS['28_Residual'] == '058671'
 
-    def test_no_duplicate_order_numbers_in_different_categories(self):
-        # Some order numbers can be reused within same category (e.g., individual caps)
-        # But check that major categories have unique primary order numbers
-        primary_orders = [
-            UK_QUOTA_ORDER_NUMBERS['1A_EU'],
-            UK_QUOTA_ORDER_NUMBERS['4_EU'],
-            UK_QUOTA_ORDER_NUMBERS['5_EU'],
-            UK_QUOTA_ORDER_NUMBERS['6_EU'],
-            UK_QUOTA_ORDER_NUMBERS['7_EU'],
-        ]
-        # These should all be unique
-        assert len(primary_orders) == len(set(primary_orders))
+    def test_every_category_has_eu_and_residual_quota(self):
+        cats = {k.split('_', 1)[0] for k in UK_QUOTA_ORDER_NUMBERS}
+        for cat in cats:
+            assert f'{cat}_European_Union' in UK_QUOTA_ORDER_NUMBERS
+            assert f'{cat}_Residual' in UK_QUOTA_ORDER_NUMBERS
+
+
+class TestUKCustomerReportExclusions:
+    """Failed / No-Data rows carry only template-derived figures and must not
+    render as untouched quotas in the customer sheet"""
+
+    def test_failed_rows_excluded(self):
+        from src.excel_generator import prepare_uk_customer_data
+        df = pd.DataFrame({
+            'input_quota_category': ['Cat 1', 'Cat 1'],
+            'input_country': ['European Union', 'India'],
+            'input_order_number': ['058600', '058601'],
+            'opening_balance_kg': [93750000.0, 8364000.0],
+            'current_balance_kg': [90000000.0, 8364000.0],
+            'scrape_status': [None, 'failed'],
+        })
+        result = prepare_uk_customer_data(calculate_uk_metrics(df))
+        assert len(result) == 1
+        assert result['Country'].iloc[0] == 'European Union'
+
+    def test_all_failed_returns_empty(self):
+        from src.excel_generator import prepare_uk_customer_data
+        df = pd.DataFrame({
+            'input_quota_category': ['Cat 1'],
+            'input_country': ['European Union'],
+            'input_order_number': ['058600'],
+            'opening_balance_kg': [93750000.0],
+            'current_balance_kg': [93750000.0],
+            'scrape_status': ['failed'],
+        })
+        result = prepare_uk_customer_data(calculate_uk_metrics(df))
+        assert result.empty
 
 
 class TestUKScraperInit:
@@ -252,7 +259,7 @@ class TestUKScraperInit:
     def test_default_headless(self):
         scraper = UKQuotaScraper()
         assert scraper.headless is True
-        assert scraper.driver is None
+        assert scraper.session is None
 
     def test_headless_false(self):
         scraper = UKQuotaScraper(headless=False)

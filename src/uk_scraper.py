@@ -2,8 +2,7 @@
 """
 UK Quota Scraper - Fast HTTP version using UK Trade Tariff API
 
-This is the FAST version using direct API calls (no browser needed).
-For the backup Selenium version, see uk_scraper_selenium.py
+Uses direct API calls (no browser needed).
 
 API Endpoint: https://www.trade-tariff.service.gov.uk/uk/api/quotas/search
 Data updated: Daily (excluding weekends and bank holidays)
@@ -20,6 +19,18 @@ from typing import Optional, Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .config import UK_BASE_URL
+
+
+def normalize_order_number(raw) -> str:
+    """
+    Normalize an order number to a 6-digit zero-padded string.
+
+    Defends against pandas dtype drift in the input workbook: one blank cell
+    in the Order Number column flips the dtype to float64, and a naive
+    str(58600.0).zfill(6) would produce '58600.0' — silently breaking every
+    API query. Handles int, float, and string ('058600') inputs.
+    """
+    return str(int(float(raw))).zfill(6)
 
 
 class UKQuotaScraper:
@@ -79,12 +90,12 @@ class UKQuotaScraper:
         Fetch single quota data from UK JSON API
 
         Args:
-            order_number: UK quota order number (e.g., '058001')
+            order_number: UK quota order number (e.g., '058600')
 
         Returns:
             dict: Quota data or None if failed
         """
-        order_number = str(order_number).zfill(6)
+        order_number = normalize_order_number(order_number)
         url = f"{self.API_BASE_URL}?order_number={order_number}"
 
         try:
@@ -207,7 +218,7 @@ class UKQuotaScraper:
 
         # Identify unique order numbers to scrape
         unique_orders = quotas_df[order_col].dropna().unique()
-        unique_orders = [str(o).zfill(6) for o in unique_orders if str(o) != 'UNKNOWN']
+        unique_orders = [normalize_order_number(o) for o in unique_orders if str(o) != 'UNKNOWN']
         print(f"Unique order numbers to fetch: {len(unique_orders)}")
         print(f"Concurrent workers: {self.max_workers}")
 
@@ -258,7 +269,7 @@ class UKQuotaScraper:
             if pd.isna(raw_order) or str(raw_order) == 'UNKNOWN':
                 continue
 
-            order_number = str(raw_order).zfill(6)
+            order_number = normalize_order_number(raw_order)
             cached_data = scraped_cache.get(order_number)
 
             # Get template quota limit if available
@@ -281,7 +292,19 @@ class UKQuotaScraper:
                 'template_quota_limit': template_limit,
             }
 
-            if cached_data:
+            if cached_data and cached_data.get('status') == 'No Data':
+                # API answered 200 but knows nothing about this order number:
+                # there are no real figures, so treat it like a failed scrape
+                # rather than silently rendering template values as live data.
+                row_data['scrape_status'] = 'failed'
+                row_data['status'] = 'No Data'
+                row_data['scrape_timestamp'] = cached_data.get('scrape_timestamp')
+                if template_limit:
+                    opening_kg = template_limit * 1000
+                    row_data['opening_balance_kg'] = opening_kg
+                    row_data['current_balance_kg'] = opening_kg
+                    row_data['allocated_kg'] = 0
+            elif cached_data:
                 # Use API data
                 scraped_opening_kg = cached_data.get('opening_balance_kg')
                 scraped_current_kg = cached_data.get('current_balance_kg')
@@ -381,86 +404,109 @@ def calculate_uk_metrics(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# UK Quota Order Numbers Reference (Updated for 2026 Q1)
-# Source: UK Trade Remedies Notices and UK Integrated Online Tariff
+# UK Quota Order Numbers Reference — steel trade measure effective 1 July 2026
+# (replaced the steel safeguard, whose 058001+ order numbers expired 30 June 2026).
+# Source: DBT "UK's steel trade measure from 1 July 2026", Tables 3 & 4
+# https://www.gov.uk/government/publications/uks-steel-trade-measure-from-1-july-2026/uks-steel-trade-measure-from-1-july-2026
+# Category 1 also has a separate authorised-use quota whose order number is
+# published only on the UK Integrated Online Tariff (not in Table 4).
 UK_QUOTA_ORDER_NUMBERS = {
-    # Category 1A - Non-alloy hot-rolled sheet
-    '1A_EU': '058001',
-    '1A_Turkey': '058967',
-    '1A_Taiwan': '058085',
-    '1A_All_others': '058002',
-    # Category 1B - Other alloy hot-rolled sheet (UPDATED 2026 Q1)
-    # Old 058003 replaced with 3 sub-quotas
-    '1B_All_others_1': '058110',
-    '1B_All_others_2': '058111',
-    '1B_All_others_3': '058112',
-    # Category 4 - Metallic coated sheet
-    '4_EU': '058006',
-    '4_Taiwan': '058088',
-    '4_India': '058106',
-    '4_All_others': '058007',
-    # Category 5 - Organic coated sheet
-    '5_EU': '058010',
-    '5_South_Korea': '058827',
-    '5_All_others': '058011',
-    # Category 6 - Tin mill products
-    '6_EU': '058012',
-    '6_China': '058831',
-    '6_Taiwan': '058098',
-    '6_South_Korea': '058097',
-    '6_All_others': '058013',
-    # Category 7 - Quarto plates
-    '7_EU': '058014',
-    '7_All_others': '058015',
-    # Category 12A - Alloy merchant bars
-    '12A_EU': '058100',
-    '12A_All_others': '058102',
-    # Category 12B - Non-alloy merchant bars
-    '12B_EU': '058103',
-    '12B_Turkey': '058104',
-    '12B_All_others': '058105',
-    # Category 13 - Rebar (UPDATED 2026 Q1)
-    # Old 058019 replaced with 058020, new individual country quotas added
-    '13_EU': '058018',
-    '13_Turkey': '058866',
-    '13_All_others': '058020',  # Changed from 058019
-    '13_Egypt': '058131',       # NEW individual country
-    '13_Vietnam': '058136',     # NEW individual country
-    '13_Algeria': '058130',     # NEW individual country
-    '13_New_Zealand': '058133', # NEW individual country
-    '13_Norway': '058134',      # NEW individual country
-    # Category 16 - Wire rod
-    '16_EU': '058026',
-    '16_All_others': '058027',
-    # Category 17 - Angles/shapes/sections
-    '17_EU': '058028',
-    '17_All_others': '058029',
-    # Category 19 - Railway material
-    '19_EU': '058030',
-    '19_All_others': '058031',
-    # Category 20 - Gas pipe
-    '20_EU': '058032',
-    '20_Turkey': '058911',
-    '20_India': '058912',
-    '20_All_others': '058033',
-    # Category 21 - Hollow section
-    '21_EU': '058034',
-    '21_Turkey': '058916',
-    '21_All_others': '058035',
-    # Category 25A - Large welded tube (1)
-    '25A_EU': '058091',
-    '25A_South_Korea': '058095',
-    '25A_Japan': '058108',
-    '25A_All_others': '058036',
-    # Category 25B - Large welded tube (2)
-    '25B_EU': '058037',
-    '25B_South_Korea': '058974',
-    '25B_Japan': '058109',
-    '25B_All_others': '058038',
-    # Category 26 - Other welded tube
-    '26_EU': '058039',
-    '26_UAE': '058948',
-    '26_Turkey': '058947',
-    '26_China': '058949',
-    '26_All_others': '058041',
+    # Category 1 - non-alloy and other alloy hot-rolled sheets and strips
+    '1_European_Union': '058600',
+    '1_India': '058601',
+    '1_South_Korea': '058602',
+    '1_Residual': '058603',
+    # Category 1 authorised-use quota (Table 1 of the DBT notice; order
+    # numbers published only on the UK Integrated Online Tariff, verified
+    # live 2026-07-06; 058672 returns no data)
+    '1_Authorised_Use_European_Union': '058673',
+    '1_Authorised_Use_India': '058674',
+    '1_Authorised_Use_Residual': '058675',
+    # Category 4 - metallic coated sheets
+    '4_European_Union': '058604',
+    '4_India': '058605',
+    '4_South_Korea': '058606',
+    '4_Vietnam': '058607',
+    '4_Residual': '058608',
+    # Category 5 - organic coated sheets
+    '5_European_Union': '058609',
+    '5_South_Korea': '058610',
+    '5_Residual': '058611',
+    # Category 6 - tin mill products
+    '6_European_Union': '058612',
+    '6_Japan': '058613',
+    '6_South_Korea': '058614',
+    '6_Residual': '058615',
+    # Category 7 - non-alloy and other alloy quarto plates
+    '7_European_Union': '058616',
+    '7_South_Korea': '058617',
+    '7_United_States_of_America': '058618',
+    '7_Residual': '058619',
+    # Category 12A - alloy merchant bars and light sections
+    '12A_European_Union': '058620',
+    '12A_Residual': '058621',
+    # Category 12B - non-alloy merchant bars and light sections
+    '12B_European_Union': '058622',
+    '12B_Turkey': '058623',
+    '12B_Residual': '058624',
+    # Category 13 - rebars
+    '13_European_Union': '058625',
+    '13_Turkey': '058626',
+    '13_Residual': '058627',
+    # Category 14 - stainless bars and light sections
+    '14_European_Union': '058628',
+    '14_United_States_of_America': '058629',
+    '14_Residual': '058630',
+    # Category 15 - stainless wire rod
+    '15_European_Union': '058631',
+    '15_South_Korea': '058632',
+    '15_Residual': '058633',
+    # Category 16 - non-alloy and other alloy wire rod
+    '16_European_Union': '058634',
+    '16_Residual': '058635',
+    # Category 17 - angles, shapes, and sections of iron or non-alloy steel
+    '17_European_Union': '058636',
+    '17_South_Korea': '058637',
+    '17_United_States_of_America': '058638',
+    '17_Residual': '058639',
+    # Category 19 - railway material
+    '19_European_Union': '058640',
+    '19_Residual': '058641',
+    # Category 20 - gas pipes
+    '20_European_Union': '058642',
+    '20_India': '058643',
+    '20_Turkey': '058644',
+    '20_Residual': '058645',
+    # Category 21 - hollow sections
+    '21_European_Union': '058646',
+    '21_Turkey': '058647',
+    '21_Residual': '058648',
+    # Category 25A - large welded tubes (1)
+    '25A_European_Union': '058649',
+    '25A_Japan': '058650',
+    '25A_South_Korea': '058651',
+    '25A_United_States_of_America': '058652',
+    '25A_Residual': '058653',
+    # Category 25B - large welded tubes (2)
+    '25B_European_Union': '058654',
+    '25B_Japan': '058655',
+    '25B_South_Korea': '058656',
+    '25B_Turkey': '058657',
+    '25B_Residual': '058658',
+    # Category 26 - other welded tubes
+    '26_European_Union': '058659',
+    '26_Switzerland': '058660',
+    '26_Turkey': '058661',
+    '26_United_Arab_Emirates': '058662',
+    '26_United_States_of_America': '058663',
+    '26_Residual': '058664',
+    # Category 27 - non-alloy and other alloy cold finished bars
+    '27_European_Union': '058665',
+    '27_Turkey': '058666',
+    '27_Residual': '058667',
+    # Category 28 - non-alloy wire
+    '28_European_Union': '058668',
+    '28_Japan': '058669',
+    '28_United_States_of_America': '058670',
+    '28_Residual': '058671',
 }

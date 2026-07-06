@@ -2,11 +2,9 @@
 """
 EU Quota Scraper - Fast HTTP version using requests + BeautifulSoup
 
-This is the FAST version using direct HTTP requests (no browser needed).
-For the backup Selenium version, see scraper_selenium.py
-
-The EU TARIC website serves data as server-rendered HTML, so we can
-parse it directly without JavaScript execution.
+Uses direct HTTP requests (no browser needed): the EU TARIC website serves
+data as server-rendered HTML, so we can parse it directly without
+JavaScript execution.
 """
 
 import re
@@ -19,7 +17,7 @@ from datetime import datetime
 from typing import Optional, Dict, List
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from .config import build_quota_url, EU_QUOTA_FIELDS
+from .config import build_quota_url, get_current_quarter_start, EU_QUOTA_FIELDS
 
 
 class EUQuotaScraper:
@@ -172,32 +170,41 @@ class EUQuotaScraper:
                     if not label_td:
                         continue
 
-                    label = label_td.get_text(strip=True)
+                    # Collapse all whitespace (incl. NBSP) — TARIC labels can
+                    # contain doubled spaces, which would corrupt column names.
+                    # The '(indicative)' part sits in its own HTML node, so also
+                    # strip the spaces the separator introduces inside parens.
+                    label = re.sub(r'\s+', ' ', label_td.get_text(separator=' ', strip=True))
+                    label = re.sub(r'\(\s+', '(', label)
+                    label = re.sub(r'\s+\)', ')', label)
 
                     # Get value (second td)
                     tds = row.find_all('td')
                     if len(tds) >= 2:
                         value_td = tds[1]
-                        value = value_td.get_text(strip=True)
+                        # separator=' ' keeps multi-span cells (e.g. origin +
+                        # excluded-country lists) from mashing words together
+                        value = re.sub(r'\s+', ' ', value_td.get_text(separator=' ', strip=True))
 
                         # Parse and store the value
                         parsed_value = self._parse_value(value, label)
 
                         # Normalize field name for consistent column names
-                        field_name = label.replace(' ', '_').lower()
+                        field_name = re.sub(r'\s+', '_', label).lower()
                         data[field_name] = parsed_value
 
                 except Exception:
                     continue
 
-            # Extract validity period into start and end dates
+            # Extract validity period into start and end dates.
+            # TARIC renders the separator with NBSP/newlines, so match the two
+            # DD-MM-YYYY dates directly instead of splitting on ' - '.
             if 'validity_period' in data and data['validity_period']:
                 try:
-                    period = data['validity_period']
-                    if ' - ' in period:
-                        start, end = period.split(' - ')
-                        data['validity_start'] = start.strip()
-                        data['validity_end'] = end.strip()
+                    dates = re.findall(r'\d{2}-\d{2}-\d{4}', str(data['validity_period']))
+                    if len(dates) >= 2:
+                        data['validity_start'] = dates[0]
+                        data['validity_end'] = dates[1]
                 except Exception:
                     pass
 
@@ -263,7 +270,7 @@ class EUQuotaScraper:
                 else:
                     start_date = str(raw_date)[:10]
             else:
-                start_date = '2026-01-01'  # Default to Q1 2026
+                start_date = get_current_quarter_start()  # Default to current quarter
 
             # Build source info from input
             source_info = {

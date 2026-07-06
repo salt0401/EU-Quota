@@ -65,6 +65,35 @@ class TestCleanQuotaData:
         assert 'awaiting_allocation' in result.columns
         assert 'allocation_pct' in result.columns
 
+    def test_renames_awaiting_allocation_with_doubled_space(self):
+        # The TARIC label carries a doubled space, which used to produce
+        # 'total_awaiting_allocation__(indicative)' and miss the rename —
+        # silently zeroing awaiting_allocation in the Balance Remaining formula
+        df = pd.DataFrame({
+            'Total awaiting allocation  (indicative)': [125256],
+        })
+        result = clean_quota_data(df)
+        assert 'awaiting_allocation' in result.columns
+        assert result['awaiting_allocation'].iloc[0] == 125256
+
+    def test_renames_awaiting_allocation_double_underscore(self):
+        # Old snapshots saved the already-broken column name
+        df = pd.DataFrame({
+            'total_awaiting_allocation__(indicative)': [5000],
+        })
+        result = clean_quota_data(df)
+        assert 'awaiting_allocation' in result.columns
+
+    def test_renames_awaiting_allocation_spaced_parens(self):
+        # '(indicative)' sits in its own HTML node on the live TARIC page, so
+        # separator-joined text yields 'Total awaiting allocation ( indicative )'
+        df = pd.DataFrame({
+            'Total awaiting allocation ( indicative )': [7000],
+        })
+        result = clean_quota_data(df)
+        assert 'awaiting_allocation' in result.columns
+        assert result['awaiting_allocation'].iloc[0] == 7000
+
 
 class TestCalculateQuotaMetrics:
     """Tests for calculate_quota_metrics function - MEPS formulas"""
@@ -256,6 +285,64 @@ class TestPrepareCustomerData:
         result = prepare_customer_data(df)
         assert 'Country' in result.columns
         assert result['Country'].iloc[0] == 'Germany'
+
+    def test_prefers_curated_input_country_over_origin(self):
+        # Input file names follow Annex I of Reg. 2026/1457; raw TARIC origin
+        # is unnormalized and can contain concatenated exclusion lists
+        df = pd.DataFrame({
+            'input_quota_category': ['1.A'],
+            'input_country': ['Türkiye'],
+            'origin': ['Countries subject to measures Kazakhstan'],
+            'quota_limit': [1000],
+        })
+        result = prepare_customer_data(df)
+        assert result['Country'].iloc[0] == 'Türkiye'
+
+    def test_falls_back_to_origin_when_input_country_empty(self):
+        df = pd.DataFrame({
+            'input_quota_category': ['1.A'],
+            'input_country': [''],
+            'origin': ['Japan'],
+            'quota_limit': [1000],
+        })
+        result = prepare_customer_data(df)
+        assert result['Country'].iloc[0] == 'Japan'
+
+    def test_excludes_failed_scrapes_from_customer_report(self):
+        # A failed scrape has no figures; a 0-tonne row would read as a real,
+        # fully-exhausted-or-empty quota to customers
+        df = pd.DataFrame({
+            'input_quota_category': ['1.A', '1.A'],
+            'input_country': ['Türkiye', 'Japan'],
+            'input_order_number': ['099801', '099802'],
+            'origin': ['Türkiye', None],
+            'quota_limit': [1000000, 0],
+            'quota_allocated': [500000, 0],
+            'balance_remaining': [500000, 0],
+            'pct_allocated': [50.0, 0.0],
+            'pct_remaining': [50.0, 0.0],
+            'scrape_status': [None, 'failed'],
+        })
+        result = prepare_customer_data(df)
+        assert len(result) == 1
+        assert result['Country'].iloc[0] == 'Türkiye'
+
+    def test_percentages_converted_to_fractions(self):
+        # Internal metrics are 0-100; the customer sheet uses Excel '0%'
+        # format, so values must be 0-1. A 0.5%-allocated quota must come
+        # out as 0.005, not 0.5 (which Excel would display as 50%)
+        df = pd.DataFrame({
+            'input_quota_category': ['1.A'],
+            'origin': ['EU'],
+            'quota_limit': [1000000],
+            'quota_allocated': [5000],
+            'balance_remaining': [995000],
+            'pct_allocated': [0.5],
+            'pct_remaining': [99.5],
+        })
+        result = prepare_customer_data(df)
+        assert result['% Quota Allocated'].iloc[0] == pytest.approx(0.005)
+        assert result['% Balance Remaining'].iloc[0] == pytest.approx(0.995)
 
 
 class TestGetQuotaSummary:

@@ -146,19 +146,24 @@ def parse_validity_period(validity_str: str) -> Tuple[Optional[str], Optional[st
     """
     Parse validity period string into start and end dates
 
+    Matches the two DD-MM-YYYY dates directly, so it tolerates whatever
+    separator TARIC renders between them (spaces, NBSP, newlines).
+
     Args:
         validity_str: String like "01-01-2026  -  31-03-2026"
 
     Returns:
         Tuple[str, str]: (start_date, end_date) in DD-MM-YYYY format, or (None, None)
     """
-    if not validity_str or ' - ' not in validity_str:
+    import re
+
+    if not validity_str:
         return None, None
 
     try:
-        parts = validity_str.split(' - ')
-        if len(parts) == 2:
-            return parts[0].strip(), parts[1].strip()
+        dates = re.findall(r'\d{2}-\d{2}-\d{4}', str(validity_str))
+        if len(dates) >= 2:
+            return dates[0], dates[1]
     except Exception:
         pass
 

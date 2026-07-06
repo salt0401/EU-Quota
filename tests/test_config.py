@@ -148,6 +148,12 @@ class TestParseValidityPeriod:
         assert start is None
         assert end is None
 
+    def test_period_with_nbsp_separator(self):
+        # Live TARIC renders the separator with NBSP and line breaks, not ' - '
+        start, end = parse_validity_period("01-07-2026\r\n\xa0-\xa0\r\n30-09-2026")
+        assert start == "01-07-2026"
+        assert end == "30-09-2026"
+
 
 class TestFormatPeriodDisplay:
     """Tests for format_period_display function"""

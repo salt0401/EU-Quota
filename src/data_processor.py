@@ -8,6 +8,7 @@ IMPORTANT: Calculations follow MEPS template formulas:
 - Balance Remaining = balance - awaiting_allocation
 """
 
+import re
 import pandas as pd
 from datetime import datetime, date
 from typing import Optional, Tuple
@@ -32,8 +33,20 @@ def clean_quota_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
 
-    # Standardize column names (lowercase, underscores)
-    df.columns = [col.lower().replace(' ', '_') for col in df.columns]
+    # Standardize column names (lowercase, underscores). Collapse repeated
+    # underscores and strip underscores inside parentheses: TARIC labels carry
+    # doubled spaces / separate nodes (e.g. "Total awaiting allocation
+    # (indicative)"), which otherwise produces variants like
+    # 'total_awaiting_allocation__(indicative)' or '..._(_indicative_)' and
+    # silently misses the rename below — zeroing awaiting_allocation in the
+    # MEPS Balance Remaining formula.
+    def _std(col):
+        c = re.sub(r'_+', '_', str(col).lower().replace(' ', '_'))
+        c = re.sub(r'\(_+', '(', c)
+        c = re.sub(r'_+\)', ')', c)
+        return c
+
+    df.columns = [_std(col) for col in df.columns]
 
     # Convert numeric columns, ensuring 0 for empty values
     numeric_cols = [
@@ -166,16 +179,16 @@ def extract_period_info(df: pd.DataFrame) -> Tuple[str, str, int, int]:
     quarter = 1
     year = date.today().year
 
-    # Try to get validity period from first valid row
+    # Use the most common validity window across quotas (not just the first
+    # row): under the post-July-2026 regime individual quotas can carry
+    # different windows, and the banner should reflect the dominant one.
     if 'validity_start' in df.columns and 'validity_end' in df.columns:
-        for _, row in df.iterrows():
-            start = row.get('validity_start')
-            end = row.get('validity_end')
-
-            if pd.notna(start) and pd.notna(end):
-                period_display = format_period_display(str(start), str(end))
-                quarter, year = detect_quarter_from_validity(str(start))
-                break
+        valid = df[df['validity_start'].notna() & df['validity_end'].notna()]
+        if len(valid) > 0:
+            pairs = valid['validity_start'].astype(str) + '|' + valid['validity_end'].astype(str)
+            start, end = pairs.mode().iloc[0].split('|', 1)
+            period_display = format_period_display(start, end)
+            quarter, year = detect_quarter_from_validity(start)
 
     # Get latest scrape timestamp
     if 'scrape_timestamp' in df.columns:
@@ -204,10 +217,36 @@ def prepare_customer_data(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Customer-ready DataFrame with proper column names
     """
+    df = df.copy()
+
+    # Exclude rows whose scrape failed: they carry no real figures and would
+    # render as misleading 0-tonne / 0%-allocated rows in the customer sheet.
+    # They remain in the raw-data output, and main.py reports the failures.
+    if 'scrape_status' in df.columns:
+        failed = df['scrape_status'] == 'failed'
+        if failed.any():
+            print(f"  Warning: excluding {int(failed.sum())} failed quota(s) "
+                  f"from the customer report: "
+                  f"{sorted(df.loc[failed, 'input_order_number'].astype(str))}")
+            df = df[~failed]
+
+    # Country display: prefer the curated input name (matches the regulation's
+    # Annex I allocation labels, e.g. 'Türkiye', 'FTA Quota – CSQ'). The raw
+    # TARIC origin text is unnormalized ('Korea, Republic of (South Korea)',
+    # 'ERGA OMNES' with excluded-country lists appended) and stays available
+    # in the raw-data output for verification.
+    if 'input_country' in df.columns:
+        df['_display_country'] = df['input_country']
+        if 'origin' in df.columns:
+            missing = df['_display_country'].isna() | (df['_display_country'].astype(str).str.strip() == '')
+            df.loc[missing, '_display_country'] = df.loc[missing, 'origin']
+    elif 'origin' in df.columns:
+        df['_display_country'] = df['origin']
+
     # Column mapping: internal_name -> display_name
     column_mapping = {
         'input_quota_category': 'Quota Category',
-        'origin': 'Country',
+        '_display_country': 'Country',
         'quota_limit': 'Quota Limit (Tonnes)',
         'quota_allocated': 'Quota Allocated (Tonnes)',
         'pct_allocated': '% Quota Allocated',
@@ -226,12 +265,17 @@ def prepare_customer_data(df: pd.DataFrame) -> pd.DataFrame:
         if col in result.columns:
             result[col] = (result[col] / 1000).round(2)
 
+    # Percentages as 0-1 fractions for Excel '0%' formatting. The internal
+    # metrics are on a 0-100 scale; converting here (not in the generator)
+    # removes the value>1 guess that misrendered quotas below 1% allocated
+    # as huge percentages — the common case right after a quarter opens.
+    pct_cols = ['pct_allocated', 'pct_remaining']
+    for col in pct_cols:
+        if col in result.columns:
+            result[col] = (result[col] / 100).round(4)
+
     # Rename columns for display
     result = result.rename(columns={k: v for k, v in column_mapping.items() if k in result.columns})
-
-    # Use input_country if origin is missing
-    if 'Country' not in result.columns and 'input_country' in df.columns:
-        result['Country'] = df['input_country']
 
     return result
 

@@ -39,6 +39,21 @@ def prepare_uk_customer_data(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
 
+    # Exclude rows whose scrape failed or where the API had no data for the
+    # order number: they carry only template-derived figures and would render
+    # as untouched quotas (0% allocated / 100% remaining) in the customer
+    # sheet. Mirrors the EU exclusion in data_processor.prepare_customer_data;
+    # the rows remain in the UK raw-data output.
+    if 'scrape_status' in df.columns:
+        failed = df['scrape_status'] == 'failed'
+        if failed.any():
+            print(f"  Warning: excluding {int(failed.sum())} failed UK quota(s) "
+                  f"from the customer report: "
+                  f"{sorted(df.loc[failed, 'input_order_number'].astype(str))}")
+            df = df[~failed]
+            if df.empty:
+                return pd.DataFrame()
+
     # Column mapping: internal_name -> display_name
     # UK scraper uses _tonnes suffix for already-converted values
     column_mapping = {
@@ -188,8 +203,30 @@ def _update_template_xml(
         if os.path.exists(shared_strings_path):
             _update_shared_strings(shared_strings_path, period_display, latest_data)
 
-        # Calculate last row for table/dimension updates
-        last_row = 15 + len(df)
+        # The Instructions sheet mirrors the banners via formulas; their CACHED
+        # values live in sheet1.xml and are what LibreOffice/previewers/pandas
+        # display (they don't recalculate on load). Patch the caches too.
+        sheet1_path = os.path.join(temp_dir, 'xl', 'worksheets', 'sheet1.xml')
+        if os.path.exists(sheet1_path):
+            _update_shared_strings(sheet1_path, period_display, latest_data)
+
+        # Belt and braces: force a full recalculation when Excel opens the file
+        workbook_path = os.path.join(temp_dir, 'xl', 'workbook.xml')
+        if os.path.exists(workbook_path):
+            with open(workbook_path, 'r', encoding='utf-8') as f:
+                wb_content = f.read()
+            if 'fullCalcOnLoad' not in wb_content:
+                wb_content = re.sub(r'<calcPr\s+([^/>]*?)\s*/>',
+                                    r'<calcPr \1 fullCalcOnLoad="1"/>',
+                                    wb_content)
+                with open(workbook_path, 'w', encoding='utf-8') as f:
+                    f.write(wb_content)
+
+        # Calculate last row for table/dimension updates. Never let a table
+        # shrink to its header row alone (ref="A15:G15"): Excel treats a
+        # zero-data-row table as corrupt and refuses to open the workbook.
+        # An empty df gets a placeholder row 16 instead.
+        last_row = 15 + max(1, len(df))
 
         # Update sheet2.xml (European Union) with new data
         sheet2_path = os.path.join(temp_dir, 'xl', 'worksheets', 'sheet2.xml')
@@ -293,21 +330,29 @@ def _update_eu_sheet_xml(filepath: str, df: pd.DataFrame):
     # Keep the header portion (rows 1-15)
     header_rows = sheet_data_content[len('<sheetData>'):row_15_end]
 
-    # Generate new data rows as XML strings
-    new_data_rows = []
-    for idx, row_data in enumerate(df.values):
-        row_num = 16 + idx
-        row_xml = _create_data_row_xml(row_num, row_data)
-        new_data_rows.append(row_xml)
+    # Generate new data rows as XML strings. If every scrape failed the
+    # customer df is empty — write a placeholder row so the sheet (and the
+    # A15:G16 table ref) stays valid for Excel, mirroring the UK sheet.
+    if len(df) > 0:
+        new_data_rows = []
+        for idx, row_data in enumerate(df.values):
+            row_num = 16 + idx
+            row_xml = _create_data_row_xml(row_num, row_data)
+            new_data_rows.append(row_xml)
+        data_rows_xml = ''.join(new_data_rows)
+    else:
+        data_rows_xml = ('<row r="16" spans="1:7" ht="17.45">'
+                         '<c r="A16" s="21" t="inlineStr"><is>'
+                         '<t>EU data not available for this run</t></is></c></row>')
 
     # Build new sheetData section
-    new_sheet_data = '<sheetData>' + header_rows + ''.join(new_data_rows) + '</sheetData>'
+    new_sheet_data = '<sheetData>' + header_rows + data_rows_xml + '</sheetData>'
 
     # Replace sheetData in the content
     new_content = content[:sheet_data_start] + new_sheet_data + content[sheet_data_end + len('</sheetData>'):]
 
-    # Update dimension ref
-    last_row = 15 + len(df)
+    # Update dimension ref (min 16: the placeholder row)
+    last_row = 15 + max(1, len(df))
     new_content = re.sub(
         r'<dimension ref="A1:G\d+"',
         f'<dimension ref="A1:G{last_row}"',
@@ -339,11 +384,12 @@ def _create_data_row_xml(row_num: int, data: tuple) -> str:
             text_value = text_value.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             cells.append(f'<c r="{cell_ref}" s="21" t="inlineStr"><is><t>{text_value}</t></is></c>')
         elif col_idx in [4, 6]:  # Percentage columns (% Quota Allocated, % Balance Remaining)
+            # Both EU (prepare_customer_data) and UK (prepare_uk_customer_data)
+            # supply 0-1 fractions; write as-is for the '0%' cell format.
             if pd.isna(value):
                 num_value = '0'
             else:
-                # Convert percentage to decimal if needed (e.g., 89.53 -> 0.8953)
-                num_value = str(float(value) / 100 if float(value) > 1 else value)
+                num_value = str(float(value))
             cells.append(f'<c r="{cell_ref}" s="24"><v>{num_value}</v></c>')
         else:  # Numeric columns (Quota Limit, Quota Allocated, Balance Remaining)
             if pd.isna(value):
@@ -537,6 +583,8 @@ def _generate_from_scratch(
             cell.font = DATA_FONT
             if col_idx >= 3:
                 cell.alignment = Alignment(horizontal='right')
+            if col_idx in (5, 7):  # percentage columns hold 0-1 fractions
+                cell.number_format = '0%'
 
     # Set column widths
     col_widths = [64, 40, 20, 20, 15, 20, 15]
@@ -573,6 +621,8 @@ def _generate_from_scratch(
                 cell.font = DATA_FONT
                 if col_idx >= 3:
                     cell.alignment = Alignment(horizontal='right')
+                if col_idx in (5, 7):  # percentage columns hold 0-1 fractions
+                    cell.number_format = '0%'
 
         for col_idx, width in enumerate(col_widths, 1):
             ws_uk.column_dimensions[get_column_letter(col_idx)].width = width

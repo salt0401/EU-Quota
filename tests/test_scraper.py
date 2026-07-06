@@ -90,15 +90,15 @@ class TestEUQuotaScraperInit:
     def test_default_headless(self):
         scraper = EUQuotaScraper()
         assert scraper.headless is True
-        assert scraper.driver is None
+        assert scraper.session is None
 
     def test_headless_false(self):
         scraper = EUQuotaScraper(headless=False)
         assert scraper.headless is False
 
-    def test_driver_initially_none(self):
+    def test_session_initially_none(self):
         scraper = EUQuotaScraper()
-        assert scraper.driver is None
+        assert scraper.session is None
 
 
 class TestEUQuotaScraperContextManager:
