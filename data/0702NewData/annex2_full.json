@@ -1,0 +1,1046 @@
+{
+  "section1": [
+    "Albania",
+    "Algeria",
+    "Andorra",
+    "Antigua and Barbuda",
+    "Argentina",
+    "Bahamas",
+    "Barbados",
+    "Belize",
+    "Bosnia and Herzegovina",
+    "Botswana",
+    "Brazil",
+    "Cameroon",
+    "Canada",
+    "Chile",
+    "Colombia",
+    "Comoros",
+    "Costa Rica",
+    "Côte d'Ivoire",
+    "Dominica",
+    "Dominican Republic",
+    "Ecuador",
+    "Egypt",
+    "El Salvador",
+    "Eswatini",
+    "Faroe Islands",
+    "Fiji",
+    "Georgia",
+    "Ghana",
+    "Grenada",
+    "Guatemala",
+    "Guyana",
+    "Honduras",
+    "India",
+    "Indonesia",
+    "Israel",
+    "Jamaica",
+    "Japan",
+    "Jordan",
+    "Kenya",
+    "Korea",
+    "Kosovo",
+    "Lebanon",
+    "Lesotho",
+    "Madagascar",
+    "Mauritius",
+    "Mexico",
+    "Moldova",
+    "Montenegro",
+    "Morocco",
+    "Mozambique",
+    "Namibia",
+    "New Zealand",
+    "Nicaragua",
+    "North Macedonia",
+    "Palestine",
+    "Panama",
+    "Papua New Guinea",
+    "Paraguay",
+    "Peru",
+    "Samoa",
+    "San Marino",
+    "Serbia",
+    "Seychelles",
+    "Singapore",
+    "Solomon Islands",
+    "South Africa",
+    "St Kitts and Nevis",
+    "Saint Lucia",
+    "St Vincent and the Grenadines",
+    "Suriname",
+    "Switzerland",
+    "Trinidad and Tobago",
+    "Tunisia",
+    "Türkiye",
+    "Ukraine",
+    "United Kingdom",
+    "Uruguay",
+    "Viet Nam",
+    "Zimbabwe"
+  ],
+  "section2": {
+    "1.A": [
+      "Egypt",
+      "India",
+      "Korea",
+      "Türkiye",
+      "Ukraine"
+    ],
+    "1.B": [
+      "United Kingdom"
+    ],
+    "2": [
+      "India",
+      "Korea",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom"
+    ],
+    "3.A": [
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "3.B": [
+      "Korea"
+    ],
+    "4.A": [
+      "India",
+      "Korea",
+      "Türkiye"
+    ],
+    "4.B": [
+      "India",
+      "Korea",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "5": [
+      "India",
+      "Korea",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "6": [
+      "India",
+      "Korea",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "7": [
+      "India",
+      "Indonesia",
+      "Korea",
+      "North Macedonia",
+      "United Kingdom"
+    ],
+    "8": [
+      "India",
+      "Indonesia",
+      "Korea",
+      "South Africa",
+      "Türkiye"
+    ],
+    "9": [
+      "India",
+      "Korea",
+      "South Africa",
+      "Türkiye"
+    ],
+    "10": [
+      "India",
+      "Korea",
+      "South Africa"
+    ],
+    "12": [
+      "Korea",
+      "North Macedonia",
+      "Switzerland",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "13": [
+      "Egypt",
+      "Türkiye",
+      "Ukraine"
+    ],
+    "14": [
+      "India",
+      "Switzerland",
+      "United Kingdom"
+    ],
+    "15": [
+      "India",
+      "Korea",
+      "United Kingdom"
+    ],
+    "16": [
+      "Egypt",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom"
+    ],
+    "17": [
+      "Switzerland",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "18": [
+      "United Kingdom"
+    ],
+    "19": [
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "20": [
+      "India",
+      "North Macedonia",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "21": [
+      "North Macedonia",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom"
+    ],
+    "22": [
+      "India",
+      "Korea",
+      "Ukraine"
+    ],
+    "24": [
+      "Brazil",
+      "Ukraine"
+    ],
+    "25.A": [
+      "India",
+      "Türkiye"
+    ],
+    "25.B": [
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "26": [
+      "India",
+      "Switzerland",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "27": [
+      "Switzerland",
+      "Türkiye",
+      "Ukraine"
+    ],
+    "28": [
+      "Türkiye",
+      "Ukraine"
+    ]
+  },
+  "section3": {
+    "1.A": [
+      "Australia",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Japan",
+      "Kazakhstan",
+      "Korea",
+      "North Macedonia",
+      "Saudi Arabia",
+      "Serbia",
+      "Switzerland",
+      "Taiwan",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom",
+      "Viet Nam"
+    ],
+    "1.B": [
+      "China",
+      "Japan",
+      "United Kingdom",
+      "United States"
+    ],
+    "2": [
+      "India",
+      "Japan",
+      "Korea",
+      "Taiwan",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom"
+    ],
+    "3.A": [
+      "China",
+      "Japan",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "3.B": [
+      "China",
+      "Korea",
+      "Taiwan",
+      "Viet Nam"
+    ],
+    "4.A": [
+      "India",
+      "Korea",
+      "Taiwan",
+      "Türkiye",
+      "Viet Nam"
+    ],
+    "4.B": [
+      "China",
+      "India",
+      "Korea",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "5": [
+      "India",
+      "Korea",
+      "Taiwan",
+      "Türkiye",
+      "United Kingdom",
+      "Viet Nam"
+    ],
+    "6": [
+      "China",
+      "India",
+      "Korea",
+      "Serbia",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "7": [
+      "India",
+      "Indonesia",
+      "Japan",
+      "Korea",
+      "North Macedonia",
+      "United Kingdom"
+    ],
+    "8": [
+      "China",
+      "India",
+      "Indonesia",
+      "Korea",
+      "South Africa",
+      "Taiwan",
+      "Türkiye"
+    ],
+    "9": [
+      "China",
+      "India",
+      "Korea",
+      "South Africa",
+      "Taiwan",
+      "Türkiye",
+      "Viet Nam"
+    ],
+    "10": [
+      "China",
+      "India",
+      "Korea",
+      "South Africa"
+    ],
+    "12": [
+      "China",
+      "Korea",
+      "North Macedonia",
+      "Switzerland",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "13": [
+      "Algeria",
+      "China",
+      "Egypt",
+      "Moldova",
+      "Türkiye",
+      "Ukraine"
+    ],
+    "14": [
+      "China",
+      "India",
+      "Switzerland",
+      "United Kingdom"
+    ],
+    "15": [
+      "China",
+      "India",
+      "Japan",
+      "Korea",
+      "Taiwan",
+      "United Kingdom"
+    ],
+    "16": [
+      "Egypt",
+      "Malaysia",
+      "Moldova",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom",
+      "Viet Nam"
+    ],
+    "17": [
+      "Switzerland",
+      "Türkiye",
+      "United Arab Emirates",
+      "United Kingdom"
+    ],
+    "18": [
+      "China",
+      "United Arab Emirates",
+      "United Kingdom"
+    ],
+    "19": [
+      "China",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "20": [
+      "India",
+      "North Macedonia",
+      "Türkiye",
+      "United Arab Emirates",
+      "United Kingdom"
+    ],
+    "21": [
+      "China",
+      "North Macedonia",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom"
+    ],
+    "22": [
+      "China",
+      "India",
+      "Korea",
+      "Ukraine"
+    ],
+    "24": [
+      "Brazil",
+      "China",
+      "Ukraine"
+    ],
+    "25.A": [
+      "China",
+      "India",
+      "Israel",
+      "Türkiye"
+    ],
+    "25.B": [
+      "Algeria",
+      "China",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "26": [
+      "China",
+      "India",
+      "Switzerland",
+      "Taiwan",
+      "Türkiye",
+      "United Kingdom"
+    ],
+    "27": [
+      "China",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine"
+    ],
+    "28": [
+      "China",
+      "Türkiye",
+      "Ukraine"
+    ]
+  },
+  "section4": {
+    "1.A": [
+      "Algeria",
+      "Argentina",
+      "Israel",
+      "Moldova",
+      "Singapore",
+      "South Africa",
+      "All other FTA partners"
+    ],
+    "1.B": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "2": [
+      "Algeria",
+      "Argentina",
+      "Indonesia",
+      "Israel",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "3.A": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "3.B": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom",
+      "All other FTA partners"
+    ],
+    "4.A": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Indonesia",
+      "Israel",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "Switzerland",
+      "Ukraine",
+      "All other FTA partners"
+    ],
+    "4.B": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "5": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Moldova",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "All other FTA partners"
+    ],
+    "6": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Moldova",
+      "North Macedonia",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "7": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Israel",
+      "Moldova",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "8": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Israel",
+      "Japan",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "Switzerland",
+      "Ukraine",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "9": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "Ukraine",
+      "United Kingdom",
+      "All other FTA partners"
+    ],
+    "10": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "12": [
+      "Algeria",
+      "Argentina",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Moldova",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "13": [
+      "Argentina",
+      "Brazil",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "14": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Türkiye",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "15": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "16": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "India",
+      "Indonesia",
+      "Israel",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "All other FTA partners"
+    ],
+    "17": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "18": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Türkiye",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "19": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "20": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "21": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "22": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Türkiye",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "24": [
+      "Algeria",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "South Africa",
+      "Switzerland",
+      "Türkiye",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "25.A": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "25.B": [
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "South Africa",
+      "Switzerland",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "26": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "South Africa",
+      "Ukraine",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "27": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ],
+    "28": [
+      "Algeria",
+      "Argentina",
+      "Brazil",
+      "Egypt",
+      "India",
+      "Indonesia",
+      "Israel",
+      "Japan",
+      "Korea",
+      "Moldova",
+      "North Macedonia",
+      "Serbia",
+      "Singapore",
+      "South Africa",
+      "Switzerland",
+      "United Kingdom",
+      "Viet Nam",
+      "All other FTA partners"
+    ]
+  },
+  "section5": {
+    "1.A": [
+      "Brazil",
+      "Indonesia",
+      "North Macedonia",
+      "Switzerland",
+      "United Kingdom"
+    ],
+    "2": [
+      "Brazil",
+      "Egypt",
+      "Switzerland"
+    ],
+    "3.B": [
+      "Japan"
+    ],
+    "4.A": [
+      "Egypt",
+      "Japan",
+      "South Africa",
+      "United Kingdom"
+    ],
+    "4.B": [
+      "Egypt",
+      "Switzerland"
+    ],
+    "5": [
+      "North Macedonia"
+    ],
+    "6": [
+      "Japan",
+      "Singapore"
+    ],
+    "7": [
+      "Türkiye"
+    ],
+    "9": [
+      "Switzerland"
+    ],
+    "12": [
+      "Brazil",
+      "Egypt"
+    ],
+    "16": [
+      "Japan",
+      "Korea"
+    ],
+    "17": [
+      "Korea"
+    ],
+    "21": [
+      "Switzerland"
+    ],
+    "22": [
+      "Japan"
+    ],
+    "24": [
+      "Argentina",
+      "Singapore"
+    ],
+    "25.B": [
+      "Singapore"
+    ],
+    "26": [
+      "Singapore"
+    ]
+  }
+}

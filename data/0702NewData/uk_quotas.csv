@@ -1,0 +1,73 @@
+category_code,category_name,country,order_number,annual_quota_t,q1_jul_sep_t,q2_oct_dec_t,q3_jan_mar_t,q4_apr_jun_t
+1,non-alloy and other alloy hot-rolled sheets and strips,European Union,058600,375000,93750,93750,93750,93750
+1,non-alloy and other alloy hot-rolled sheets and strips,India,058601,33456,8364,8364,8364,8364
+1,non-alloy and other alloy hot-rolled sheets and strips,South Korea,058602,8785,2196,2196,2196,2197
+1,non-alloy and other alloy hot-rolled sheets and strips,Residual,058603,49763,12440,12440,12440,12443
+4,metallic coated sheets,European Union,058604,510273,127568,127568,127568,127569
+4,metallic coated sheets,India,058605,125796,31449,31449,31449,31449
+4,metallic coated sheets,South Korea,058606,100753,25188,25188,25188,25189
+4,metallic coated sheets,Vietnam,058607,174367,43591,43591,43591,43594
+4,metallic coated sheets,Residual,058608,100116,25029,25029,25029,25029
+5,organic coated sheets,European Union,058609,49836,12459,12459,12459,12459
+5,organic coated sheets,South Korea,058610,19694,4923,4923,4923,4925
+5,organic coated sheets,Residual,058611,5993,1498,1498,1498,1499
+6,tin mill products,European Union,058612,39795,9948,9948,9948,9951
+6,tin mill products,Japan,058613,315,78,78,78,81
+6,tin mill products,South Korea,058614,2534,633,633,633,635
+6,tin mill products,Residual,058615,27151,6787,6787,6787,6790
+7,non-alloy and other alloy quarto plates,European Union,058616,200868,50217,50217,50217,50217
+7,non-alloy and other alloy quarto plates,South Korea,058617,33795,8448,8448,8448,8451
+7,non-alloy and other alloy quarto plates,United States of America,058618,766,191,191,191,193
+7,non-alloy and other alloy quarto plates,Residual,058619,14415,3603,3603,3603,3606
+12A,alloy merchant bars and light sections,European Union,058620,83558,20889,20889,20889,20891
+12A,alloy merchant bars and light sections,Residual,058621,22342,5585,5585,5585,5587
+12B,non-alloy merchant bars and light sections,European Union,058622,47618,11904,11904,11904,11906
+12B,non-alloy merchant bars and light sections,Turkey,058623,18654,4663,4663,4663,4665
+12B,non-alloy merchant bars and light sections,Residual,058624,4540,1135,1135,1135,1135
+13,rebars,European Union,058625,149024,37256,37256,37256,37256
+13,rebars,Turkey,058626,50582,12645,12645,12645,12647
+13,rebars,Residual,058627,68374,17093,17093,17093,17095
+14,stainless bars and light sections,European Union,058628,16543,4135,4135,4135,4138
+14,stainless bars and light sections,United States of America,058629,1782,445,445,445,447
+14,stainless bars and light sections,Residual,058630,2360,590,590,590,590
+15,stainless wire rod,European Union,058631,955,238,238,238,241
+15,stainless wire rod,South Korea,058632,135,33,33,33,36
+15,stainless wire rod,Residual,058633,237,59,59,59,60
+16,non-alloy and other alloy wire rod,European Union,058634,168471,42117,42117,42117,42120
+16,non-alloy and other alloy wire rod,Residual,058635,10504,2626,2626,2626,2626
+17,"angles, shapes, and sections of iron or non-alloy steel",European Union,058636,253678,63419,63419,63419,63421
+17,"angles, shapes, and sections of iron or non-alloy steel",South Korea,058637,3002,750,750,750,752
+17,"angles, shapes, and sections of iron or non-alloy steel",United States of America,058638,852,213,213,213,213
+17,"angles, shapes, and sections of iron or non-alloy steel",Residual,058639,13230,3307,3307,3307,3309
+19,railway material,European Union,058640,7436,1859,1859,1859,1859
+19,railway material,Residual,058641,46,11,11,11,13
+20,gas pipes,European Union,058642,17896,4474,4474,4474,4474
+20,gas pipes,India,058643,8777,2194,2194,2194,2195
+20,gas pipes,Turkey,058644,29917,7479,7479,7479,7480
+20,gas pipes,Residual,058645,5008,1252,1252,1252,1252
+21,hollow sections,European Union,058646,35236,8809,8809,8809,8809
+21,hollow sections,Turkey,058647,99399,24849,24849,24849,24852
+21,hollow sections,Residual,058648,11498,2874,2874,2874,2876
+25A,large welded tubes (1),European Union,058649,7067,1766,1766,1766,1769
+25A,large welded tubes (1),Japan,058650,413,103,103,103,104
+25A,large welded tubes (1),South Korea,058651,659,164,164,164,167
+25A,large welded tubes (1),United States of America,058652,495,123,123,123,126
+25A,large welded tubes (1),Residual,058653,1538,384,384,384,386
+25B,large welded tubes (2),European Union,058654,25219,6304,6304,6304,6307
+25B,large welded tubes (2),Japan,058655,267,66,66,66,69
+25B,large welded tubes (2),South Korea,058656,3493,873,873,873,874
+25B,large welded tubes (2),Turkey,058657,5110,1277,1277,1277,1279
+25B,large welded tubes (2),Residual,058658,3202,800,800,800,802
+26,other welded tubes,European Union,058659,30026,7506,7506,7506,7508
+26,other welded tubes,Switzerland,058660,1092,273,273,273,273
+26,other welded tubes,Turkey,058661,14517,3629,3629,3629,3630
+26,other welded tubes,United Arab Emirates,058662,10944,2736,2736,2736,2736
+26,other welded tubes,United States of America,058663,3649,912,912,912,913
+26,other welded tubes,Residual,058664,16327,4081,4081,4081,4084
+27,non-alloy and other alloy cold finished bars,European Union,058665,19808,4952,4952,4952,4952
+27,non-alloy and other alloy cold finished bars,Turkey,058666,5371,1342,1342,1342,1345
+27,non-alloy and other alloy cold finished bars,Residual,058667,4351,1087,1087,1087,1090
+28,non-alloy wire,European Union,058668,43157,10789,10789,10789,10790
+28,non-alloy wire,Japan,058669,378,94,94,94,96
+28,non-alloy wire,United States of America,058670,6076,1519,1519,1519,1519
+28,non-alloy wire,Residual,058671,10123,2530,2530,2530,2533

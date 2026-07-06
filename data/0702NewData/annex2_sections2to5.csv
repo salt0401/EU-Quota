@@ -1,0 +1,742 @@
+﻿section,product_category_code,countries
+2,1.A,Egypt
+2,1.A,India
+2,1.A,Korea
+2,1.A,Türkiye
+2,1.A,Ukraine
+2,1.B,United Kingdom
+2,2,India
+2,2,Korea
+2,2,Türkiye
+2,2,Ukraine
+2,2,United Kingdom
+2,3.A,Türkiye
+2,3.A,United Kingdom
+2,3.B,Korea
+2,4.A,India
+2,4.A,Korea
+2,4.A,Türkiye
+2,4.B,India
+2,4.B,Korea
+2,4.B,Türkiye
+2,4.B,United Kingdom
+2,5,India
+2,5,Korea
+2,5,Türkiye
+2,5,United Kingdom
+2,6,India
+2,6,Korea
+2,6,Türkiye
+2,6,United Kingdom
+2,7,India
+2,7,Indonesia
+2,7,Korea
+2,7,North Macedonia
+2,7,United Kingdom
+2,8,India
+2,8,Indonesia
+2,8,Korea
+2,8,South Africa
+2,8,Türkiye
+2,9,India
+2,9,Korea
+2,9,South Africa
+2,9,Türkiye
+2,10,India
+2,10,Korea
+2,10,South Africa
+2,12,Korea
+2,12,North Macedonia
+2,12,Switzerland
+2,12,Türkiye
+2,12,United Kingdom
+2,13,Egypt
+2,13,Türkiye
+2,13,Ukraine
+2,14,India
+2,14,Switzerland
+2,14,United Kingdom
+2,15,India
+2,15,Korea
+2,15,United Kingdom
+2,16,Egypt
+2,16,Switzerland
+2,16,Türkiye
+2,16,Ukraine
+2,16,United Kingdom
+2,17,Switzerland
+2,17,Türkiye
+2,17,United Kingdom
+2,18,United Kingdom
+2,19,Türkiye
+2,19,United Kingdom
+2,20,India
+2,20,North Macedonia
+2,20,Türkiye
+2,20,United Kingdom
+2,21,North Macedonia
+2,21,Türkiye
+2,21,Ukraine
+2,21,United Kingdom
+2,22,India
+2,22,Korea
+2,22,Ukraine
+2,24,Brazil
+2,24,Ukraine
+2,25.A,India
+2,25.A,Türkiye
+2,25.B,Türkiye
+2,25.B,United Kingdom
+2,26,India
+2,26,Switzerland
+2,26,Türkiye
+2,26,United Kingdom
+2,27,Switzerland
+2,27,Türkiye
+2,27,Ukraine
+2,28,Türkiye
+2,28,Ukraine
+3,1.A,Australia
+3,1.A,Brazil
+3,1.A,Egypt
+3,1.A,India
+3,1.A,Indonesia
+3,1.A,Japan
+3,1.A,Kazakhstan
+3,1.A,Korea
+3,1.A,North Macedonia
+3,1.A,Saudi Arabia
+3,1.A,Serbia
+3,1.A,Switzerland
+3,1.A,Taiwan
+3,1.A,Türkiye
+3,1.A,Ukraine
+3,1.A,United Kingdom
+3,1.A,Viet Nam
+3,1.B,China
+3,1.B,Japan
+3,1.B,United Kingdom
+3,1.B,United States
+3,2,India
+3,2,Japan
+3,2,Korea
+3,2,Taiwan
+3,2,Türkiye
+3,2,Ukraine
+3,2,United Kingdom
+3,3.A,China
+3,3.A,Japan
+3,3.A,Türkiye
+3,3.A,United Kingdom
+3,3.B,China
+3,3.B,Korea
+3,3.B,Taiwan
+3,3.B,Viet Nam
+3,4.A,India
+3,4.A,Korea
+3,4.A,Taiwan
+3,4.A,Türkiye
+3,4.A,Viet Nam
+3,4.B,China
+3,4.B,India
+3,4.B,Korea
+3,4.B,Türkiye
+3,4.B,United Kingdom
+3,5,India
+3,5,Korea
+3,5,Taiwan
+3,5,Türkiye
+3,5,United Kingdom
+3,5,Viet Nam
+3,6,China
+3,6,India
+3,6,Korea
+3,6,Serbia
+3,6,Türkiye
+3,6,United Kingdom
+3,7,India
+3,7,Indonesia
+3,7,Japan
+3,7,Korea
+3,7,North Macedonia
+3,7,United Kingdom
+3,8,China
+3,8,India
+3,8,Indonesia
+3,8,Korea
+3,8,South Africa
+3,8,Taiwan
+3,8,Türkiye
+3,9,China
+3,9,India
+3,9,Korea
+3,9,South Africa
+3,9,Taiwan
+3,9,Türkiye
+3,9,Viet Nam
+3,10,China
+3,10,India
+3,10,Korea
+3,10,South Africa
+3,12,China
+3,12,Korea
+3,12,North Macedonia
+3,12,Switzerland
+3,12,Türkiye
+3,12,United Kingdom
+3,13,Algeria
+3,13,China
+3,13,Egypt
+3,13,Moldova
+3,13,Türkiye
+3,13,Ukraine
+3,14,China
+3,14,India
+3,14,Switzerland
+3,14,United Kingdom
+3,15,China
+3,15,India
+3,15,Japan
+3,15,Korea
+3,15,Taiwan
+3,15,United Kingdom
+3,16,Egypt
+3,16,Malaysia
+3,16,Moldova
+3,16,Switzerland
+3,16,Türkiye
+3,16,Ukraine
+3,16,United Kingdom
+3,16,Viet Nam
+3,17,Switzerland
+3,17,Türkiye
+3,17,United Arab Emirates
+3,17,United Kingdom
+3,18,China
+3,18,United Arab Emirates
+3,18,United Kingdom
+3,19,China
+3,19,Türkiye
+3,19,United Kingdom
+3,20,India
+3,20,North Macedonia
+3,20,Türkiye
+3,20,United Arab Emirates
+3,20,United Kingdom
+3,21,China
+3,21,North Macedonia
+3,21,Türkiye
+3,21,Ukraine
+3,21,United Kingdom
+3,22,China
+3,22,India
+3,22,Korea
+3,22,Ukraine
+3,24,Brazil
+3,24,China
+3,24,Ukraine
+3,25.A,China
+3,25.A,India
+3,25.A,Israel
+3,25.A,Türkiye
+3,25.B,Algeria
+3,25.B,China
+3,25.B,Türkiye
+3,25.B,United Kingdom
+3,26,China
+3,26,India
+3,26,Switzerland
+3,26,Taiwan
+3,26,Türkiye
+3,26,United Kingdom
+3,27,China
+3,27,Switzerland
+3,27,Türkiye
+3,27,Ukraine
+3,28,China
+3,28,Türkiye
+3,28,Ukraine
+4,1.A,Algeria
+4,1.A,Argentina
+4,1.A,Israel
+4,1.A,Moldova
+4,1.A,Singapore
+4,1.A,South Africa
+4,1.A,All other FTA partners
+4,1.B,Algeria
+4,1.B,Argentina
+4,1.B,Brazil
+4,1.B,Egypt
+4,1.B,India
+4,1.B,Indonesia
+4,1.B,Israel
+4,1.B,Korea
+4,1.B,Moldova
+4,1.B,North Macedonia
+4,1.B,Serbia
+4,1.B,Singapore
+4,1.B,South Africa
+4,1.B,Switzerland
+4,1.B,Türkiye
+4,1.B,Ukraine
+4,1.B,Viet Nam
+4,1.B,All other FTA partners
+4,2,Algeria
+4,2,Argentina
+4,2,Indonesia
+4,2,Israel
+4,2,Moldova
+4,2,North Macedonia
+4,2,Serbia
+4,2,Singapore
+4,2,South Africa
+4,2,Viet Nam
+4,2,All other FTA partners
+4,3.A,Algeria
+4,3.A,Argentina
+4,3.A,Brazil
+4,3.A,Egypt
+4,3.A,India
+4,3.A,Indonesia
+4,3.A,Israel
+4,3.A,Korea
+4,3.A,Moldova
+4,3.A,North Macedonia
+4,3.A,Serbia
+4,3.A,Singapore
+4,3.A,South Africa
+4,3.A,Switzerland
+4,3.A,Ukraine
+4,3.A,Viet Nam
+4,3.A,All other FTA partners
+4,3.B,Algeria
+4,3.B,Argentina
+4,3.B,Brazil
+4,3.B,Egypt
+4,3.B,India
+4,3.B,Indonesia
+4,3.B,Israel
+4,3.B,Moldova
+4,3.B,North Macedonia
+4,3.B,Serbia
+4,3.B,Singapore
+4,3.B,South Africa
+4,3.B,Switzerland
+4,3.B,Türkiye
+4,3.B,Ukraine
+4,3.B,United Kingdom
+4,3.B,All other FTA partners
+4,4.A,Algeria
+4,4.A,Argentina
+4,4.A,Brazil
+4,4.A,Indonesia
+4,4.A,Israel
+4,4.A,Moldova
+4,4.A,North Macedonia
+4,4.A,Serbia
+4,4.A,Singapore
+4,4.A,Switzerland
+4,4.A,Ukraine
+4,4.A,All other FTA partners
+4,4.B,Algeria
+4,4.B,Argentina
+4,4.B,Brazil
+4,4.B,Indonesia
+4,4.B,Israel
+4,4.B,Japan
+4,4.B,Moldova
+4,4.B,North Macedonia
+4,4.B,Serbia
+4,4.B,Singapore
+4,4.B,South Africa
+4,4.B,Ukraine
+4,4.B,Viet Nam
+4,4.B,All other FTA partners
+4,5,Algeria
+4,5,Argentina
+4,5,Brazil
+4,5,Egypt
+4,5,Indonesia
+4,5,Israel
+4,5,Japan
+4,5,Moldova
+4,5,Serbia
+4,5,Singapore
+4,5,South Africa
+4,5,Switzerland
+4,5,Ukraine
+4,5,All other FTA partners
+4,6,Algeria
+4,6,Argentina
+4,6,Brazil
+4,6,Egypt
+4,6,Indonesia
+4,6,Israel
+4,6,Moldova
+4,6,North Macedonia
+4,6,South Africa
+4,6,Switzerland
+4,6,Ukraine
+4,6,Viet Nam
+4,6,All other FTA partners
+4,7,Algeria
+4,7,Argentina
+4,7,Brazil
+4,7,Egypt
+4,7,Israel
+4,7,Moldova
+4,7,Serbia
+4,7,Singapore
+4,7,South Africa
+4,7,Switzerland
+4,7,Ukraine
+4,7,Viet Nam
+4,7,All other FTA partners
+4,8,Algeria
+4,8,Argentina
+4,8,Brazil
+4,8,Egypt
+4,8,Israel
+4,8,Japan
+4,8,Moldova
+4,8,North Macedonia
+4,8,Serbia
+4,8,Singapore
+4,8,Switzerland
+4,8,Ukraine
+4,8,United Kingdom
+4,8,Viet Nam
+4,8,All other FTA partners
+4,9,Algeria
+4,9,Argentina
+4,9,Brazil
+4,9,Egypt
+4,9,Indonesia
+4,9,Israel
+4,9,Japan
+4,9,Moldova
+4,9,North Macedonia
+4,9,Serbia
+4,9,Singapore
+4,9,Ukraine
+4,9,United Kingdom
+4,9,All other FTA partners
+4,10,Algeria
+4,10,Argentina
+4,10,Brazil
+4,10,Egypt
+4,10,Indonesia
+4,10,Israel
+4,10,Japan
+4,10,Moldova
+4,10,North Macedonia
+4,10,Serbia
+4,10,Singapore
+4,10,Switzerland
+4,10,Türkiye
+4,10,Ukraine
+4,10,United Kingdom
+4,10,Viet Nam
+4,10,All other FTA partners
+4,12,Algeria
+4,12,Argentina
+4,12,India
+4,12,Indonesia
+4,12,Israel
+4,12,Japan
+4,12,Moldova
+4,12,Serbia
+4,12,Singapore
+4,12,South Africa
+4,12,Ukraine
+4,12,Viet Nam
+4,12,All other FTA partners
+4,13,Argentina
+4,13,Brazil
+4,13,India
+4,13,Indonesia
+4,13,Israel
+4,13,Japan
+4,13,Korea
+4,13,North Macedonia
+4,13,Serbia
+4,13,Singapore
+4,13,South Africa
+4,13,Switzerland
+4,13,United Kingdom
+4,13,Viet Nam
+4,13,All other FTA partners
+4,14,Algeria
+4,14,Argentina
+4,14,Brazil
+4,14,Egypt
+4,14,Indonesia
+4,14,Israel
+4,14,Japan
+4,14,Korea
+4,14,Moldova
+4,14,North Macedonia
+4,14,Serbia
+4,14,Singapore
+4,14,South Africa
+4,14,Türkiye
+4,14,Ukraine
+4,14,Viet Nam
+4,14,All other FTA partners
+4,15,Algeria
+4,15,Argentina
+4,15,Brazil
+4,15,Egypt
+4,15,Indonesia
+4,15,Israel
+4,15,Moldova
+4,15,North Macedonia
+4,15,Serbia
+4,15,Singapore
+4,15,South Africa
+4,15,Switzerland
+4,15,Türkiye
+4,15,Ukraine
+4,15,Viet Nam
+4,15,All other FTA partners
+4,16,Algeria
+4,16,Argentina
+4,16,Brazil
+4,16,India
+4,16,Indonesia
+4,16,Israel
+4,16,North Macedonia
+4,16,Serbia
+4,16,Singapore
+4,16,South Africa
+4,16,All other FTA partners
+4,17,Algeria
+4,17,Argentina
+4,17,Brazil
+4,17,Egypt
+4,17,India
+4,17,Indonesia
+4,17,Israel
+4,17,Japan
+4,17,Moldova
+4,17,North Macedonia
+4,17,Serbia
+4,17,Singapore
+4,17,South Africa
+4,17,Ukraine
+4,17,Viet Nam
+4,17,All other FTA partners
+4,18,Algeria
+4,18,Argentina
+4,18,Brazil
+4,18,Egypt
+4,18,India
+4,18,Indonesia
+4,18,Israel
+4,18,Japan
+4,18,Korea
+4,18,Moldova
+4,18,North Macedonia
+4,18,Serbia
+4,18,Singapore
+4,18,South Africa
+4,18,Switzerland
+4,18,Türkiye
+4,18,Ukraine
+4,18,Viet Nam
+4,18,All other FTA partners
+4,19,Algeria
+4,19,Argentina
+4,19,Brazil
+4,19,Egypt
+4,19,India
+4,19,Indonesia
+4,19,Israel
+4,19,Japan
+4,19,Korea
+4,19,Moldova
+4,19,North Macedonia
+4,19,Serbia
+4,19,Singapore
+4,19,South Africa
+4,19,Switzerland
+4,19,Ukraine
+4,19,Viet Nam
+4,19,All other FTA partners
+4,20,Algeria
+4,20,Argentina
+4,20,Brazil
+4,20,Egypt
+4,20,Indonesia
+4,20,Israel
+4,20,Japan
+4,20,Korea
+4,20,Moldova
+4,20,Serbia
+4,20,Singapore
+4,20,South Africa
+4,20,Switzerland
+4,20,Ukraine
+4,20,Viet Nam
+4,20,All other FTA partners
+4,21,Algeria
+4,21,Argentina
+4,21,Brazil
+4,21,Egypt
+4,21,India
+4,21,Indonesia
+4,21,Israel
+4,21,Japan
+4,21,Korea
+4,21,Moldova
+4,21,Serbia
+4,21,Singapore
+4,21,South Africa
+4,21,Viet Nam
+4,21,All other FTA partners
+4,22,Algeria
+4,22,Argentina
+4,22,Brazil
+4,22,Egypt
+4,22,Indonesia
+4,22,Israel
+4,22,Moldova
+4,22,North Macedonia
+4,22,Serbia
+4,22,Singapore
+4,22,South Africa
+4,22,Switzerland
+4,22,Türkiye
+4,22,United Kingdom
+4,22,Viet Nam
+4,22,All other FTA partners
+4,24,Algeria
+4,24,Egypt
+4,24,India
+4,24,Indonesia
+4,24,Israel
+4,24,Japan
+4,24,Korea
+4,24,Moldova
+4,24,North Macedonia
+4,24,Serbia
+4,24,South Africa
+4,24,Switzerland
+4,24,Türkiye
+4,24,United Kingdom
+4,24,Viet Nam
+4,24,All other FTA partners
+4,25.A,Algeria
+4,25.A,Argentina
+4,25.A,Brazil
+4,25.A,Egypt
+4,25.A,Indonesia
+4,25.A,Japan
+4,25.A,Korea
+4,25.A,Moldova
+4,25.A,North Macedonia
+4,25.A,Serbia
+4,25.A,Singapore
+4,25.A,South Africa
+4,25.A,Switzerland
+4,25.A,Ukraine
+4,25.A,United Kingdom
+4,25.A,Viet Nam
+4,25.A,All other FTA partners
+4,25.B,Argentina
+4,25.B,Brazil
+4,25.B,Egypt
+4,25.B,India
+4,25.B,Indonesia
+4,25.B,Israel
+4,25.B,Japan
+4,25.B,Korea
+4,25.B,Moldova
+4,25.B,North Macedonia
+4,25.B,Serbia
+4,25.B,South Africa
+4,25.B,Switzerland
+4,25.B,Ukraine
+4,25.B,Viet Nam
+4,25.B,All other FTA partners
+4,26,Algeria
+4,26,Argentina
+4,26,Brazil
+4,26,Egypt
+4,26,Indonesia
+4,26,Israel
+4,26,Japan
+4,26,Korea
+4,26,Moldova
+4,26,North Macedonia
+4,26,Serbia
+4,26,South Africa
+4,26,Ukraine
+4,26,Viet Nam
+4,26,All other FTA partners
+4,27,Algeria
+4,27,Argentina
+4,27,Brazil
+4,27,Egypt
+4,27,India
+4,27,Indonesia
+4,27,Israel
+4,27,Japan
+4,27,Korea
+4,27,Moldova
+4,27,North Macedonia
+4,27,Serbia
+4,27,Singapore
+4,27,South Africa
+4,27,United Kingdom
+4,27,Viet Nam
+4,27,All other FTA partners
+4,28,Algeria
+4,28,Argentina
+4,28,Brazil
+4,28,Egypt
+4,28,India
+4,28,Indonesia
+4,28,Israel
+4,28,Japan
+4,28,Korea
+4,28,Moldova
+4,28,North Macedonia
+4,28,Serbia
+4,28,Singapore
+4,28,South Africa
+4,28,Switzerland
+4,28,United Kingdom
+4,28,Viet Nam
+4,28,All other FTA partners
+5,1.A,Brazil
+5,1.A,Indonesia
+5,1.A,North Macedonia
+5,1.A,Switzerland
+5,1.A,United Kingdom
+5,2,Brazil
+5,2,Egypt
+5,2,Switzerland
+5,3.B,Japan
+5,4.A,Egypt
+5,4.A,Japan
+5,4.A,South Africa
+5,4.A,United Kingdom
+5,4.B,Egypt
+5,4.B,Switzerland
+5,5,North Macedonia
+5,6,Japan
+5,6,Singapore
+5,7,Türkiye
+5,9,Switzerland
+5,12,Brazil
+5,12,Egypt
+5,16,Japan
+5,16,Korea
+5,17,Korea
+5,21,Switzerland
+5,22,Japan
+5,24,Argentina
+5,24,Singapore
+5,25.B,Singapore
+5,26,Singapore
