@@ -141,14 +141,20 @@ GitHub Actions (.github/workflows/daily-quota-update.yml, 05:30 UTC, free on pub
     -> MEPS_Quota_Update_latest.xlsx + Quota_History.xlsx  (uploaded to the
                                                             'latest-data' release,
                                                             NOT committed — keeps git small)
-Colleague: MEPS_Quota_Downloader.exe (download.py)
+Colleague: MEPS_Quota_Downloader.exe (download.py, self-updating)
     -> fetches csv/metadata from raw.githubusercontent.com and workbooks from the release
+    -> on startup, checks downloader_version.txt on the release and replaces
+       itself when CI has published a newer build
+
+Second workflow (.github/workflows/build-downloader.yml): on any download.py
+change on main, a Windows runner tests/builds/smoke-runs the exe and uploads it
++ downloader_version.txt to the same release -> installed copies self-update.
 ```
 
 Key modules: `src/publisher.py` (writes `data/published/`), `download.py` (the
-downloader). Safety gates refuse to publish garbage (mostly-failed scrapes, expired
-quota windows, UK-less datasets). **When the daily run fails, read
-`docs/DAILY_UPDATE_RUNBOOK.md`** — it covers triage, quarterly maintenance, and the
+downloader; `__version__` + `self_update()`). Safety gates refuse to publish
+garbage (mostly-failed scrapes, expired quota windows, UK-less datasets).
+**When the daily run fails, read `docs/DAILY_UPDATE_RUNBOOK.md`** — it covers triage, quarterly maintenance, and the
 January-2027 regulation renewal.
 
 ---
@@ -188,3 +194,6 @@ Reference extractions from the regulations are in `data/0702NewData/`.
 - Commit only when asked. Branch off `main` for non-trivial work. The daily bot pushes
   to `main`, so `git pull --rebase origin main` before pushing to avoid the race.
 - Report test results honestly — quote the actual `pytest` line.
+- If you change `download.py` behavior, **bump `__version__`** (and add a
+  CHANGELOG entry) — otherwise installed exes see the same version and will
+  not self-update, and CI republishes an exe nobody picks up.

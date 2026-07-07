@@ -2,6 +2,15 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.8.1] - 2026-07-07
+
+### Downloader console output is ASCII-only
+
+- Replaced the em-dash in the self-update message with a hyphen: it
+  mojibakes (or crashes on strict-encoding redirects) on non-UTF-8 Windows
+  consoles. First real version shipped through the self-update pipeline —
+  installed 2.8.0 copies picked it up automatically on their next run.
+
 ## [2.8.0] - 2026-07-06
 
 ### Self-Updating Downloader (build once, update everywhere)

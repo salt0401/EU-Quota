@@ -46,6 +46,10 @@ pip install -r requirements.txt
 # 執行爬蟲
 python run.py              # 互動模式（同時抓取歐盟和英國）
 python run.py --skip-uk    # 僅抓取歐盟
+python run.py --publish    # 爬取 + 更新 data/published/（每日 CI 執行的動作）
+
+# 下載最新發布的資料（同事的 EXE 所做的事）
+python download.py
 ```
 
 ## 輸出檔案
@@ -131,19 +135,16 @@ EU Quota/
 
 ## 建置 EXE 發布包
 
-建立獨立的 EXE 發布包：
+可建置兩個執行檔：
 
 ```bash
-python build/build_exe.py
+python build/build_downloader_exe.py   # MEPS_Quota_Downloader.exe（同事使用的下載器）
+python build/build_exe.py              # EU_Quota_Scraper.exe（完整本機爬蟲，選用）
 ```
 
-發布包將建立於 `dist/EU_Quota_Scraper/` 資料夾。
+**發布下載器（建議做法）：** 同事只需從 [latest-data release](https://github.com/salt0401/EU-Quota/releases/tag/latest-data) 取得單一檔案一次（或由你傳送給他們）。雙擊即可將最新發布的資料下載到 EXE 旁的 `data/output/YYYY-MM-DD/` — 不會在他們的機器上執行爬蟲，因此數秒即完成。此 EXE 會**自我更新**：啟動時比對 release 上的 `downloader_version.txt`，當 CI 發布較新版本時便自我替換（`.github/workflows/build-downloader.yml` 會在每次 `download.py` 變更時重建），因此只需散發一次。
 
-**發布步驟：**
-1. 執行建置腳本
-2. 將 `dist/` 內的 `EU_Quota_Scraper` 資料夾壓縮成 zip
-3. 將 zip 檔案發送給使用者
-4. 使用者解壓縮後雙擊 `EU_Quota_Scraper.exe` 即可執行
+**完整爬蟲發布包**（`dist/EU_Quota_Scraper/`）僅在必須於本機爬取（例如 GitHub 無法連線時）才需要。
 
 ## 技術說明
 

@@ -68,6 +68,11 @@ Nobody needs to run the scraper by hand anymore:
   `download.py`): it downloads the latest report plus the day-by-day history
   into `data/output/YYYY-MM-DD/` next to the EXE in seconds. No login or
   token is needed; the repository must stay public.
+- **The downloader is self-updating** — colleagues obtain
+  `MEPS_Quota_Downloader.exe` once (from the latest-data release, or by being
+  sent the file) and it replaces itself on startup whenever CI has published a
+  newer build via `.github/workflows/build-downloader.yml`, so it never needs
+  re-distributing.
 
 The sections below cover manual/developer usage of the scraper itself.
 
@@ -273,4 +278,4 @@ For issues or questions:
 
 ---
 
-*Version 2.6 - July 2026 (new EU and UK steel quota regimes effective 1 July 2026)*
+*Version 2.8 - July 2026 (new EU/UK quota regimes + daily GitHub Actions automation and self-updating downloader)*

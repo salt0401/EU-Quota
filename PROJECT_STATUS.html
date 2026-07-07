@@ -53,6 +53,9 @@
   .action h3{font-family:Georgia,serif; font-size:20px; margin-bottom:10px;}
   .action p{color:#3B3A34; font-size:15.5px; max-width:44em;}
   .action p + p{margin-top:10px;}
+  .selfupd{margin-top:18px; padding-top:16px; border-top:1px solid var(--line);
+           color:#4A3327; font-size:14.5px;}
+  .selfupd b{color:var(--accent-ink);}
   code, .mono{font:13.5px/1.5 Consolas, "Cascadia Mono", Menlo, monospace; background:var(--surface);
         border:1px solid var(--line); border-radius:6px; padding:1px 6px; white-space:nowrap;}
 
@@ -118,7 +121,7 @@
   tracker has been fully rebuilt around them. More importantly for you: <b>you no longer
   run the scraper.</b> A GitHub server collects every quota every morning, keeps a
   day-by-day history, and all you do is double-click one small program to fetch the
-  latest files.
+  latest files &mdash; a program that keeps itself up to date, so you set it up once and forget it.
 </p>
 
 <section>
@@ -139,6 +142,10 @@
       <tr><td class="file">quota_history.csv</td>
           <td>The same history as plain data, ready for pivot tables, Power Query, or Python.</td></tr>
     </table>
+    <p class="selfupd"><b>You only need this file once.</b> It keeps itself up to date &mdash;
+       each time you run it, it quietly checks for a newer version and, if we've improved
+       something, replaces itself (the update takes effect the next time you open it).
+       So you never have to be re-sent a new copy.</p>
   </div>
 </section>
 
@@ -196,9 +203,13 @@
         new quota types); several long-standing data bugs fixed &mdash; including one that hid
         "awaiting allocation" volumes, which today decide whether a quota is really open.</div></li>
     <li><span class="when">6 July</span>
-        <div class="what">Daily automation switched on and stress-tested: 188 automated tests, an
+        <div class="what">Daily automation switched on and stress-tested: 195 automated tests, an
         adversarial review that fixed 17 further weaknesses, and three full live runs with
         zero failed quotas.</div></li>
+    <li><span class="when">7 July</span>
+        <div class="what"><b>The program now updates itself.</b> The first unattended morning run
+        published cleanly, and the downloader became self-updating &mdash; so any future
+        improvement reaches your machine automatically, with no new file to install.</div></li>
   </ul>
 </section>
 
@@ -218,6 +229,11 @@
 <section>
   <h2>Good to know</h2>
   <ul class="plain">
+    <li><span class="tag">Getting it</span> Download <span class="mono">MEPS_Quota_Downloader.exe</span> once
+        from the <a href="https://github.com/salt0401/EU-Quota/releases/tag/latest-data">latest-data release</a>
+        (or from whoever sends it to you). After that it updates itself &mdash; no reinstalling.</li>
+    <li><span class="tag">First run</span> Windows may show a blue "Windows protected your PC" box for an
+        unrecognised program &mdash; click <b>More info &rarr; Run anyway</b>. It's expected for a small in-house tool.</li>
     <li><span class="tag">Freshness</span> The downloader shows the data's date and warns if the daily
         update has stopped (a weekend gap is normal for the UK; TARIC moves daily).</li>
     <li><span class="tag">Failures</span> If a morning run fails, it automatically opens a GitHub issue and
@@ -232,8 +248,9 @@
 <footer>
   <span>Repository: <a href="https://github.com/salt0401/EU-Quota">github.com/salt0401/EU-Quota</a></span>
   <span>Latest data: <a href="https://github.com/salt0401/EU-Quota/releases/tag/latest-data">latest-data release</a></span>
+  <span>Get the program: <a href="https://github.com/salt0401/EU-Quota/releases/download/latest-data/MEPS_Quota_Downloader.exe">MEPS_Quota_Downloader.exe</a></span>
   <span>Operations guide: docs/DAILY_UPDATE_RUNBOOK.md</span>
-  <span>Generated 6 July 2026</span>
+  <span>Updated 7 July 2026</span>
 </footer>
 
 </div>

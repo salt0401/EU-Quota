@@ -8,6 +8,11 @@ quotas every day at 05:30 UTC and publishes:
 | `quota_history.csv`, `metadata.json` | committed to `data/published/` | `MEPS_Quota_Downloader.exe` (raw URL) |
 | `MEPS_Quota_Update_latest.xlsx`, `Quota_History.xlsx` | rolling release **latest-data** | `MEPS_Quota_Downloader.exe` (release URL) |
 
+A second workflow (`.github/workflows/build-downloader.yml`) publishes the
+downloader itself — `MEPS_Quota_Downloader.exe` and `downloader_version.txt` —
+to the same **latest-data** release whenever `download.py` changes; installed
+copies self-update from it (see *Releasing a downloader change* below).
+
 The repository must stay **public** — anonymous downloads depend on it.
 
 ## When the daily run fails
@@ -41,6 +46,25 @@ GitHub disables cron schedules after ~60 days without repository activity.
 The daily bot commit normally keeps the clock fresh, but if the run fails
 for weeks (no commits), the schedule can be disabled silently — the failure
 issue is your alarm. Re-enable: Actions → Daily quota update → Enable.
+
+## Releasing a downloader change
+
+The downloader (`download.py`) is built into `MEPS_Quota_Downloader.exe` by
+`.github/workflows/build-downloader.yml`, not the daily data run. To ship a
+change to colleagues:
+
+1. Edit `download.py` and **bump `__version__`** (e.g. `2.8.1` → `2.8.2`).
+2. Push to `main`. The build workflow runs the downloader tests, rebuilds the
+   EXE, writes `downloader_version.txt` (= `download.__version__`), smoke-runs
+   the EXE against live data, and uploads both to the **latest-data** release
+   (`gh release upload --clobber`).
+3. Installed EXEs self-update on their next run: each reads
+   `downloader_version.txt`, and if it names a newer version downloads the new
+   EXE and swaps itself in (taking effect the run after). The EXE is obtained
+   once — no re-distribution.
+
+Forgetting the `__version__` bump means the release ships a new EXE but
+installed copies see an unchanged version and never update — so always bump it.
 
 ## Quarterly maintenance (next: 1 October 2026)
 

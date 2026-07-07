@@ -280,7 +280,16 @@ History updates are idempotent per (date, region): a re-run replaces that
 date's rows for the regions it scraped and preserves the rest. Publish gates
 refuse mostly-failed scrapes, expired EU quota windows, and UK-less datasets.
 
+The `latest-data` release also carries the downloader itself —
+`MEPS_Quota_Downloader.exe` and `downloader_version.txt` — published not by the
+daily run but by a separate workflow (`.github/workflows/build-downloader.yml`)
+that rebuilds the EXE whenever `download.py` changes.
+
 Distribution: `MEPS_Quota_Downloader.exe` (from `download.py`, standard
 library only) fetches all four files anonymously and saves them under
 `data/output/YYYY-MM-DD/` beside the EXE, warning when the published data
-looks stale or incomplete. See `docs/DAILY_UPDATE_RUNBOOK.md`.
+looks stale or incomplete. On startup it self-updates: it reads
+`downloader_version.txt` from the release and, if a newer build exists, swaps
+in the new EXE (effective on the next run), so a machine only needs the EXE
+once and future improvements arrive automatically. See
+`docs/DAILY_UPDATE_RUNBOOK.md`.

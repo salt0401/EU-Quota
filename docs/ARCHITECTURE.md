@@ -322,6 +322,8 @@ GitHub Actions (05:30 UTC daily, public repo = free)
                                                    (kept out of git history)
 
 Colleague: MEPS_Quota_Downloader.exe (download.py, stdlib-only, onefile)
+  -> self-updating: checks downloader_version.txt on the release, replaces
+     itself when CI publishes a newer build
   -> fetches csv/metadata from raw.githubusercontent.com
   -> fetches workbooks from the latest-data release
   -> saves to data/output/YYYY-MM-DD/ next to the EXE
@@ -333,9 +335,16 @@ windows (stale `Current Quarter`), and UK-less datasets; history replacement
 is per (date, region). Workflow failures open a GitHub issue and upload the
 run's output as a recovery artifact. Operations: `docs/DAILY_UPDATE_RUNBOOK.md`.
 
+A second workflow, `.github/workflows/build-downloader.yml`, rebuilds and
+republishes `MEPS_Quota_Downloader.exe` (plus `downloader_version.txt`) to the
+latest-data release whenever `download.py` changes; installed copies then
+self-update on their next run — build once, update everywhere.
+
 New files in this layer: `.github/workflows/daily-quota-update.yml`,
-`src/publisher.py`, `download.py`, `build/build_downloader_exe.py`,
-`requirements-ci.txt`, `docs/DAILY_UPDATE_RUNBOOK.md`.
+`.github/workflows/build-downloader.yml`, `src/publisher.py`, `download.py`
+(now carries `__version__` + a `self_update()` routine),
+`build/build_downloader_exe.py`, `requirements-ci.txt`,
+`docs/DAILY_UPDATE_RUNBOOK.md`.
 
 ## Module Boundary: src/ vs beta/
 

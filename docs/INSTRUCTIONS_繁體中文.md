@@ -66,6 +66,10 @@ EU Quota/
 - 同事使用 **`MEPS_Quota_Downloader.exe`**（由 `download.py` 建置）取得資料：
   數秒內將最新報告與每日歷史下載到 EXE 旁的 `data/output/YYYY-MM-DD/`。
   無需登入或 token；儲存庫必須保持公開。
+- **下載器會自我更新** — 同事只需取得一次 `MEPS_Quota_Downloader.exe`
+  （從 latest-data release 下載，或由他人傳送檔案），之後每當 CI 透過
+  `.github/workflows/build-downloader.yml` 發布較新版本時，它會在啟動時
+  自我替換，因此永遠不需要重新散發。
 
 以下章節為爬蟲本身的手動／開發者使用說明。
 
@@ -92,6 +96,18 @@ python run.py -i custom_quotas.xlsx -o custom_report.xlsx
 ```bash
 python run.py -i eu.xlsx -u uk.xlsx -o output.xlsx --skip-uk
 ```
+
+### 發布（每日 CI 執行的動作）
+```bash
+python run.py --publish
+```
+同時更新 `data/published/`（歷史 CSV、metadata、活頁簿）。
+
+### 下載已發布資料（不爬取）
+```bash
+python download.py
+```
+擷取最新發布的檔案 — 正是同事端的 `MEPS_Quota_Downloader.exe` 所做的事。
 
 ## 輸入檔案格式
 
@@ -148,13 +164,14 @@ python run.py -i eu.xlsx -u uk.xlsx -o output.xlsx --skip-uk
 
 ## 建置 EXE 發布包
 
-建立獨立的 EXE 發布包：
+可建置兩個執行檔：
 
 ```bash
-python build/build_exe.py
+python build/build_downloader_exe.py   # MEPS_Quota_Downloader.exe（同事使用的下載器）
+python build/build_exe.py              # EU_Quota_Scraper.exe（完整本機爬蟲，選用）
 ```
 
-發布包將建立於 `dist/` 資料夾。
+下載器是單一檔案（`dist/MEPS_Quota_Downloader.exe`）— 只需傳送這個檔案。完整爬蟲發布包（`dist/EU_Quota_Scraper/`）僅在必須於本機爬取（GitHub 無法連線時）才需要。
 
 ## 每季維護
 
@@ -242,4 +259,4 @@ pip install --upgrade webdriver-manager
 
 ---
 
-*版本 2.6 - 2026年7月（歐盟與英國新鋼鐵配額制度，2026年7月1日生效）*
+*版本 2.8 - 2026年7月（歐盟與英國新配額制度 + 每日 GitHub Actions 自動化與自我更新下載器）*
