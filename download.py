@@ -3,7 +3,7 @@
 MEPS Quota Data Downloader
 
 Downloads the latest quota data published by the daily GitHub Actions run.
-No scraping happens here — a GitHub server scrapes the EU TARIC and UK
+No scraping happens here - a GitHub server scrapes the EU TARIC and UK
 Trade Tariff sites every morning and commits the results to the public
 repository; this program simply fetches those files.
 
@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
-__version__ = "2.8.0"
+__version__ = "2.8.1"
 
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"
@@ -73,7 +73,7 @@ def fetch(url: str) -> bytes:
 
     OSError covers URLError/HTTPError plus mid-transfer failures like
     ConnectionResetError and SSL errors; HTTPException covers IncompleteRead
-    and BadStatusLine. 4xx client errors (except 429) are not retried —
+    and BadStatusLine. 4xx client errors (except 429) are not retried -
     the file genuinely isn't there.
     """
     last_err = None
@@ -105,7 +105,7 @@ def self_update() -> bool:
     A running exe on Windows cannot be overwritten but CAN be renamed, so:
     download new -> rename running exe to *.old -> move new into place.
     The update takes effect on the NEXT run; the current run continues.
-    Any failure just skips the update — it must never block data downloads.
+    Any failure just skips the update - it must never block data downloads.
     Returns True if an update was installed.
     """
     exe = sys.executable
@@ -134,7 +134,7 @@ def self_update() -> bool:
             f.write(payload)
         os.replace(exe, old)
         os.replace(tmp, exe)
-        print(f"  Updated to {latest} — takes effect the next time you run the program.")
+        print(f"  Updated to {latest} - takes effect the next time you run the program.")
         return True
     except Exception as e:
         print(f"  (update check skipped: {e})")
@@ -157,12 +157,12 @@ def check_freshness(metadata: dict) -> None:
     try:
         age = (date.today() - datetime.strptime(data_date, "%Y-%m-%d").date()).days
         if age > STALE_AFTER_DAYS:
-            print(f"\n  WARNING: the published data is {age} days old — the daily "
+            print(f"\n  WARNING: the published data is {age} days old - the daily "
                   f"update may have stopped. Please report this.")
     except (ValueError, TypeError):
         pass
     if not metadata.get('eu_quotas') or not metadata.get('uk_quotas'):
-        print("\n  WARNING: the last run published zero quotas for one region — "
+        print("\n  WARNING: the last run published zero quotas for one region - "
               "the dataset is incomplete. Please report this.")
     failed = (metadata.get('eu_failed') or 0) + (metadata.get('uk_failed') or 0)
     if failed:
@@ -180,14 +180,14 @@ def run(dest: str = None, skip_update: bool = False) -> int:
     if not skip_update:
         self_update()
 
-    # 1. metadata first — freshness check + confirms the source is reachable
+    # 1. metadata first - freshness check + confirms the source is reachable
     print("\nChecking published data...")
     try:
         metadata = json.loads(fetch(f"{BASE_URL}/{METADATA_FILE}").decode("utf-8"))
     except Exception as e:
         print(f"\nERROR: could not reach the data repository: {e}")
         print("Check your internet connection. If the connection is fine, the")
-        print(f"repository may have moved — expected it at github.com/{REPO}")
+        print(f"repository may have moved - expected it at github.com/{REPO}")
         return 1
     check_freshness(metadata)
 
@@ -220,7 +220,7 @@ def run(dest: str = None, skip_update: bool = False) -> int:
         csv_rows = max(csv_payload.count(b"\n") - 1, 0)
         if csv_rows != metadata["history_rows"]:
             print(f"\n  History row count ({csv_rows}) does not match metadata "
-                  f"({metadata['history_rows']}) — the source may be mid-update; "
+                  f"({metadata['history_rows']}) - the source may be mid-update; "
                   f"retrying in {CONSISTENCY_RETRY_WAIT}s...")
             time.sleep(CONSISTENCY_RETRY_WAIT)
             try:
@@ -232,7 +232,7 @@ def run(dest: str = None, skip_update: bool = False) -> int:
             except Exception as e:
                 print(f"  retry failed: {e}")
             if csv_rows != metadata.get("history_rows"):
-                print("  WARNING: files are still inconsistent — the daily update "
+                print("  WARNING: files are still inconsistent - the daily update "
                       "is probably running right now. Re-run this program in a "
                       "few minutes.")
                 failed += 1
