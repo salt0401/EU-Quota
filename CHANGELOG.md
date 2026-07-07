@@ -2,6 +2,24 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.8.0] - 2026-07-06
+
+### Self-Updating Downloader (build once, update everywhere)
+
+- `download.py` gains `__version__` and a self-update step: on startup the
+  frozen exe compares itself against `downloader_version.txt` on the
+  `latest-data` release and, when newer, downloads the released exe and swaps
+  itself via the Windows rename trick (running exe renamed to `*.old`, new
+  moved into place; effective next run; `*.old` cleaned on the next start).
+  Failures only print a note - the data download is never blocked.
+  New flags: `--skip-update`, `--version`
+- `.github/workflows/build-downloader.yml`: rebuilds the exe on a Windows
+  runner whenever `download.py` / the build script changes on main, tests it,
+  smoke-runs it against live published data, and uploads exe + version marker
+  to the `latest-data` release - so machines install the exe once and receive
+  every future improvement automatically
+- Tests: 195 passing (7 new self-update tests)
+
 ## [2.7.1] - 2026-07-06
 
 ### Hardening After Adversarial Review (17 confirmed findings)

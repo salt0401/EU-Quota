@@ -80,6 +80,19 @@ Both build scripts live in `build/`.
 
 ### Downloader exe — what colleagues actually use
 
+**You usually don't need to build it at all:** the latest exe is published on the
+`latest-data` release —
+<https://github.com/salt0401/EU-Quota/releases/download/latest-data/MEPS_Quota_Downloader.exe>
+— and every installed copy **self-updates** on startup (it compares its version
+against `downloader_version.txt` on the release and swaps itself in place; the
+new version takes effect on the next run). CI rebuilds and republishes the exe
+automatically whenever `download.py` changes on main
+(`.github/workflows/build-downloader.yml`), so machines only ever need to obtain
+the exe once. When bumping downloader behavior, bump `__version__` in
+`download.py` or installed copies will not pick the change up.
+
+To build locally anyway:
+
 ```bash
 pip install pyinstaller
 python build/build_downloader_exe.py
@@ -114,7 +127,7 @@ finish a live run with 0 failed quotas.
 PYTHONUTF8=1 python -m pytest tests/ -q
 ```
 
-**Check:** `188 passed` (this is the current baseline — if fewer, something regressed).
+**Check:** `195 passed` (this is the current baseline — if fewer, something regressed).
 Run this before AND after any code change.
 
 ---

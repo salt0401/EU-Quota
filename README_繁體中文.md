@@ -32,7 +32,7 @@
 2. 結果發布到兩個位置：
    - 提交到 `data/published/`：`quota_history.csv`（每個配額每天一列，資料分析用資料集）與 `metadata.json`（執行摘要）
    - 上傳到滾動式 **latest-data** release：`MEPS_Quota_Update_latest.xlsx`（最新客戶報告）與 `Quota_History.xlsx`（格式化歷史活頁簿）— 不進入 git，避免每日活頁簿檔案使儲存庫不斷膨脹
-3. 同事執行 **`MEPS_Quota_Downloader.exe`**（單一小檔案，由 `download.py` 建置），透過公開 raw URL 下載上述檔案。儲存庫必須保持**公開**，如此便無需任何 token 或登入。
+3. 同事執行 **`MEPS_Quota_Downloader.exe`**（單一小檔案，由 `download.py` 建置），透過公開 URL 下載上述檔案。儲存庫必須保持**公開**，如此便無需任何 token 或登入。程式會**自動更新**：啟動時比對 release 上的版本標記，若 CI 已發布新版本（`download.py` 變更時自動重建）便會自我替換 — 因此只需要發送一次。
 
 手動觸發：GitHub → Actions → 「Daily quota update」→ Run workflow。
 歷史資料每天累積，可直接用 `quota_history.csv` / `Quota_History.xlsx` 分析配額的每日變化。

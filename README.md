@@ -151,10 +151,14 @@ python build/build_downloader_exe.py   # MEPS_Quota_Downloader.exe (what colleag
 python build/build_exe.py              # EU_Quota_Scraper.exe (full local scraper, optional)
 ```
 
-**To distribute the downloader (recommended):** send colleagues the single
-file `dist/MEPS_Quota_Downloader.exe`. Double-clicking it downloads the
-latest published data into `data/output/YYYY-MM-DD/` next to the EXE —
-no scraping happens on their machine, so it finishes in seconds.
+**To distribute the downloader (recommended):** colleagues grab the single
+file once from the [latest-data release](https://github.com/salt0401/EU-Quota/releases/tag/latest-data)
+(or you send it to them). Double-clicking it downloads the latest published
+data into `data/output/YYYY-MM-DD/` next to the EXE — no scraping happens on
+their machine, so it finishes in seconds. The exe **self-updates**: on startup
+it checks `downloader_version.txt` on the release and replaces itself when CI
+has published a newer build (`.github/workflows/build-downloader.yml` rebuilds
+it on every `download.py` change), so distribution is one-time.
 
 **The full scraper bundle** (`dist/EU_Quota_Scraper/`) is only needed if
 someone must scrape locally, e.g. while GitHub is unreachable.

@@ -1,0 +1,70 @@
+name: Build downloader
+
+# Rebuilds MEPS_Quota_Downloader.exe whenever the downloader source (or this
+# workflow / the build script) changes on main, and uploads the exe plus its
+# version marker to the rolling 'latest-data' release. Every already-installed
+# copy of the exe checks that version marker on startup and replaces itself —
+# so improvements pushed here reach all machines automatically.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'download.py'
+      - 'build/build_downloader_exe.py'
+      - '.github/workflows/build-downloader.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-downloader
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: pip install pyinstaller pytest
+
+      - name: Test the downloader before shipping it
+        run: python -m pytest tests/test_downloader.py -q
+
+      - name: Build MEPS_Quota_Downloader.exe
+        run: python build/build_downloader_exe.py
+
+      - name: Write version marker
+        shell: bash
+        run: python -c "import download; print(download.__version__)" > dist/downloader_version.txt
+
+      - name: Smoke-test the built exe (fetches live published data)
+        shell: bash
+        run: ./dist/MEPS_Quota_Downloader.exe --dest smoke_out --no-pause --skip-update
+
+      - name: Upload to the latest-data release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest-data >/dev/null 2>&1 || \
+            gh release create latest-data \
+              --title "Latest quota data" \
+              --notes "Rolling data release — assets are overwritten by the daily workflow (data) and the build workflow (downloader exe)." \
+              --latest=false
+          gh release upload latest-data \
+            dist/MEPS_Quota_Downloader.exe \
+            dist/downloader_version.txt \
+            --clobber
+          echo "Published downloader $(cat dist/downloader_version.txt)"

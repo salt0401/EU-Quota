@@ -26,12 +26,20 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
+__version__ = "2.8.0"
+
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"
 BASE_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/data/published"
 # Workbooks are published as rolling release assets (not committed to git,
 # to keep the repository small); this URL is public and needs no login.
 RELEASE_BASE = f"https://github.com/{REPO}/releases/download/latest-data"
+
+# Self-update: CI rebuilds the exe whenever download.py changes on main and
+# uploads it (plus this version marker) to the same rolling release.
+UPDATE_VERSION_URL = f"{RELEASE_BASE}/downloader_version.txt"
+UPDATE_EXE_URL = f"{RELEASE_BASE}/MEPS_Quota_Downloader.exe"
+MIN_PLAUSIBLE_EXE_BYTES = 1_000_000  # a real PyInstaller exe is several MB
 
 METADATA_FILE = "metadata.json"
 DATA_FILES = [
@@ -46,7 +54,7 @@ FILE_SOURCES = {
     METADATA_FILE: BASE_URL,
 }
 
-USER_AGENT = "MEPS-Quota-Downloader/1.1"
+USER_AGENT = f"MEPS-Quota-Downloader/{__version__}"
 TIMEOUT = 60
 RETRIES = 3
 STALE_AFTER_DAYS = 3   # weekend gap is fine; older than this gets a warning
@@ -87,6 +95,52 @@ def fetch(url: str) -> bytes:
     raise last_err
 
 
+def _parse_version(s: str) -> tuple:
+    return tuple(int(part) for part in s.strip().split("."))
+
+
+def self_update() -> bool:
+    """Replace this frozen exe with the latest released build, if newer.
+
+    A running exe on Windows cannot be overwritten but CAN be renamed, so:
+    download new -> rename running exe to *.old -> move new into place.
+    The update takes effect on the NEXT run; the current run continues.
+    Any failure just skips the update — it must never block data downloads.
+    Returns True if an update was installed.
+    """
+    exe = sys.executable
+    old = exe + ".old"
+    if os.path.exists(old):  # leftover from a previous update
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+
+    if not getattr(sys, "frozen", False):
+        return False  # running as a script: updates come via git, not here
+
+    try:
+        latest = fetch(UPDATE_VERSION_URL).decode("ascii").strip()
+        if _parse_version(latest) <= _parse_version(__version__):
+            return False
+        print(f"\nA newer version of this program is available "
+              f"({__version__} -> {latest}); updating...")
+        payload = fetch(UPDATE_EXE_URL)
+        if len(payload) < MIN_PLAUSIBLE_EXE_BYTES:
+            print("  update skipped: downloaded file does not look like the program")
+            return False
+        tmp = exe + ".new"
+        with open(tmp, "wb") as f:
+            f.write(payload)
+        os.replace(exe, old)
+        os.replace(tmp, exe)
+        print(f"  Updated to {latest} — takes effect the next time you run the program.")
+        return True
+    except Exception as e:
+        print(f"  (update check skipped: {e})")
+        return False
+
+
 def check_freshness(metadata: dict) -> None:
     """Print a summary of the published data and warn if it looks stale."""
     data_date = metadata.get("data_date", "unknown")
@@ -116,11 +170,15 @@ def check_freshness(metadata: dict) -> None:
               f"they are missing from the latest report.")
 
 
-def run(dest: str = None) -> int:
+def run(dest: str = None, skip_update: bool = False) -> int:
     print("=" * 64)
-    print("  MEPS Quota Data Downloader")
+    print(f"  MEPS Quota Data Downloader  v{__version__}")
     print(f"  Source: github.com/{REPO} (updated daily by GitHub Actions)")
     print("=" * 64)
+
+    # 0. keep the program itself current (never blocks the data download)
+    if not skip_update:
+        self_update()
 
     # 1. metadata first — freshness check + confirms the source is reachable
     print("\nChecking published data...")
@@ -190,10 +248,12 @@ def main():
     parser = argparse.ArgumentParser(description="Download the latest MEPS quota data from GitHub")
     parser.add_argument("--dest", help="Destination folder (default: data/output/YYYY-MM-DD next to the program)")
     parser.add_argument("--no-pause", action="store_true", help="Do not wait for Enter before exiting")
+    parser.add_argument("--skip-update", action="store_true", help="Do not self-update even if a newer version exists")
+    parser.add_argument("--version", action="version", version=f"MEPS Quota Data Downloader {__version__}")
     args = parser.parse_args()
 
     try:
-        code = run(dest=args.dest)
+        code = run(dest=args.dest, skip_update=args.skip_update)
     except KeyboardInterrupt:
         code = 130
     except Exception as e:

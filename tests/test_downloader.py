@@ -53,6 +53,75 @@ class TestConfig:
         assert not (imported & forbidden), f'non-stdlib imports: {imported & forbidden}'
 
 
+class TestSelfUpdate:
+    """Version check + rename-swap. A running exe cannot be overwritten on
+    Windows but can be renamed — the update must use that, and must never
+    raise (a failed check cannot block the data download)."""
+
+    def _freeze(self, monkeypatch, tmp_path, current='2.8.0'):
+        exe = tmp_path / 'MEPS_Quota_Downloader.exe'
+        exe.write_bytes(b'OLD-EXE-CONTENTS')
+        monkeypatch.setattr(download.sys, 'frozen', True, raising=False)
+        monkeypatch.setattr(download.sys, 'executable', str(exe))
+        monkeypatch.setattr(download, '__version__', current)
+        return exe
+
+    def test_parse_version(self):
+        assert download._parse_version('2.8.0') == (2, 8, 0)
+        assert download._parse_version('2.10.0') > download._parse_version('2.9.9')
+
+    def test_not_frozen_never_updates(self, monkeypatch):
+        monkeypatch.setattr(download.sys, 'frozen', False, raising=False)
+        monkeypatch.setattr(download, 'fetch',
+                            lambda url: (_ for _ in ()).throw(AssertionError('no fetch')))
+        assert download.self_update() is False
+
+    def test_same_or_older_version_no_update(self, monkeypatch, tmp_path):
+        exe = self._freeze(monkeypatch, tmp_path)
+        monkeypatch.setattr(download, 'fetch', lambda url: b'2.8.0\n')
+        assert download.self_update() is False
+        assert exe.read_bytes() == b'OLD-EXE-CONTENTS'
+
+    def test_newer_version_swaps_exe(self, monkeypatch, tmp_path):
+        exe = self._freeze(monkeypatch, tmp_path, current='2.8.0')
+        new_payload = b'NEW-EXE-CONTENTS' * 100_000  # > MIN_PLAUSIBLE_EXE_BYTES
+
+        def fake_fetch(url):
+            return b'2.9.0\n' if url.endswith('.txt') else new_payload
+
+        monkeypatch.setattr(download, 'fetch', fake_fetch)
+        assert download.self_update() is True
+        assert exe.read_bytes() == new_payload            # new exe in place
+        assert (tmp_path / 'MEPS_Quota_Downloader.exe.old').exists()  # old parked
+
+    def test_old_leftover_cleaned_on_next_run(self, monkeypatch, tmp_path):
+        exe = self._freeze(monkeypatch, tmp_path)
+        leftover = tmp_path / 'MEPS_Quota_Downloader.exe.old'
+        leftover.write_bytes(b'stale')
+        monkeypatch.setattr(download, 'fetch', lambda url: b'2.8.0\n')
+        download.self_update()
+        assert not leftover.exists()
+
+    def test_implausibly_small_download_rejected(self, monkeypatch, tmp_path):
+        exe = self._freeze(monkeypatch, tmp_path)
+
+        def fake_fetch(url):
+            return b'9.9.9\n' if url.endswith('.txt') else b'error page'
+
+        monkeypatch.setattr(download, 'fetch', fake_fetch)
+        assert download.self_update() is False
+        assert exe.read_bytes() == b'OLD-EXE-CONTENTS'    # untouched
+
+    def test_network_failure_never_raises(self, monkeypatch, tmp_path):
+        self._freeze(monkeypatch, tmp_path)
+
+        def fake_fetch(url):
+            raise download.urllib.error.URLError('offline')
+
+        monkeypatch.setattr(download, 'fetch', fake_fetch)
+        assert download.self_update() is False  # skipped, not crashed
+
+
 class TestRun:
 
     def _patch_fetch(self, monkeypatch, metadata=None, fail_files=(),
