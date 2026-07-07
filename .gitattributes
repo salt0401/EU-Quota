@@ -1,0 +1,4 @@
+# Published data files are written by the daily CI run and re-read by tools;
+# keep their bytes exact across Windows/Linux checkouts (no CRLF/LF rewriting).
+data/published/*.csv -text
+data/published/metadata.json -text

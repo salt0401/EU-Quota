@@ -52,20 +52,10 @@ jobs:
       - name: Scrape quotas and publish data
         run: python run.py --publish
 
-      - name: Commit published data (csv + metadata only)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/published/quota_history_*.csv data/published/metadata.json
-          if git diff --cached --quiet; then
-            echo "No data changes to publish."
-          else
-            git commit -m "data: daily quota update $(date -u +%F)"
-            # tolerate a manual push that landed while we were scraping
-            git pull --rebase origin main || { git rebase --abort; git pull --rebase -X theirs origin main; }
-            git push origin main
-          fi
-
+      # Assets go up BEFORE metadata is pushed: an asset metadata doesn't yet
+      # name is inert, but pushed metadata naming a not-yet-uploaded asset
+      # would 404 in the downloader (bites on the first run of each year,
+      # when the new year's workbook name doesn't exist on the release yet).
       - name: Publish workbooks as rolling release assets
         env:
           GH_TOKEN: ${{ github.token }}
@@ -79,6 +69,20 @@ jobs:
             data/published/MEPS_Quota_Update_latest.xlsx \
             data/published/Quota_History_*.xlsx \
             --clobber
+
+      - name: Commit published data (csv + metadata only)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/published/quota_history_*.csv data/published/metadata.json
+          if git diff --cached --quiet; then
+            echo "No data changes to publish."
+          else
+            git commit -m "data: daily quota update $(date -u +%F)"
+            # tolerate a manual push that landed while we were scraping
+            git pull --rebase origin main || { git rebase --abort; git pull --rebase -X theirs origin main; }
+            git push origin main
+          fi
 
       - name: Upload scrape output as artifact (for recovery)
         if: failure()

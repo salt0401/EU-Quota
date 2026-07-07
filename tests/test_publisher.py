@@ -172,6 +172,24 @@ class TestPublishData:
                                         'quota_history_2026.csv']
         assert 'Quota_History_2025.xlsx' in meta['release_workbooks']
         assert meta['current_history_csv'] == 'quota_history_2026.csv'
+        # EVERY year's workbook is regenerated (a failed year-end upload or a
+        # past-year csv correction must self-heal on the next daily run)
+        assert (publish_dir / 'Quota_History_2025.xlsx').exists()
+        assert (publish_dir / 'Quota_History_2026.xlsx').exists()
+
+    def test_stray_files_excluded_from_manifest(self, tmp_path):
+        # e.g. a OneDrive conflict copy must not leak into the manifest
+        report = tmp_path / 'report.xlsx'
+        report.write_bytes(b'PK\x03\x04fake')
+        publish_dir = tmp_path / 'published'
+        publish_dir.mkdir()
+        (publish_dir / 'quota_history_2026 (1).csv').write_text('junk\n')
+        (publish_dir / 'quota_history_backup.csv').write_text('junk\n')
+
+        from datetime import date
+        meta = publish_data(_eu_df(), _uk_df(), str(report), str(publish_dir),
+                            run_date=date(2026, 7, 6))
+        assert meta['history_csvs'] == ['quota_history_2026.csv']
 
     def test_history_rows_carry_full_detail(self, tmp_path):
         # 'document everything in the history' — awaiting allocation, quota

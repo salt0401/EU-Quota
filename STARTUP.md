@@ -127,7 +127,7 @@ finish a live run with 0 failed quotas.
 PYTHONUTF8=1 python -m pytest tests/ -q
 ```
 
-**Check:** `198 passed` (this is the current baseline — if fewer, something regressed).
+**Check:** `199 passed` (this is the current baseline — if fewer, something regressed).
 Run this before AND after any code change.
 
 ---

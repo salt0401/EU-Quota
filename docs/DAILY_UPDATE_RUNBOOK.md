@@ -66,6 +66,12 @@ change to colleagues:
 Forgetting the `__version__` bump means the release ships a new EXE but
 installed copies see an unchanged version and never update — so always bump it.
 
+Note: when a release renames/removes data files an old EXE still expects
+(e.g. the v2.9.0 per-year history rename), colleagues on the old EXE see
+exactly ONE degraded run — a couple of 404 "FAILED" lines and exit code 1,
+while the latest report still downloads and the EXE self-updates during that
+same run. The next run is clean. No action needed.
+
 ## Quarterly maintenance (next: 1 October 2026)
 
 1. `data/input/quota_urls.xlsx` — set every `Current Quarter` cell to the

@@ -19,10 +19,10 @@ same date replaces that date's rows instead of duplicating them.
 """
 
 import csv
-import glob
 import io
 import json
 import os
+import re
 import shutil
 from datetime import datetime, date, timezone
 from typing import Optional, List, Dict
@@ -268,14 +268,15 @@ def publish_data(
 
     # 1. history csv (one file per calendar year; idempotent per date+region)
     current_csv = history_csv_name(run_date.year)
-    current_xlsx = history_xlsx_name(run_date.year)
     history_path = os.path.join(publish_dir, current_csv)
     total_rows = update_history_csv(history_path, eu_rows + uk_rows, date_str)
 
     # every year's history file present in the repo, plus the matching
-    # workbook names (past years' workbooks stay frozen on the release)
-    history_csvs = sorted(os.path.basename(p) for p in
-                          glob.glob(os.path.join(publish_dir, 'quota_history_*.csv')))
+    # workbook names. Strictly year-named files only: a stray copy (e.g. a
+    # OneDrive 'quota_history_2026 (1).csv' conflict file) must not leak
+    # into the manifest the downloader follows.
+    history_csvs = sorted(n for n in os.listdir(publish_dir)
+                          if re.fullmatch(r'quota_history_\d{4}\.csv', n))
     release_workbooks = [PUBLISHED_FILES['report']] + [
         history_xlsx_name(name[len('quota_history_'):-len('.csv')])
         for name in history_csvs]
@@ -307,11 +308,18 @@ def publish_data(
     except PermissionError:
         print(f"  Warning: {PUBLISHED_FILES['report']} is locked (open in "
               f"Excel?) — skipped updating it; csv/metadata are current.")
-    try:
-        generate_history_xlsx(history_path, os.path.join(publish_dir, current_xlsx))
-    except PermissionError:
-        print(f"  Warning: {current_xlsx} is locked (open in "
-              f"Excel?) — skipped regenerating it; {current_csv} is current.")
+    # Regenerate the workbook for EVERY year's csv, not just the current one:
+    # this lets a failed year-end upload (or a past-year csv correction)
+    # self-heal on the next daily run instead of freezing a stale workbook
+    # on the release forever. Each year is only a few hundred KB of rows.
+    for csv_name in history_csvs:
+        xlsx_name = history_xlsx_name(csv_name[len('quota_history_'):-len('.csv')])
+        try:
+            generate_history_xlsx(os.path.join(publish_dir, csv_name),
+                                  os.path.join(publish_dir, xlsx_name))
+        except PermissionError:
+            print(f"  Warning: {xlsx_name} is locked (open in "
+                  f"Excel?) — skipped regenerating it; {csv_name} is current.")
 
     print(f"  Published to {publish_dir}: report + history ({total_rows} rows, "
           f"{len(eu_rows)} EU / {len(uk_rows)} UK today)")

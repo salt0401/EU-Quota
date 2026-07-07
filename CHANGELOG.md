@@ -23,7 +23,13 @@ Designed as a long-lived project: no single history file grows forever.
 - Daily workflow commits/uploads via `quota_history_*` globs
 - New root files: `FUTURE_IMPROVEMENTS.md` (tracked open questions and
   decisions - moved out of STARTUP.md, which is onboarding-only)
-- Tests: 198 passing
+- Year-boundary hardening (adversarial review): every year's workbook is
+  regenerated on every publish (a failed year-end upload or past-year csv
+  correction self-heals next day); release assets upload BEFORE metadata
+  is pushed (no Jan-1 window where metadata names a missing asset); the
+  manifest accepts strictly year-named files only (stray copies excluded);
+  `.gitattributes` pins published data files byte-exact across platforms
+- Tests: 199 passing
 
 ## [2.8.1] - 2026-07-07
 
