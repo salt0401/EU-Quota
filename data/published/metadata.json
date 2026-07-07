@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-07-07T08:52:08Z",
+  "generated_utc": "2026-07-07T10:27:23Z",
   "data_date": "2026-07-07",
   "quota_period": "01-Jul-2026 to 30-Sep-2026",
   "eu_quotas": 283,
@@ -7,12 +7,6 @@
   "eu_failed": 0,
   "uk_failed": 0,
   "history_rows": 716,
-  "files": [
-    "quota_history_2026.csv",
-    "MEPS_Quota_Update_latest.xlsx",
-    "Quota_History_2026.xlsx",
-    "metadata.json"
-  ],
   "current_history_csv": "quota_history_2026.csv",
   "history_csvs": [
     "quota_history_2026.csv"
@@ -20,5 +14,11 @@
   "release_workbooks": [
     "MEPS_Quota_Update_latest.xlsx",
     "Quota_History_2026.xlsx"
+  ],
+  "files": [
+    "quota_history_2026.csv",
+    "MEPS_Quota_Update_latest.xlsx",
+    "Quota_History_2026.xlsx",
+    "metadata.json"
   ]
 }
