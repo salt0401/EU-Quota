@@ -138,17 +138,82 @@ class TestPublishData:
                             run_date=date(2026, 7, 6),
                             period_display='01-Jul-2026 to 30-Sep-2026')
 
+        # history files are split by calendar year (long-lived project)
         assert os.path.exists(os.path.join(publish_dir, 'MEPS_Quota_Update_latest.xlsx'))
-        assert os.path.exists(os.path.join(publish_dir, 'quota_history.csv'))
-        assert os.path.exists(os.path.join(publish_dir, 'Quota_History.xlsx'))
+        assert os.path.exists(os.path.join(publish_dir, 'quota_history_2026.csv'))
+        assert os.path.exists(os.path.join(publish_dir, 'Quota_History_2026.xlsx'))
         assert meta['eu_quotas'] == 2
         assert meta['uk_quotas'] == 1
         assert meta['history_rows'] == 3
         assert meta['data_date'] == '2026-07-06'
+        # manifest drives the downloader
+        assert meta['current_history_csv'] == 'quota_history_2026.csv'
+        assert meta['history_csvs'] == ['quota_history_2026.csv']
+        assert meta['release_workbooks'] == ['MEPS_Quota_Update_latest.xlsx',
+                                             'Quota_History_2026.xlsx']
 
         with io.open(os.path.join(publish_dir, 'metadata.json'), encoding='utf-8') as f:
             on_disk = json.load(f)
         assert on_disk['quota_period'] == '01-Jul-2026 to 30-Sep-2026'
+
+    def test_manifest_covers_multiple_years(self, tmp_path):
+        # a leftover previous-year csv must stay in the manifest so the
+        # downloader keeps fetching it (its workbook stays on the release)
+        report = tmp_path / 'report.xlsx'
+        report.write_bytes(b'PK\x03\x04fake')
+        publish_dir = tmp_path / 'published'
+        publish_dir.mkdir()
+        (publish_dir / 'quota_history_2025.csv').write_text('old\n')
+
+        from datetime import date
+        meta = publish_data(_eu_df(), _uk_df(), str(report), str(publish_dir),
+                            run_date=date(2026, 7, 6))
+        assert meta['history_csvs'] == ['quota_history_2025.csv',
+                                        'quota_history_2026.csv']
+        assert 'Quota_History_2025.xlsx' in meta['release_workbooks']
+        assert meta['current_history_csv'] == 'quota_history_2026.csv'
+
+    def test_history_rows_carry_full_detail(self, tmp_path):
+        # 'document everything in the history' — awaiting allocation, quota
+        # window (ISO dates), and UK status must survive into the CSV
+        import pandas as pd
+        from datetime import date
+        eu = _eu_df()
+        eu['awaiting_allocation'] = [374336063.0, 0.0]
+        eu['validity_start'] = ['01-07-2026', '01-07-2026']
+        eu['validity_end'] = ['30-09-2026', '30-09-2026']
+        uk = _uk_df()
+        uk['validity_period'] = ['01 July 2026 to 30 September 2026']
+        uk['status'] = ['Open']
+
+        eu_rows = build_eu_history_rows(eu, '2026-07-06')
+        assert eu_rows[0]['awaiting_allocation_t'] == 374336.06
+        assert eu_rows[0]['validity_start'] == '2026-07-01'
+        assert eu_rows[0]['validity_end'] == '2026-09-30'
+
+        uk_rows = build_uk_history_rows(uk, '2026-07-06')
+        assert uk_rows[0]['validity_start'] == '2026-07-01'
+        assert uk_rows[0]['validity_end'] == '2026-09-30'
+        assert uk_rows[0]['status'] == 'Open'
+
+    def test_old_schema_rows_survive_schema_extension(self, tmp_path):
+        # rows written before the new columns existed must be preserved
+        # (blank new columns), not corrupted, when today's rows are appended
+        path = str(tmp_path / 'quota_history_2026.csv')
+        with io.open(path, 'w', encoding='utf-8-sig', newline='') as f:
+            f.write('date,region,order_number,quota_category,country,'
+                    'quota_limit_t,quota_allocated_t,pct_allocated,'
+                    'balance_remaining_t,pct_remaining,scrape_status\n')
+            f.write('2026-07-05,EU,099801,Cat 1.A,Türkiye,'
+                    '160573.74,0.0,0.0,160573.74,100.0,ok\n')
+        rows = build_eu_history_rows(_eu_df(), '2026-07-06')
+        total = update_history_csv(path, rows, '2026-07-06')
+        assert total == 3
+        with io.open(path, encoding='utf-8-sig', newline='') as f:
+            out = list(csv.DictReader(f))
+        old = [r for r in out if r['date'] == '2026-07-05'][0]
+        assert old['country'] == 'Türkiye'
+        assert old['awaiting_allocation_t'] == ''  # blank, not corrupted
 
     def test_refuses_mostly_failed_scrape(self, tmp_path):
         # >50% failures means the source is broken (or the regulation was

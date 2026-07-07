@@ -8,9 +8,17 @@
   "uk_failed": 0,
   "history_rows": 716,
   "files": [
+    "quota_history_2026.csv",
     "MEPS_Quota_Update_latest.xlsx",
-    "quota_history.csv",
-    "Quota_History.xlsx",
+    "Quota_History_2026.xlsx",
     "metadata.json"
+  ],
+  "current_history_csv": "quota_history_2026.csv",
+  "history_csvs": [
+    "quota_history_2026.csv"
+  ],
+  "release_workbooks": [
+    "MEPS_Quota_Update_latest.xlsx",
+    "Quota_History_2026.xlsx"
   ]
 }

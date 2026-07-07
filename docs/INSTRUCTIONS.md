@@ -61,7 +61,8 @@ Nobody needs to run the scraper by hand anymore:
 
 - A GitHub Actions workflow (`.github/workflows/daily-quota-update.yml`)
   scrapes all EU + UK quotas every day at 05:30 UTC and publishes the results
-  - `quota_history.csv` + `metadata.json` are committed to `data/published/`,
+  - `quota_history_<YEAR>.csv` (one per calendar year) + `metadata.json` are
+  committed to `data/published/`,
   and the two workbooks go to the rolling **latest-data** release.
   Operations and failure handling: `docs/DAILY_UPDATE_RUNBOOK.md`.
 - Colleagues fetch the data with **`MEPS_Quota_Downloader.exe`** (built from

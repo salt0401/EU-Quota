@@ -60,7 +60,7 @@ EU Quota/
 現在不需要任何人手動執行爬蟲：
 
 - GitHub Actions 工作流程（`.github/workflows/daily-quota-update.yml`）每天
-  05:30 UTC 自動爬取所有歐盟與英國配額並發布結果 — `quota_history.csv` 與
+  05:30 UTC 自動爬取所有歐盟與英國配額並發布結果 — `quota_history_<年份>.csv`（每年一個檔案）與
   `metadata.json` 提交到 `data/published/`，兩個活頁簿上傳到滾動式
   **latest-data** release。維運與故障處理請見 `docs/DAILY_UPDATE_RUNBOOK.md`。
 - 同事使用 **`MEPS_Quota_Downloader.exe`**（由 `download.py` 建置）取得資料：

@@ -2,6 +2,29 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.9.0] - 2026-07-07
+
+### Per-Year History Files + Complete History Detail
+
+Designed as a long-lived project: no single history file grows forever.
+
+- History files are now split by calendar year: `quota_history_<YEAR>.csv`
+  (git) and `Quota_History_<YEAR>.xlsx` (release asset). Existing data
+  migrated to `quota_history_2026.csv` / `Quota_History_2026.xlsx`;
+  past years stay frozen on the release when a new year begins
+- History rows now capture the full daily picture: `awaiting_allocation_t`
+  (EU - decisive for real availability early in a quarter), `validity_start`
+  / `validity_end` (ISO quota window, both regions), and `status` (UK
+  Open/Exhausted). Older rows keep blank values for the new columns
+- `metadata.json` now carries a file manifest (`history_csvs`,
+  `release_workbooks`, `current_history_csv`); the downloader (v2.9.0)
+  builds its download plan from it, so future years appear on colleagues'
+  machines without a program update (installed exes self-update)
+- Daily workflow commits/uploads via `quota_history_*` globs
+- New root files: `FUTURE_IMPROVEMENTS.md` (tracked open questions and
+  decisions - moved out of STARTUP.md, which is onboarding-only)
+- Tests: 198 passing
+
 ## [2.8.1] - 2026-07-07
 
 ### Downloader console output is ASCII-only

@@ -87,7 +87,8 @@
 
 > **Superseded:** daily collection now runs on GitHub Actions
 > (`.github/workflows/daily-quota-update.yml`) and records every quota every
-> day in `data/published/quota_history.csv`, independent of any local machine.
+> day in `data/published/quota_history_<YEAR>.csv` (one file per calendar
+> year), independent of any local machine.
 > The Windows Task-Scheduler snapshot below still works but is no longer the
 > primary data-collection path.
 
@@ -98,7 +99,11 @@
 - [x] `src/utils.py` — Added `get_logs_folder()`, logs in `ensure_directories()`
 - [x] Tested: first run scrapes, second run skips, logs written to `data/logs/`
 
-## Priority 5: Prophet Time-Series Forecasting [EXPERIMENTAL]
+## Priority 5: Prophet Time-Series Forecasting [EXPERIMENTAL — DEFERRED]
+
+> **Decision (2026-07-07):** deferred until a few months of new-regime
+> history data exist (roughly October–November 2026 at the earliest).
+> Tracked in `FUTURE_IMPROVEMENTS.md`.
 
 > Forecasting lives in `beta/forecasting/` — a completely separate top-level
 > directory with zero imports from/to `src/`. Changes in beta/ cannot break
@@ -138,7 +143,7 @@
 ### Current Data Status
 
 > **New (July 2026):** the preferred forecasting dataset is now
-> `data/published/quota_history.csv` - 358 rows/day (283 EU + 75 UK),
+> `data/published/quota_history_<YEAR>.csv` - 358 rows/day (283 EU + 75 UK),
 > collected by the daily GitHub Actions run regardless of local machines.
 > **Open task:** re-point `beta/forecasting/data_loader.py` at the history
 > CSV (map date->ds, balance_remaining_t->y per region+order_number, filter

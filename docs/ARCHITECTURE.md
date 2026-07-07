@@ -314,11 +314,12 @@ GitHub Actions (05:30 UTC daily, public repo = free)
      |- scrape EU (283) + UK (75)            src/scraper.py, src/uk_scraper.py
      |- generate MEPS report                 src/excel_generator.py
      '- publish                              src/publisher.py
-          |- data/published/quota_history.csv   (append-only daily history,
+          |- data/published/quota_history_<YEAR>.csv  (append-only daily history,
+          |                                      one file per calendar year,
           |                                      idempotent per date+region)
           |- data/published/metadata.json       (freshness stamp)  -> git commit
           '- MEPS_Quota_Update_latest.xlsx,
-             Quota_History.xlsx                 -> 'latest-data' release assets
+             Quota_History_<YEAR>.xlsx          -> 'latest-data' release assets
                                                    (kept out of git history)
 
 Colleague: MEPS_Quota_Downloader.exe (download.py, stdlib-only, onefile)

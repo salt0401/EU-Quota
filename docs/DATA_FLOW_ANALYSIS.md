@@ -271,10 +271,10 @@ report generation (`src/publisher.py`):
 
 | Output | Location | Purpose |
 |--------|----------|---------|
-| `quota_history.csv` | `data/published/` (git) | One row per quota per day: date, region, order_number, category, country, tonnes, percentages, scrape_status. The analysis dataset. |
+| `quota_history_<YEAR>.csv` | `data/published/` (git) | One row per quota per day, one file per calendar year: date, region, order_number, category, country, tonnes, percentages, awaiting allocation (EU), quota window (validity start/end), status (UK), scrape_status. The analysis dataset. |
 | `metadata.json` | `data/published/` (git) | Timestamp, data date, quota period, row/failure counts - the downloader's freshness check. |
 | `MEPS_Quota_Update_latest.xlsx` | `latest-data` release asset | Latest customer report (overwritten daily; kept out of git). |
-| `Quota_History.xlsx` | `latest-data` release asset | The history CSV as a formatted workbook (EU/UK sheets, autofilter). |
+| `Quota_History_<YEAR>.xlsx` | `latest-data` release asset | The year's history CSV as a formatted workbook (EU/UK sheets, autofilter); past years stay frozen on the release. |
 
 History updates are idempotent per (date, region): a re-run replaces that
 date's rows for the regions it scraped and preserves the rest. Publish gates

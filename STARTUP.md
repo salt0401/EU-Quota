@@ -127,7 +127,7 @@ finish a live run with 0 failed quotas.
 PYTHONUTF8=1 python -m pytest tests/ -q
 ```
 
-**Check:** `195 passed` (this is the current baseline — if fewer, something regressed).
+**Check:** `198 passed` (this is the current baseline — if fewer, something regressed).
 Run this before AND after any code change.
 
 ---
@@ -137,8 +137,9 @@ Run this before AND after any code change.
 ```
 GitHub Actions (.github/workflows/daily-quota-update.yml, 05:30 UTC, free on public repo)
   run.py --publish
-    -> data/published/quota_history.csv + metadata.json   (committed to git)
-    -> MEPS_Quota_Update_latest.xlsx + Quota_History.xlsx  (uploaded to the
+    -> data/published/quota_history_<YEAR>.csv + metadata.json  (committed to
+       git; one history file per calendar year)
+    -> MEPS_Quota_Update_latest.xlsx + Quota_History_<YEAR>.xlsx (uploaded to the
                                                             'latest-data' release,
                                                             NOT committed — keeps git small)
 Colleague: MEPS_Quota_Downloader.exe (download.py, self-updating)
@@ -165,26 +166,20 @@ January-2027 regulation renewal.
 |---|---|
 | all `src/`, `run.py`, `download.py`, `build/` | `dist/` (both exes) |
 | `data/input/` (the quota lists) + template | `data/output/`, `data/snapshots/`, `data/logs/` |
-| `data/published/quota_history.csv` + `metadata.json` | `data/published/*.xlsx` (they're release assets) |
+| `data/published/quota_history_<YEAR>.csv` + `metadata.json` | `data/published/*.xlsx` (they're release assets) |
 | all docs, tests, `requirements*.txt` | `__pycache__/`, `.venv/`, `*.spec` |
 
 Reference extractions from the regulations are in `data/0702NewData/`.
 
 ---
 
-## 8. Open items / gotchas to know
+## 8. Open questions & future improvements
 
-- **`DECISION_NEEDED_UK_authorised_use.txt`** (repo root) — an unresolved product
-  question: whether to keep tracking the 3 UK Category-1 "authorised use" quotas
-  (order numbers 058673-058675). Currently included. Don't silently change this.
-- **Quarter turn (next 1 Oct 2026):** update the `Current Quarter` column in both
-  `data/input/*.xlsx` and the UK `Template Quota Limit`. The pipeline self-heals
-  against stale dates meanwhile — see the runbook.
-- **Jan 2027:** EU Implementing Regulation 2026/1457 expires 31 Dec 2026; a renewal
-  may change order numbers and will surface as a loud "N/M quotas failed" publish
-  refusal, not silent bad data.
-- **Forecasting** (`beta/`) is isolated from `src/` and should be re-pointed at
-  `data/published/quota_history.csv` as its dataset (open task in `docs/TODO.md`).
+They do NOT live in this file — this file is onboarding only. See
+`FUTURE_IMPROVEMENTS.md` (repo root) for the tracked list with status and
+decisions. Colleague-facing questions (e.g. the UK authorised-use quotas)
+are flagged in `PROJECT_STATUS.html`; operational procedures (quarter turn,
+January-2027 regulation renewal) are in `docs/DAILY_UPDATE_RUNBOOK.md`.
 
 ---
 

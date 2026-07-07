@@ -21,20 +21,31 @@ class TestConfig:
         assert 'salt0401/EU-Quota' in download.BASE_URL
         assert '/data/published' in download.BASE_URL
 
-    def test_workbooks_come_from_release_assets(self):
-        # xlsx files live on the rolling release (git stays small);
-        # text files come from raw (committed = auditable history)
-        assert download.FILE_SOURCES['MEPS_Quota_Update_latest.xlsx'] == download.RELEASE_BASE
-        assert download.FILE_SOURCES['Quota_History.xlsx'] == download.RELEASE_BASE
-        assert download.FILE_SOURCES['quota_history.csv'] == download.BASE_URL
+    def test_plan_uses_metadata_manifest(self):
+        # csv files come from raw (committed = auditable history);
+        # workbooks live on the rolling release (git stays small)
+        meta = {
+            'history_csvs': ['quota_history_2026.csv', 'quota_history_2027.csv'],
+            'release_workbooks': ['MEPS_Quota_Update_latest.xlsx',
+                                  'Quota_History_2026.xlsx', 'Quota_History_2027.xlsx'],
+            'current_history_csv': 'quota_history_2027.csv',
+        }
+        plan = dict(download.build_download_plan(meta))
+        assert plan['quota_history_2026.csv'] == download.BASE_URL
+        assert plan['quota_history_2027.csv'] == download.BASE_URL
+        assert plan['MEPS_Quota_Update_latest.xlsx'] == download.RELEASE_BASE
+        assert plan['Quota_History_2027.xlsx'] == download.RELEASE_BASE
+        assert download.current_history_csv(meta) == 'quota_history_2027.csv'
         assert download.RELEASE_BASE.endswith('/releases/download/latest-data')
 
-    def test_expected_file_set(self):
-        assert 'MEPS_Quota_Update_latest.xlsx' in download.DATA_FILES
-        assert 'quota_history.csv' in download.DATA_FILES
-        assert 'Quota_History.xlsx' in download.DATA_FILES
-        for name in download.DATA_FILES:
-            assert name in download.FILE_SOURCES
+    def test_plan_falls_back_to_current_year(self):
+        # metadata from an older publisher has no manifest keys
+        from datetime import date
+        year = date.today().year
+        plan = dict(download.build_download_plan({}))
+        assert plan[f'quota_history_{year}.csv'] == download.BASE_URL
+        assert plan[f'Quota_History_{year}.xlsx'] == download.RELEASE_BASE
+        assert download.current_history_csv({}) == f'quota_history_{year}.csv'
 
     def test_stdlib_only(self):
         # the frozen exe must stay tiny: no third-party imports allowed
@@ -124,6 +135,12 @@ class TestSelfUpdate:
 
 class TestRun:
 
+    DEFAULT_FILES = {
+        'history_csvs': ['quota_history_2026.csv'],
+        'release_workbooks': ['MEPS_Quota_Update_latest.xlsx', 'Quota_History_2026.xlsx'],
+        'current_history_csv': 'quota_history_2026.csv',
+    }
+
     def _patch_fetch(self, monkeypatch, metadata=None, fail_files=(),
                      csv_rows=2):
         meta = metadata or {
@@ -134,6 +151,7 @@ class TestRun:
             'eu_failed': 0, 'uk_failed': 0,
             'history_rows': 2,
         }
+        meta = {**self.DEFAULT_FILES, **meta}
         calls = []
 
         def fake_fetch(url):
@@ -143,7 +161,7 @@ class TestRun:
                 raise download.urllib.error.URLError('boom')
             if name == download.METADATA_FILE:
                 return json.dumps(meta).encode('utf-8')
-            if name == 'quota_history.csv':
+            if name.startswith('quota_history_') and name.endswith('.csv'):
                 return b'header\n' + b'row\n' * csv_rows
             return b'FAKEDATA-' + name.encode()
 
@@ -151,20 +169,21 @@ class TestRun:
         monkeypatch.setattr(download.time, 'sleep', lambda s: None)
         return calls
 
-    def test_downloads_all_files(self, monkeypatch, tmp_path):
+    def test_downloads_all_manifest_files(self, monkeypatch, tmp_path):
         calls = self._patch_fetch(monkeypatch)
         code = download.run(dest=str(tmp_path))
         assert code == 0
-        for name in download.DATA_FILES:
+        for name in (self.DEFAULT_FILES['history_csvs']
+                     + self.DEFAULT_FILES['release_workbooks']):
             assert (tmp_path / name).exists()
         assert calls[0].endswith('metadata.json')  # freshness check first
 
     def test_partial_failure_returns_nonzero(self, monkeypatch, tmp_path):
-        self._patch_fetch(monkeypatch, fail_files={'quota_history.csv'})
+        self._patch_fetch(monkeypatch, fail_files={'quota_history_2026.csv'})
         code = download.run(dest=str(tmp_path))
         assert code == 1
         assert (tmp_path / 'MEPS_Quota_Update_latest.xlsx').exists()
-        assert not (tmp_path / 'quota_history.csv').exists()
+        assert not (tmp_path / 'quota_history_2026.csv').exists()
 
     def test_unreachable_repo_returns_error(self, monkeypatch, tmp_path):
         def fake_fetch(url):

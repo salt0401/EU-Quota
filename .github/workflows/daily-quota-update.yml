@@ -1,8 +1,9 @@
 name: Daily quota update
 
 # Scrapes EU TARIC + UK Trade Tariff every morning and publishes the results:
-#   - quota_history.csv + metadata.json  -> committed to data/published/
-#   - the two workbooks                  -> rolling release assets
+#   - quota_history_<YEAR>.csv + metadata.json -> committed to data/published/
+#     (one history file per calendar year)
+#   - the workbooks                            -> rolling release assets
 #     ("latest-data" release; keeps daily xlsx blobs out of git history)
 # The colleague-facing downloader fetches both over public URLs (repo must
 # stay PUBLIC — that is what makes anonymous downloads work).
@@ -55,7 +56,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/published/quota_history.csv data/published/metadata.json
+          git add data/published/quota_history_*.csv data/published/metadata.json
           if git diff --cached --quiet; then
             echo "No data changes to publish."
           else
@@ -76,7 +77,7 @@ jobs:
               --latest=false
           gh release upload latest-data \
             data/published/MEPS_Quota_Update_latest.xlsx \
-            data/published/Quota_History.xlsx \
+            data/published/Quota_History_*.xlsx \
             --clobber
 
       - name: Upload scrape output as artifact (for recovery)

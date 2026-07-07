@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
-__version__ = "2.8.1"
+__version__ = "2.9.0"
 
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"
@@ -42,17 +42,29 @@ UPDATE_EXE_URL = f"{RELEASE_BASE}/MEPS_Quota_Downloader.exe"
 MIN_PLAUSIBLE_EXE_BYTES = 1_000_000  # a real PyInstaller exe is several MB
 
 METADATA_FILE = "metadata.json"
-DATA_FILES = [
-    "MEPS_Quota_Update_latest.xlsx",
-    "Quota_History.xlsx",
-    "quota_history.csv",
-]
-FILE_SOURCES = {
-    "MEPS_Quota_Update_latest.xlsx": RELEASE_BASE,
-    "Quota_History.xlsx": RELEASE_BASE,
-    "quota_history.csv": BASE_URL,
-    METADATA_FILE: BASE_URL,
-}
+REPORT_FILE = "MEPS_Quota_Update_latest.xlsx"
+
+
+def build_download_plan(metadata: dict) -> list:
+    """[(filename, base_url), ...] for the data files to fetch.
+
+    The history is split into one file per calendar year; the names come from
+    metadata's manifest, so a new year's files appear without a program
+    update. History CSVs come from the repo (raw URLs); workbooks from the
+    'latest-data' release. Falls back to current-year names when the manifest
+    keys are missing (metadata written by an older publisher).
+    """
+    year = date.today().year
+    csvs = metadata.get("history_csvs") or [f"quota_history_{year}.csv"]
+    workbooks = metadata.get("release_workbooks") or [
+        REPORT_FILE, f"Quota_History_{year}.xlsx"]
+    return [(name, BASE_URL) for name in csvs] + \
+           [(name, RELEASE_BASE) for name in workbooks]
+
+
+def current_history_csv(metadata: dict) -> str:
+    return metadata.get("current_history_csv") or \
+        f"quota_history_{date.today().year}.csv"
 
 USER_AGENT = f"MEPS-Quota-Downloader/{__version__}"
 TIMEOUT = 60
@@ -198,16 +210,19 @@ def run(dest: str = None, skip_update: bool = False) -> int:
     os.makedirs(dest, exist_ok=True)
     print(f"\nDownloading to: {dest}")
 
+    plan = build_download_plan(metadata)
+    current_csv = current_history_csv(metadata)
+
     ok, failed = 0, 0
     csv_payload = None
-    for name in DATA_FILES:
+    for name, base in plan:
         try:
             print(f"  {name} ...", end=" ", flush=True)
-            payload = fetch(f"{FILE_SOURCES[name]}/{name}")
+            payload = fetch(f"{base}/{name}")
             with open(os.path.join(dest, name), "wb") as f:
                 f.write(payload)
             print(f"OK ({len(payload):,} bytes)")
-            if name == "quota_history.csv":
+            if name == current_csv:
                 csv_payload = payload
             ok += 1
         except Exception as e:
@@ -215,7 +230,7 @@ def run(dest: str = None, skip_update: bool = False) -> int:
             failed += 1
 
     # Consistency check: the raw CDN caches for a few minutes, so metadata and
-    # the CSV can briefly come from different daily commits. Retry once.
+    # the current year's CSV can briefly come from different daily commits.
     if csv_payload is not None and metadata.get("history_rows"):
         csv_rows = max(csv_payload.count(b"\n") - 1, 0)
         if csv_rows != metadata["history_rows"]:
@@ -225,8 +240,9 @@ def run(dest: str = None, skip_update: bool = False) -> int:
             time.sleep(CONSISTENCY_RETRY_WAIT)
             try:
                 metadata = json.loads(fetch(f"{BASE_URL}/{METADATA_FILE}").decode("utf-8"))
-                csv_payload = fetch(f"{FILE_SOURCES['quota_history.csv']}/quota_history.csv")
-                with open(os.path.join(dest, "quota_history.csv"), "wb") as f:
+                current_csv = current_history_csv(metadata)
+                csv_payload = fetch(f"{BASE_URL}/{current_csv}")
+                with open(os.path.join(dest, current_csv), "wb") as f:
                     f.write(csv_payload)
                 csv_rows = max(csv_payload.count(b"\n") - 1, 0)
             except Exception as e:
@@ -239,8 +255,9 @@ def run(dest: str = None, skip_update: bool = False) -> int:
 
     print(f"\nDone: {ok} file(s) downloaded" + (f", {failed} failed" if failed else ""))
     if ok:
-        print(f"Open {os.path.join(dest, DATA_FILES[0])} for the latest report,")
-        print(f"and {DATA_FILES[1]} for the day-by-day history.")
+        history_wb = plan[-1][0] if plan else "Quota_History_<year>.xlsx"
+        print(f"Open {os.path.join(dest, REPORT_FILE)} for the latest report,")
+        print(f"and {history_wb} for the day-by-day history (one file per year).")
     return 0 if failed == 0 else 1
 
 

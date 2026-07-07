@@ -5,8 +5,8 @@ quotas every day at 05:30 UTC and publishes:
 
 | What | Where | How colleagues get it |
 |---|---|---|
-| `quota_history.csv`, `metadata.json` | committed to `data/published/` | `MEPS_Quota_Downloader.exe` (raw URL) |
-| `MEPS_Quota_Update_latest.xlsx`, `Quota_History.xlsx` | rolling release **latest-data** | `MEPS_Quota_Downloader.exe` (release URL) |
+| `quota_history_<YEAR>.csv` (one per calendar year), `metadata.json` | committed to `data/published/` | `MEPS_Quota_Downloader.exe` (raw URL) |
+| `MEPS_Quota_Update_latest.xlsx`, `Quota_History_<YEAR>.xlsx` | rolling release **latest-data** | `MEPS_Quota_Downloader.exe` (release URL) |
 
 A second workflow (`.github/workflows/build-downloader.yml`) publishes the
 downloader itself — `MEPS_Quota_Downloader.exe` and `downloader_version.txt` —

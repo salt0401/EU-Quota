@@ -6,16 +6,20 @@ Maintains data/published/ — the small, stable set of files that the
 downloader program fetches from GitHub over public raw URLs:
 
     MEPS_Quota_Update_latest.xlsx   latest customer report (copied)
-    quota_history.csv               append-only daily history, one row per
-                                    quota per day (canonical analysis data)
-    Quota_History.xlsx              the same history as a formatted workbook
-    metadata.json                   freshness stamp + run summary
+    quota_history_<YEAR>.csv        append-only daily history, one row per
+                                    quota per day, one file per calendar
+                                    year (canonical analysis data)
+    Quota_History_<YEAR>.xlsx       the same history as a formatted workbook
+    metadata.json                   freshness stamp + run summary + the list
+                                    of files the downloader should fetch
 
-The history append is idempotent: re-running on the same date replaces that
-date's rows instead of duplicating them.
+This is a long-lived project: the history is split by year so no single
+file grows forever. The history append is idempotent: re-running on the
+same date replaces that date's rows instead of duplicating them.
 """
 
 import csv
+import glob
 import io
 import json
 import os
@@ -28,15 +32,33 @@ import pandas as pd
 HISTORY_COLUMNS = [
     'date', 'region', 'order_number', 'quota_category', 'country',
     'quota_limit_t', 'quota_allocated_t', 'pct_allocated',
-    'balance_remaining_t', 'pct_remaining', 'scrape_status',
+    'balance_remaining_t', 'pct_remaining',
+    'awaiting_allocation_t', 'validity_start', 'validity_end', 'status',
+    'scrape_status',
 ]
 
 PUBLISHED_FILES = {
     'report': 'MEPS_Quota_Update_latest.xlsx',
-    'history_csv': 'quota_history.csv',
-    'history_xlsx': 'Quota_History.xlsx',
     'metadata': 'metadata.json',
 }
+
+
+def history_csv_name(year) -> str:
+    return f'quota_history_{year}.csv'
+
+
+def history_xlsx_name(year) -> str:
+    return f'Quota_History_{year}.xlsx'
+
+
+def _iso_date(value, fmt) -> str:
+    """Parse a date string in the given format to ISO YYYY-MM-DD, else ''."""
+    if not value or (isinstance(value, float) and pd.isna(value)):
+        return ''
+    try:
+        return datetime.strptime(str(value).strip(), fmt).strftime('%Y-%m-%d')
+    except (ValueError, TypeError):
+        return ''
 
 
 def _round(value, ndigits=2):
@@ -69,6 +91,12 @@ def build_eu_history_rows(eu_df: pd.DataFrame, run_date: str) -> List[Dict]:
             'pct_allocated': _round(r.get('pct_allocated')),
             'balance_remaining_t': _round(r.get('balance_remaining', 0) / 1000 if pd.notna(r.get('balance_remaining')) else None),
             'pct_remaining': _round(r.get('pct_remaining')),
+            # awaiting allocation decides real availability early in a quarter
+            # (pooled requests can exceed the whole quota before allocation)
+            'awaiting_allocation_t': _round(r.get('awaiting_allocation', 0) / 1000 if pd.notna(r.get('awaiting_allocation')) else None),
+            'validity_start': _iso_date(r.get('validity_start'), '%d-%m-%Y'),
+            'validity_end': _iso_date(r.get('validity_end'), '%d-%m-%Y'),
+            'status': '',  # TARIC has no status field (Critical is always No, Art. 5)
             'scrape_status': status if isinstance(status, str) and status else 'ok',
         })
     return rows
@@ -83,6 +111,14 @@ def build_uk_history_rows(uk_df: pd.DataFrame, run_date: str) -> List[Dict]:
         status = r.get('scrape_status')
         pct_alloc = r.get('pct_allocated')
         pct_rem = r.get('pct_remaining')
+        # UK validity arrives as one string, e.g. '01 July 2026 to 30 September 2026'
+        v_start = v_end = ''
+        period = r.get('validity_period')
+        if isinstance(period, str) and ' to ' in period:
+            start_s, _, end_s = period.partition(' to ')
+            v_start = _iso_date(start_s, '%d %B %Y')
+            v_end = _iso_date(end_s, '%d %B %Y')
+        quota_status = r.get('status')
         rows.append({
             'date': run_date,
             'region': 'UK',
@@ -94,6 +130,10 @@ def build_uk_history_rows(uk_df: pd.DataFrame, run_date: str) -> List[Dict]:
             'pct_allocated': _round(pct_alloc * 100 if pd.notna(pct_alloc) else None),
             'balance_remaining_t': _round(r.get('balance_remaining_tonnes')),
             'pct_remaining': _round(pct_rem * 100 if pd.notna(pct_rem) else None),
+            'awaiting_allocation_t': None,  # not a UK API concept
+            'validity_start': v_start,
+            'validity_end': v_end,
+            'status': quota_status if isinstance(quota_status, str) else '',
             'scrape_status': status if isinstance(status, str) and status else 'ok',
         })
     return rows
@@ -141,7 +181,7 @@ def generate_history_xlsx(history_path: str, xlsx_path: str):
         rows = list(csv.DictReader(f))
 
     numeric_cols = {'quota_limit_t', 'quota_allocated_t', 'pct_allocated',
-                    'balance_remaining_t', 'pct_remaining'}
+                    'balance_remaining_t', 'pct_remaining', 'awaiting_allocation_t'}
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -167,7 +207,7 @@ def generate_history_xlsx(history_path: str, xlsx_path: str):
         last_col = get_column_letter(len(HISTORY_COLUMNS))
         ws.auto_filter.ref = f'A1:{last_col}{max(r_idx - 1, 1)}'
         ws.freeze_panes = 'A2'
-        widths = [12, 8, 14, 52, 30, 14, 16, 13, 18, 13, 13]
+        widths = [12, 8, 14, 52, 30, 14, 16, 13, 18, 13, 18, 13, 13, 12, 13]
         for c, w in enumerate(widths, 1):
             ws.column_dimensions[get_column_letter(c)].width = w
     wb.save(xlsx_path)
@@ -226,13 +266,23 @@ def publish_data(
     uk_rows = build_uk_history_rows(uk_df, date_str)
     _check_publish_gates(eu_df, eu_rows, uk_rows, run_date)
 
-    # 1. history csv (idempotent per date+region)
-    history_path = os.path.join(publish_dir, PUBLISHED_FILES['history_csv'])
+    # 1. history csv (one file per calendar year; idempotent per date+region)
+    current_csv = history_csv_name(run_date.year)
+    current_xlsx = history_xlsx_name(run_date.year)
+    history_path = os.path.join(publish_dir, current_csv)
     total_rows = update_history_csv(history_path, eu_rows + uk_rows, date_str)
+
+    # every year's history file present in the repo, plus the matching
+    # workbook names (past years' workbooks stay frozen on the release)
+    history_csvs = sorted(os.path.basename(p) for p in
+                          glob.glob(os.path.join(publish_dir, 'quota_history_*.csv')))
+    release_workbooks = [PUBLISHED_FILES['report']] + [
+        history_xlsx_name(name[len('quota_history_'):-len('.csv')])
+        for name in history_csvs]
 
     eu_failed = sum(1 for r in eu_rows if r['scrape_status'] != 'ok')
     uk_failed = sum(1 for r in uk_rows if r['scrape_status'] != 'ok')
-    # 2. metadata for the downloader's freshness check
+    # 2. metadata for the downloader's freshness check + file manifest
     metadata = {
         'generated_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
         'data_date': date_str,
@@ -241,8 +291,11 @@ def publish_data(
         'uk_quotas': len(uk_rows),
         'eu_failed': eu_failed,
         'uk_failed': uk_failed,
-        'history_rows': total_rows,
-        'files': list(PUBLISHED_FILES.values()),
+        'history_rows': total_rows,          # rows in the CURRENT year's file
+        'current_history_csv': current_csv,
+        'history_csvs': history_csvs,        # fetched from raw (git)
+        'release_workbooks': release_workbooks,  # fetched from the release
+        'files': history_csvs + release_workbooks + [PUBLISHED_FILES['metadata']],
     }
     with io.open(os.path.join(publish_dir, PUBLISHED_FILES['metadata']), 'w', encoding='utf-8') as f:
         json.dump(metadata, f, indent=2)
@@ -255,11 +308,10 @@ def publish_data(
         print(f"  Warning: {PUBLISHED_FILES['report']} is locked (open in "
               f"Excel?) — skipped updating it; csv/metadata are current.")
     try:
-        generate_history_xlsx(history_path,
-                              os.path.join(publish_dir, PUBLISHED_FILES['history_xlsx']))
+        generate_history_xlsx(history_path, os.path.join(publish_dir, current_xlsx))
     except PermissionError:
-        print(f"  Warning: {PUBLISHED_FILES['history_xlsx']} is locked (open in "
-              f"Excel?) — skipped regenerating it; quota_history.csv is current.")
+        print(f"  Warning: {current_xlsx} is locked (open in "
+              f"Excel?) — skipped regenerating it; {current_csv} is current.")
 
     print(f"  Published to {publish_dir}: report + history ({total_rows} rows, "
           f"{len(eu_rows)} EU / {len(uk_rows)} UK today)")
