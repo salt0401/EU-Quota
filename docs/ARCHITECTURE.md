@@ -142,8 +142,13 @@ EU Quota/
 │   ├── uk_scraper.py                  UK API scraper
 │   ├── data_processor.py              Data cleaning & MEPS calculations
 │   ├── excel_generator.py             Excel template generation
-│   ├── snapshot_scheduler.py          Daily snapshot idempotent check
+│   ├── publisher.py                   Writes data/published/ + publish gates
 │   └── utils.py                       File/folder utilities
+│
+├── tools/                         ◄── SERVER OPS — company-server deployment
+│   ├── server-daily-task.ps1          Task Scheduler entry point
+│   ├── publish_release_assets.py      GitHub release upload (replaces gh CLI)
+│   └── git-askpass.cmd                Push credential handoff
 │
 ├── beta/                          ◄── EXPERIMENTAL — isolated from src/
 │   ├── README.md                      Usage & status docs

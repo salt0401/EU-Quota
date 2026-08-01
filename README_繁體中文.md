@@ -14,7 +14,7 @@
 - **MEPS 標誌和品牌樣式** - 完整保留於輸出檔案
 - **自動日期偵測** - 配額期間自動識別
 - **日期資料夾** (YYYY-MM-DD) - 便於歷史追蹤
-- **每日自動快照** - Windows 登入時自動執行（工作排程器），當日已有快照則自動跳過
+- **每日無人值守執行** - 於 MEPS 公司伺服器執行，並將結果發布回 GitHub
 - **283 個歐盟配額與 75 個英國配額** - 追蹤多種鋼鐵產品和來源國（新制度自 2026 年 7 月 1 日生效）
 
 ### 計算公式（MEPS 公式）
@@ -88,8 +88,13 @@ EU Quota/
 │   ├── uk_scraper.py              # 英國 API 爬蟲（快速版）
 │   ├── data_processor.py          # 數據計算（MEPS 公式）
 │   ├── excel_generator.py         # MEPS 報告生成器（保留篩選器）
-│   ├── snapshot_scheduler.py      # 每日自動快照邏輯
+│   ├── publisher.py               # 寫入 data/published/（歷史資料與 metadata）
 │   └── utils.py                   # 檔案/資料夾工具函數
+│
+├── tools/                         # 伺服器維運 - 僅用於公司伺服器部署
+│   ├── server-daily-task.ps1      # 工作排程器進入點（見 docs/SERVER_DEPLOYMENT.md）
+│   ├── publish_release_assets.py  # 上傳活頁簿至 GitHub release
+│   └── git-askpass.cmd            # 安全地將推送權杖交給 git
 │
 ├── build/                         # 建置 EXE - 打包腳本
 │   └── build_exe.py               # PyInstaller 建置腳本
@@ -106,7 +111,7 @@ EU Quota/
 │   ├── output/                    # 按日期輸出
 │   │   └── YYYY-MM-DD/            # 日期資料夾
 │   ├── snapshots/                 # 歷史快照
-│   └── logs/                      # 每日自動快照日誌
+│   └── logs/                      # 每日伺服器執行日誌
 │
 ├── templates/                     # 範本 - Excel 範本
 │   ├── meps_customer_template.xlsx  # MEPS 範本（含篩選器）
@@ -125,10 +130,9 @@ EU Quota/
 ├── tests/                         # 主管線單元測試
 │
 ├── run.py                         # 便捷入口點
-├── daily_snapshot.py              # 自動快照入口點（工作排程器）
-├── setup_scheduler.bat            # 註冊 Windows 工作排程器工作
-├── remove_scheduler.bat           # 移除排程工作
-├── requirements.txt               # 依賴套件
+├── download.py                    # 同事使用的下載器（僅標準函式庫）
+├── requirements.txt               # 依賴套件（本機開發，含 Selenium 備援）
+├── requirements-ci.txt            # 每日自動執行所用的鎖定版本
 ├── README.md                      # 英文說明
 └── README_繁體中文.md              # 本檔案
 ```
@@ -154,29 +158,19 @@ python build/build_exe.py              # EU_Quota_Scraper.exe（完整本機爬�
 - **預估執行時間**：全部配額（歐盟+英國）約需 2-3 分鐘
 - **並行處理**：5 個並行請求加速爬取
 
-## 每日自動快照（Windows）
-
-每次登入 Windows 時自動擷取快照。具備冪等性 — 若當日快照已存在則自動跳過。
-
-```bash
-# 一次性設定（按右鍵 → 以系統管理員身分執行）
-setup_scheduler.bat
-
-# 手動測試
-python daily_snapshot.py        # 首次執行：完整爬取（約 2-3 分鐘）
-python daily_snapshot.py        # 再次執行：「今日已爬取」，立即跳過
-
-# 移除排程工作
-remove_scheduler.bat
-```
-
-日誌儲存於 `data/logs/daily_YYYYMMDD.log`。累積 30 天以上的每日快照後，資料集即可用於 Prophet 時間序列預測。
-
 ## 文件
 
+- [伺服器部署與運維手冊](docs/SERVER_DEPLOYMENT.md) — 每日排程在公司伺服器上的運作方式
+- [每日更新運維手冊](docs/DAILY_UPDATE_RUNBOOK.md) — 執行失敗時的排查步驟
 - [英文說明](docs/INSTRUCTIONS.md)
 - [繁體中文說明](docs/INSTRUCTIONS_繁體中文.md)
 - [系統架構](docs/ARCHITECTURE.md)
+
+> **v2.10.0 已移除：** 登入觸發的自動快照功能（`daily_snapshot.py`、
+> `src/snapshot_scheduler.py`、`setup_scheduler.bat`、`remove_scheduler.bat`）。
+> 該功能早於自動化每日發布機制，且僅在有人登入 Windows 時才會擷取快照 —
+> 而無人值守的伺服器永遠不會發生登入。
+> `data/published/quota_history_<YEAR>.csv` 中的每日歷史資料已完整取代它。
 
 ## 資料來源
 

@@ -1,0 +1,110 @@
+name: Data freshness watchdog
+
+# Since the daily scrape moved to the MEPS company server (2026-08), nothing on
+# that machine notices a scheduled task that never fires. Windows Task Scheduler
+# has no alerting, and a job that does not start cannot report that it did not
+# start -- see meps-server-docs/docs/06-constraints-and-risks.md section 6.
+#
+# This is the external heartbeat. It deliberately runs on GitHub, NOT on the
+# server, because a watchdog hosted on the machine it watches is not a watchdog.
+# Free on a public repository.
+#
+# It checks one fact: does data/published/metadata.json name today's date?
+# That single assertion covers every way the pipeline can fail -- the task not
+# firing, the scrape failing, the publish gates refusing, the push failing --
+# because all of them end with the committed metadata not advancing.
+#
+# 09:00 UTC leaves a wide margin over the server's 06:40 local trigger
+# (05:40 UTC in summer, 06:40 UTC in winter) plus a ~3 minute run.
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: data-freshness-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check-freshness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Compare published data date against today
+        id: check
+        run: |
+          TODAY=$(date -u +%F)
+          if [ ! -f data/published/metadata.json ]; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "detail=data/published/metadata.json is missing entirely" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          DATA_DATE=$(python -c "import json;print(json.load(open('data/published/metadata.json'))['data_date'])")
+          echo "Published data_date: $DATA_DATE   Today (UTC): $TODAY"
+          echo "data_date=$DATA_DATE" >> "$GITHUB_OUTPUT"
+          if [ "$DATA_DATE" = "$TODAY" ]; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          else
+            AGE=$(( ( $(date -u +%s) - $(date -u -d "$DATA_DATE" +%s) ) / 86400 ))
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "detail=published data is from $DATA_DATE, $AGE day(s) old (expected $TODAY)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the alert issue
+        if: steps.check.outputs.stale == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Daily quota update has not published today"
+
+          # Heredoc, not a quoted string: YAML dedents this block, so the body
+          # reaches markdown with no leading indentation. Four leading spaces
+          # would silently render the whole issue as a code block.
+          cat > /tmp/watchdog-body.md <<'EOF'
+          The freshness watchdog found: __DETAIL__
+
+          The daily scrape runs on the MEPS company server (`WIN-RE1UH50A07U`), scheduled task **MEPS EU Quota Daily Update** at 06:40 local. Nothing on that host alerts, which is why this check exists.
+
+          **Triage, in order:**
+
+          1. Check the task result:
+             `ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 "Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'"`
+             `LastTaskResult` of `0` means the script ran and succeeded.
+          2. Read the run log on the server:
+             `C:\DataScienceProject\EUQuota\data\logs\server_<YYYYMMDD>.log`
+          3. `docs/SERVER_DEPLOYMENT.md` covers server-specific failures (task, credential, upload).
+             `docs/DAILY_UPDATE_RUNBOOK.md` covers pipeline failures (stale quarter, regulation renewal, source markup change).
+
+          **Colleagues are not blocked yet.** The downloader keeps serving the last successful day. A one-day gap is not urgent; a widening one is.
+
+          **Emergency fallback:** the old GitHub Actions job still exists with its schedule disabled. Actions -> *Daily quota update* -> **Run workflow** publishes from a GitHub runner instead. Only do this once the server task is confirmed not running, or the two race on push.
+          EOF
+          sed -i "s|__DETAIL__|${{ steps.check.outputs.detail }}|" /tmp/watchdog-body.md
+
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "Still stale on $(date -u +%F): ${{ steps.check.outputs.detail }}."
+          else
+            gh issue create --title "$TITLE" --body-file /tmp/watchdog-body.md
+          fi
+
+      - name: Close the alert issue once data is fresh again
+        if: steps.check.outputs.stale == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXISTING=$(gh issue list --state open --search "Daily quota update has not published today in:title" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "Recovered: published data is current as of ${{ steps.check.outputs.data_date }}. Closing."
+            gh issue close "$EXISTING"
+          fi
+          echo "Published data is current (${{ steps.check.outputs.data_date }})."

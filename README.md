@@ -14,7 +14,7 @@ This tool scrapes quota usage data from the EU TARIC system to track steel impor
 - **MEPS logo and branding** preserved in output
 - **Automatic date detection** for quota periods
 - **Dated output folders** (YYYY-MM-DD) for historical tracking
-- **Daily auto-snapshot** on Windows login (Task Scheduler) with idempotent skip
+- **Unattended daily run** on the MEPS company server, publishing back to GitHub
 - **283 EU quotas** and **75 UK quotas** tracked across multiple steel products and origin countries (new regimes effective 1 July 2026)
 
 ### Calculations (MEPS Formula)
@@ -100,8 +100,13 @@ EU Quota/
 │   ├── uk_scraper.py              # UK API scraper (fast)
 │   ├── data_processor.py          # Data calculations (MEPS formulas)
 │   ├── excel_generator.py         # MEPS report generator (preserves slicers)
-│   ├── snapshot_scheduler.py      # Daily auto-snapshot logic
+│   ├── publisher.py               # Writes data/published/ (history + metadata)
 │   └── utils.py                   # File/folder utilities
+│
+├── tools/                         # SERVER OPS - company-server deployment only
+│   ├── server-daily-task.ps1      # Task Scheduler entry point (see docs/SERVER_DEPLOYMENT.md)
+│   ├── publish_release_assets.py  # Uploads workbooks to the GitHub release
+│   └── git-askpass.cmd            # Feeds the push token to git without exposing it
 │
 ├── build/                         # BUILD EXE - Packaging scripts
 │   └── build_exe.py               # PyInstaller build script
@@ -117,8 +122,8 @@ EU Quota/
 │   ├── 0702NewData/               # Reference data for the July 2026 regimes
 │   ├── output/                    # Output by date
 │   │   └── YYYY-MM-DD/            # Dated folders
-│   ├── snapshots/                 # Historical snapshots
-│   └── logs/                      # Daily auto-snapshot logs
+│   ├── published/                 # What the downloader fetches (history + metadata)
+│   └── logs/                      # Daily server-run logs
 │
 ├── templates/                     # TEMPLATES - Excel templates
 │   ├── meps_customer_template.xlsx  # MEPS template with slicers
@@ -137,10 +142,9 @@ EU Quota/
 ├── tests/                         # Main pipeline unit tests
 │
 ├── run.py                         # Convenience entry point
-├── daily_snapshot.py              # Auto-snapshot entry point (Task Scheduler)
-├── setup_scheduler.bat            # Register Windows Task Scheduler job
-├── remove_scheduler.bat           # Remove the scheduled task
-├── requirements.txt               # Dependencies
+├── download.py                    # Colleague-facing downloader (stdlib only)
+├── requirements.txt               # Dependencies (local dev, incl. Selenium fallback)
+├── requirements-ci.txt            # Pinned deps for the daily unattended run
 ├── README.md                      # This file
 └── README_繁體中文.md              # Chinese README
 ```
@@ -174,29 +178,20 @@ someone must scrape locally, e.g. while GitHub is unreachable.
 - **Expected Runtime**: ~2-3 minutes for all quotas (EU + UK)
 - **Concurrent Workers**: 5 parallel requests for faster scraping
 
-## Daily Auto-Snapshot (Windows)
-
-Automatically collects a snapshot every time you log into Windows. Idempotent — skips if today's snapshot already exists.
-
-```bash
-# One-time setup (right-click → Run as Administrator)
-setup_scheduler.bat
-
-# Manual test
-python daily_snapshot.py        # First run: full scrape (~2-3 min)
-python daily_snapshot.py        # Second run: "Already scraped today", instant skip
-
-# Remove scheduled task
-remove_scheduler.bat
-```
-
-Logs saved to `data/logs/daily_YYYYMMDD.log`. After 30+ daily snapshots, the dataset is ready for Prophet time-series forecasting.
-
 ## Documentation
 
+- [Server deployment & runbook](docs/SERVER_DEPLOYMENT.md) — how the daily run works on the company server
+- [Daily update runbook](docs/DAILY_UPDATE_RUNBOOK.md) — triage when a run fails
 - [English Instructions](docs/INSTRUCTIONS.md)
 - [繁體中文說明](docs/INSTRUCTIONS_繁體中文.md)
 - [System Architecture](docs/ARCHITECTURE.md)
+
+> **Removed in v2.10.0:** the login-triggered auto-snapshot (`daily_snapshot.py`,
+> `src/snapshot_scheduler.py`, `setup_scheduler.bat`, `remove_scheduler.bat`).
+> It predated the automated daily publish and collected snapshots only when
+> somebody signed into Windows — which never happens on an unattended server.
+> The per-day history in `data/published/quota_history_<YEAR>.csv` supersedes it
+> and is strictly more complete.
 
 ## Data Sources
 
