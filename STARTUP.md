@@ -177,7 +177,8 @@ Reference extractions from the regulations are in `data/0702NewData/`.
 
 They do NOT live in this file — this file is onboarding only. See
 `FUTURE_IMPROVEMENTS.md` (repo root) for the tracked list with status and
-decisions. Colleague-facing questions (e.g. the UK authorised-use quotas)
+decisions, and `docs/SESSION_LOG_2026-07.md` for the narrative of how the
+current system was built (what changed, why, and where to pick up). Colleague-facing questions (e.g. the UK authorised-use quotas)
 are flagged in `PROJECT_STATUS.html`; operational procedures (quarter turn,
 January-2027 regulation renewal) are in `docs/DAILY_UPDATE_RUNBOOK.md`.
 

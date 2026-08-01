@@ -2,7 +2,11 @@
 
 The tracked list of open questions and deferred work, with status and dated
 decisions. (`STARTUP.md` is onboarding-only and deliberately does not carry
-these; colleague-facing questions are flagged in `PROJECT_STATUS.html`.)
+these; colleague-facing questions are flagged in `PROJECT_STATUS.html`;
+the build narrative is in `docs/SESSION_LOG_2026-07.md`.)
+
+**Automation health, 2026-08-01:** 27 consecutive unattended days
+(2026-07-06 → 2026-08-01), 9,666 history rows, zero failed scrapes, no gaps.
 
 ---
 
@@ -17,6 +21,17 @@ that sit outside Tables 3 & 4 of the DBT notice.
   ("One decision for Friday") — to be raised at the run-through.
 - **If the answer is "strict Tables 3 & 4 only":** revert steps are in
   `DECISION_NEEDED_UK_authorised_use.txt` (repo root).
+
+## 1b. PROJECT_STATUS.html has gone stale — REFRESH BEFORE RESENDING
+
+The colleague-facing page still reads "Status as of 6 July 2026" and asks for
+a decision "for Friday" (a Friday now several weeks past), and its figures
+(26 quotas past 75%) are from the launch week. The mechanics it describes are
+still correct; only the dates/stats/framing are out of date.
+
+- **Action:** refresh the header date, the stat tiles, and the decision
+  framing before sending the page to anyone again.
+- Current figures can be pulled from `data/published/quota_history_2026.csv`.
 
 ## 2. Quarterly transition (1 Oct 2026, then every quarter) — RESOLVED, procedure only
 
