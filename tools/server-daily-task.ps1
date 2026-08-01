@@ -157,6 +157,18 @@ $env:EUQUOTA_TOKEN_FILE = $TokenFile
 $env:GIT_ASKPASS = Join-Path $ProjectRoot "tools\git-askpass.cmd"
 $env:GIT_TERMINAL_PROMPT = "0"
 
+# Git Credential Manager is the default helper on Git for Windows and opens a
+# GUI prompt when it has no cached credential. Under a scheduled task running
+# as SYSTEM there is no desktop to show it on, so the task would hang forever
+# instead of failing. Passing "-c credential.helper=" resets the helper list
+# for that one invocation.
+#
+# It is written as a single "-c credential.helper=" pair rather than
+# `git config credential.helper ""` because PowerShell drops an empty-string
+# element when splatting an array to a native command -- which silently turns
+# the write into a read and leaves the manager active.
+$GitNoHelper = @("-c", "credential.helper=")
+
 Invoke-Native "git" @("add", "data/published/quota_history_2026.csv", "data/published/metadata.json") "git add" -AllowFailure | Out-Null
 # Re-add by glob for any additional year files that exist (new calendar years).
 Invoke-Native "git" @("add", "--", "data/published/") "git add published dir" | Out-Null
@@ -169,14 +181,14 @@ if ($staged -eq 0) {
 
     # Tolerate a manual push that landed while we were scraping, exactly as the
     # Actions job did.
-    $rebased = Invoke-Native "git" @("pull", "--rebase", "origin", $Branch) "git pull --rebase" -AllowFailure
+    $rebased = Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "origin", $Branch)) "git pull --rebase" -AllowFailure
     if ($rebased -ne 0) {
         Write-Log "Rebase hit a conflict -- aborting and retrying with -X theirs." "WARN"
         Invoke-Native "git" @("rebase", "--abort") "git rebase --abort" -AllowFailure | Out-Null
-        Invoke-Native "git" @("pull", "--rebase", "-X", "theirs", "origin", $Branch) "git pull --rebase -X theirs" | Out-Null
+        Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "-X", "theirs", "origin", $Branch)) "git pull --rebase -X theirs" | Out-Null
     }
 
-    Invoke-Native "git" @("push", "origin", $Branch) "git push" | Out-Null
+    Invoke-Native "git" ($GitNoHelper + @("push", "origin", $Branch)) "git push" | Out-Null
     Write-Log "Pushed data: daily quota update $utcDate"
 }
 
