@@ -84,15 +84,22 @@ if ($Push -and -not (Test-Path $TokenFile)) {
 
 # The timezone trap. This server runs GMT Standard Time -- UTC in winter, UTC+1
 # in summer -- and Task Scheduler fires on LOCAL time. publish_data() stamps
-# rows with date.today(), which is local. At the 06:40 slot the two dates always
-# agree, but if the trigger is ever moved into 00:00-01:00 local they would not,
-# and a whole day of history would be filed under the wrong date. Fail loudly
-# rather than publish silently-wrong data.
+# rows with date.today(), which is LOCAL, whereas the GitHub Actions job this
+# replaced ran on a UTC runner. Between 00:00 and 01:00 local in summer the two
+# disagree, and a whole day of history would be filed a day ahead of every
+# previous row.
+#
+# The guard blocks PUBLICATION, not the run. An inert run filing a scratch row
+# under the wrong date is harmless -- it is discarded with `git checkout` -- and
+# refusing to run at all would make the pipeline untestable for an hour a day.
 $utcDate   = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
 $localDate = (Get-Date).ToString("yyyy-MM-dd")
 Write-Log ("Date check -- local {0} / UTC {1}" -f $localDate, $utcDate)
 if ($utcDate -ne $localDate) {
-    Fail "Local date ($localDate) and UTC date ($utcDate) disagree. The scheduled trigger has drifted into the pre-01:00 window where local time and UTC fall on different days. Move the trigger later; do not publish under an ambiguous date."
+    if ($Push) {
+        Fail "Local date ($localDate) and UTC date ($utcDate) disagree, and -Push was requested. The trigger has drifted into the pre-01:00 window where local time and UTC fall on different days; publishing now would file today's history a day ahead of every previous row. Move the trigger later (06:40 local is the designed slot) rather than publishing under an ambiguous date."
+    }
+    Write-Log "Local and UTC dates disagree. Harmless for an inert run -- rows will be stamped $localDate and should be discarded afterwards -- but this run could NOT have published." "WARN"
 }
 
 Set-Location $ProjectRoot
@@ -120,8 +127,11 @@ if (Test-Path $metaPath) {
     $meta = Get-Content $metaPath -Raw | ConvertFrom-Json
     Write-Log ("metadata: data_date={0} eu={1} (failed {2}) uk={3} (failed {4}) history_rows={5}" -f `
         $meta.data_date, $meta.eu_quotas, $meta.eu_failed, $meta.uk_quotas, $meta.uk_failed, $meta.history_rows)
-    if ($meta.data_date -ne $utcDate) {
-        Fail ("metadata.json reports data_date {0} but this run is for {1}. Refusing to publish a mislabelled day." -f $meta.data_date, $utcDate)
+    # publish_data() stamps rows with date.today(), i.e. LOCAL. Anything else
+    # means the publish reused an older metadata.json rather than writing a new
+    # one -- which would republish yesterday's numbers as today's.
+    if ($meta.data_date -ne $localDate) {
+        Fail ("metadata.json reports data_date {0} but this run is for {1}. The publish step did not produce fresh metadata; refusing to go further." -f $meta.data_date, $localDate)
     }
 } else {
     Fail "data/published/metadata.json was not produced -- the publish step did not complete."
