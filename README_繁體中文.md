@@ -1,4 +1,4 @@
-# 歐盟配額爬蟲工具 v2.6
+# 歐盟配額爬蟲工具 v2.10
 
 自動從歐盟委員會 TARIC 資料庫與英國整合線上關稅系統（UK Integrated Online Tariff）擷取鋼鐵關稅配額數據。
 
@@ -24,18 +24,39 @@
 剩餘餘額 = balance - awaiting_allocation
 ```
 
-## 每日自動更新（GitHub Actions）
+## 每日自動更新（MEPS 公司伺服器）
 
-自 2026 年 7 月起，爬蟲每天早上（05:30 UTC）在 GitHub Actions 上自動執行，無需任何人手動操作：
+自 2026 年 8 月起，爬蟲每天早上在 **MEPS 公司伺服器**（`WIN-RE1UH50A07U`）上自動執行，
+排程工作名稱為 **MEPS EU Quota Daily Update**，當地時間 06:40，無需任何人手動操作。
+2026 年 7 月至此次搬遷前是在 GitHub Actions 上執行；詳見
+[docs/SERVER_DEPLOYMENT.md](docs/SERVER_DEPLOYMENT.md)。
 
-1. GitHub 伺服器自動爬取所有歐盟與英國配額並產生報告（`.github/workflows/daily-quota-update.yml`）。
+**對同事而言完全沒有變化。** 輸出仍發布到相同的儲存庫與相同的 `latest-data` release，
+因此所有已安裝的 `MEPS_Quota_Downloader.exe` 都照常運作，無需更新。
+
+1. 伺服器自動爬取所有歐盟與英國配額並產生報告（`tools/server-daily-task.ps1` → `run.py --publish`）。
 2. 結果發布到兩個位置：
    - 提交到 `data/published/`：`quota_history_<年份>.csv`（每個配額每天一列，每個日曆年度一個檔案，資料分析用資料集）與 `metadata.json`（執行摘要與檔案清單）
    - 上傳到滾動式 **latest-data** release：`MEPS_Quota_Update_latest.xlsx`（最新客戶報告）與 `Quota_History_<年份>.xlsx`（格式化歷史活頁簿，每年一個）— 不進入 git，避免每日活頁簿檔案使儲存庫不斷膨脹
 3. 同事執行 **`MEPS_Quota_Downloader.exe`**（單一小檔案，由 `download.py` 建置），透過公開 URL 下載上述檔案。儲存庫必須保持**公開**，如此便無需任何 token 或登入。程式會**自動更新**：啟動時比對 release 上的版本標記，若 CI 已發布新版本（`download.py` 變更時自動重建）便會自我替換 — 因此只需要發送一次。
 
-手動觸發：GitHub → Actions → 「Daily quota update」→ Run workflow。
 歷史資料每天累積，可直接用 `quota_history_<年份>.csv` / `Quota_History_<年份>.xlsx`（每年一個檔案，作為長期運行的專案設計）分析配額的每日變化。
+
+**手動觸發**（在伺服器上）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\DataScienceProject\EUQuota\tools\server-daily-task.ps1 -Push
+```
+
+省略 `-Push` 即為只爬取、不發布 — 這是安全的測試方式。
+
+**監控。** 伺服器本身不會察覺排程工作根本沒有觸發，因此
+`.github/workflows/data-freshness-watchdog.yml` 每天早上**在 GitHub 上**執行，
+若發布的資料不是當日的便會自動開啟 issue。
+
+**緊急備援。** 原本的 GitHub Actions 工作仍然保留，只是停用了排程：
+Actions → 「Daily quota update」→ Run workflow。
+僅在確認伺服器排程工作沒有執行時才使用 — 兩台主機同日發布會在 push 時互相衝突。
 
 ## 快速開始
 
@@ -46,7 +67,7 @@ pip install -r requirements.txt
 # 執行爬蟲
 python run.py              # 互動模式（同時抓取歐盟和英國）
 python run.py --skip-uk    # 僅抓取歐盟
-python run.py --publish    # 爬取 + 更新 data/published/（每日 CI 執行的動作）
+python run.py --publish    # 爬取 + 更新 data/published/（每日伺服器執行的動作）
 
 # 下載最新發布的資料（同事的 EXE 所做的事）
 python download.py
@@ -62,7 +83,8 @@ python download.py
 | `uk_quota_raw_YYYYMMDD.xlsx` | 英國配額數據 |
 | `MEPS_Quota_Update_YYYYMMDD.xlsx` | 客戶報告（含交叉分析篩選器） |
 
-快照儲存於 `data/snapshots/` 供歷史分析。
+永久歷史紀錄為 `data/published/quota_history_<年份>.csv` —
+每個配額每天一列，每次執行都會追加並提交到 git。
 
 ### 客戶報告欄位
 
@@ -179,4 +201,4 @@ python build/build_exe.py              # EU_Quota_Scraper.exe（完整本機爬�
 
 ---
 
-*版本 2.6 - 2026年7月（歐盟/英國新配額制度，自 2026 年 7 月 1 日生效）*
+*版本 2.10 - 2026年8月（每日排程改於 MEPS 公司伺服器執行；歐盟/英國配額制度自 2026 年 7 月 1 日生效）*

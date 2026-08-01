@@ -9,20 +9,28 @@ it worked before you move on.
 ## 1. What this project is (30-second orientation)
 
 A pipeline that tracks **EU and UK steel import tariff-quota usage** and produces
-a customer Excel report for MEPS. As of July 2026 it runs in two halves:
+a customer Excel report for MEPS. It runs in two halves:
 
 - **Scraper half** (`src/`, `run.py`) — scrapes 283 EU quotas from the EU TARIC
   site and 75 UK quotas from the UK Trade Tariff API, then builds the MEPS report.
-- **Automation half** — GitHub Actions runs the scraper every day at 05:30 UTC and
-  publishes results; colleagues run a tiny downloader exe to fetch them. Nobody
-  runs the scraper by hand anymore.
+- **Automation half** — since August 2026 the **MEPS company server** runs the
+  scraper every morning at 06:40 local and publishes results; colleagues run a
+  tiny downloader exe to fetch them. Nobody runs the scraper by hand anymore.
+  (It ran on GitHub Actions from July 2026 until the move.)
 
 The repository is **public** on purpose — the downloader fetches data anonymously,
 so it must stay public. Do not make it private.
 
 Deeper detail lives in `README.md`, `docs/ARCHITECTURE.md`,
-`docs/DATA_FLOW_ANALYSIS.md`, and the operations runbook
-`docs/DAILY_UPDATE_RUNBOOK.md`. Read those before changing behavior.
+`docs/DATA_FLOW_ANALYSIS.md`, the server runbook `docs/SERVER_DEPLOYMENT.md`,
+and the pipeline runbook `docs/DAILY_UPDATE_RUNBOOK.md`. Read those before
+changing behavior.
+
+> **If you are working on the server rather than a laptop**, read
+> `docs/SERVER_DEPLOYMENT.md` first, and the separate `meps-server-docs`
+> repository for anything about the machine itself. The single thing that
+> catches everyone: bare `python` and `py` on that box resolve to 3.13, not to
+> this project's 3.12 — always call `venv\Scripts\python.exe` by full path.
 
 ---
 
@@ -59,7 +67,7 @@ pip install -r requirements.txt
 ```bash
 PYTHONUTF8=1 python run.py             # scrape EU + UK, write report to data/output/<date>/
 PYTHONUTF8=1 python run.py --skip-uk   # EU only
-PYTHONUTF8=1 python run.py --publish    # also update data/published/ (what the daily CI job does)
+PYTHONUTF8=1 python run.py --publish    # also update data/published/ (what the daily server job does)
 ```
 
 **Check:** a full run ends with `EU quotas scraped: 283` and `UK quotas scraped: 75`
@@ -127,7 +135,9 @@ finish a live run with 0 failed quotas.
 PYTHONUTF8=1 python -m pytest tests/ -q
 ```
 
-**Check:** `199 passed` (this is the current baseline — if fewer, something regressed).
+**Check:** `213 passed` (this is the current baseline — if fewer, something regressed).
+The same suite runs on the company server against Python 3.12.10 and gives the
+same number; a divergence there is a portability bug, not a flaky test.
 Run this before AND after any code change.
 
 ---
@@ -135,21 +145,31 @@ Run this before AND after any code change.
 ## 6. How the daily automation fits together
 
 ```
-GitHub Actions (.github/workflows/daily-quota-update.yml, 05:30 UTC, free on public repo)
-  run.py --publish
+MEPS company server, Task Scheduler 06:40 local  (WIN-RE1UH50A07U)
+  tools/server-daily-task.ps1 -Push
+    -> venv\Scripts\python.exe run.py --publish
     -> data/published/quota_history_<YEAR>.csv + metadata.json  (committed to
        git; one history file per calendar year)
     -> MEPS_Quota_Update_latest.xlsx + Quota_History_<YEAR>.xlsx (uploaded to the
                                                             'latest-data' release,
                                                             NOT committed — keeps git small)
+       ^ assets upload BEFORE the metadata commit is pushed, deliberately
+
 Colleague: MEPS_Quota_Downloader.exe (download.py, self-updating)
     -> fetches csv/metadata from raw.githubusercontent.com and workbooks from the release
     -> on startup, checks downloader_version.txt on the release and replaces
        itself when CI has published a newer build
 
-Second workflow (.github/workflows/build-downloader.yml): on any download.py
-change on main, a Windows runner tests/builds/smoke-runs the exe and uploads it
-+ downloader_version.txt to the same release -> installed copies self-update.
+Still on GitHub Actions (both free on a public repo):
+  build-downloader.yml         on any download.py change, a Windows runner
+                               tests/builds/smoke-runs the exe and uploads it
+                               + downloader_version.txt -> copies self-update
+  data-freshness-watchdog.yml  09:00 UTC, asserts the committed metadata.json
+                               names today; opens an issue if not. Deliberately
+                               NOT on the server — a watchdog on the machine it
+                               watches is not a watchdog
+  daily-quota-update.yml       schedule disabled, workflow_dispatch kept as the
+                               emergency fallback if the server is down
 ```
 
 Key modules: `src/publisher.py` (writes `data/published/`), `download.py` (the
@@ -187,8 +207,11 @@ January-2027 regulation renewal) are in `docs/DAILY_UPDATE_RUNBOOK.md`.
 ## 9. Working conventions in this repo
 
 - Match existing code style; the scraper/publisher/downloader are plain, dependency-light.
-- Commit only when asked. Branch off `main` for non-trivial work. The daily bot pushes
-  to `main`, so `git pull --rebase origin main` before pushing to avoid the race.
+- Commit only when asked. Branch off `main` for non-trivial work. The daily server
+  job pushes to `main` (as `meps-server-euquota`), so `git pull --rebase origin main`
+  before pushing to avoid the race.
+- If you change anything under `tools/`, remember the server holds its own clone:
+  `git pull` there, or the next run uses the old script.
 - Report test results honestly — quote the actual `pytest` line.
 - If you change `download.py` behavior, **bump `__version__`** (and add a
   CHANGELOG entry) — otherwise installed exes see the same version and will

@@ -308,14 +308,16 @@ START
        END
 ```
 
-## Daily Automation Layer (July 2026)
+## Daily Automation Layer (August 2026)
 
-Since July 2026 the pipeline runs unattended on GitHub Actions; colleagues
-receive data through a downloader instead of running the scraper.
+The pipeline runs unattended on the **MEPS company server**; colleagues receive
+data through a downloader instead of running the scraper. It ran on GitHub
+Actions from July 2026 until the move -- see `docs/SERVER_DEPLOYMENT.md`.
 
 ```
-GitHub Actions (05:30 UTC daily, public repo = free)
-  run.py --publish
+MEPS company server, Task Scheduler 06:40 local  (WIN-RE1UH50A07U)
+  tools/server-daily-task.ps1 -Push
+    -> venv\Scripts\python.exe run.py --publish
      |- scrape EU (283) + UK (75)            src/scraper.py, src/uk_scraper.py
      |- generate MEPS report                 src/excel_generator.py
      '- publish                              src/publisher.py
@@ -330,6 +332,15 @@ GitHub Actions (05:30 UTC daily, public repo = free)
 Colleague: MEPS_Quota_Downloader.exe (download.py, stdlib-only, onefile)
   -> self-updating: checks downloader_version.txt on the release, replaces
      itself when CI publishes a newer build
+
+Still on GitHub Actions (free, public repo):
+  build-downloader.yml         rebuilds the EXE when download.py changes
+  data-freshness-watchdog.yml  09:00 UTC heartbeat -- asserts the committed
+                               metadata.json names today. Deliberately NOT on
+                               the server: a watchdog on the machine it watches
+                               is not a watchdog
+  daily-quota-update.yml       schedule disabled; workflow_dispatch kept as the
+                               emergency fallback
   -> fetches csv/metadata from raw.githubusercontent.com
   -> fetches workbooks from the latest-data release
   -> saves to data/output/YYYY-MM-DD/ next to the EXE

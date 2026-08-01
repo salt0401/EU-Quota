@@ -55,12 +55,12 @@ EU Quota/
 
 3. Chrome browser is NOT required — the scraper uses direct HTTP requests
 
-## Daily Automation (since July 2026)
+## Daily Automation (since August 2026)
 
 Nobody needs to run the scraper by hand anymore:
 
-- A GitHub Actions workflow (`.github/workflows/daily-quota-update.yml`)
-  scrapes all EU + UK quotas every day at 05:30 UTC and publishes the results
+- A scheduled task on the **MEPS company server** (`MEPS EU Quota Daily Update`,
+  06:40 local) scrapes all EU + UK quotas every day and publishes the results
   - `quota_history_<YEAR>.csv` (one per calendar year) + `metadata.json` are
   committed to `data/published/`,
   and the two workbooks go to the rolling **latest-data** release.
@@ -101,7 +101,7 @@ python run.py -i custom_quotas.xlsx -o custom_report.xlsx
 python run.py -i eu.xlsx -u uk.xlsx -o output.xlsx --skip-uk
 ```
 
-### Publish (what the daily CI run does)
+### Publish (what the daily server run does)
 ```bash
 python run.py --publish
 ```
@@ -229,10 +229,11 @@ not into the next quota year (1 July - 30 June). Ukraine-origin steel is exempt.
 
 ## Scheduling
 
-> **Superseded (July 2026):** daily scraping is handled by GitHub Actions
-> (`.github/workflows/daily-quota-update.yml`, 05:30 UTC) - no local
-> scheduling is needed. Windows Task Scheduler remains an option only for
-> fully offline setups (trigger `python run.py` daily).
+> **Superseded (August 2026):** daily scraping is handled by a scheduled task
+> on the MEPS company server (`MEPS EU Quota Daily Update`, 06:40 local) - no
+> local scheduling is needed. See `docs/SERVER_DEPLOYMENT.md`. Windows Task
+> Scheduler on your own machine remains an option only for fully offline
+> setups (trigger `python run.py` daily).
 
 ## Troubleshooting
 

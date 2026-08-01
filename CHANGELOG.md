@@ -2,6 +2,61 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.10.0] - 2026-08-02
+
+### Daily run moved from GitHub Actions to the MEPS company server
+
+The pipeline, the data format, the publish targets and every installed
+`MEPS_Quota_Downloader.exe` are unchanged. Only the machine that runs the
+daily scrape is different.
+
+**New — `tools/` (server-only; nothing here is imported by the pipeline)**
+
+- `server-daily-task.ps1` — the Windows Task Scheduler entry point. Scrapes,
+  publishes locally, uploads release assets, then commits and pushes.
+  Publishing is **opt-in via `-Push`**, so a bring-up or debugging run cannot
+  race the live job. Refuses to publish when the server's local date and UTC
+  date disagree — this host runs BST for half the year, Task Scheduler fires on
+  local time, and `publish_data()` stamps rows with local `date.today()`
+- `publish_release_assets.py` — replaces `gh release upload --clobber`. The
+  server has no GitHub CLI and deliberately does not get one, so the same work
+  runs against the REST API with `requests`, already a pinned dependency.
+  Clobber semantics, release auto-create and a bounded upload retry are
+  preserved, and now unit-tested (14 tests) where the YAML step never was
+- `set-github-token.ps1` — stores the push credential UTF-8 with no BOM and no
+  trailing newline, ACL'd to SYSTEM+Administrators, prompting so the token
+  never reaches a command line or shell history
+- `git-askpass.cmd` — hands the token to git at run time, keeping it out of
+  `.git/config` and out of the process list
+
+**New — monitoring**
+
+- `.github/workflows/data-freshness-watchdog.yml` runs **on GitHub**, not on the
+  server, and asserts one fact: that the committed `metadata.json` names today's
+  date. That covers every failure mode, since the task not firing, the scrape
+  failing, the publish gates refusing and the push failing all end with metadata
+  not advancing. Opens, updates and auto-closes a tracking issue
+
+**Changed**
+
+- `daily-quota-update.yml` keeps `workflow_dispatch` as an emergency fallback;
+  its `schedule:` is disabled so the two hosts can never both publish
+- New `docs/SERVER_DEPLOYMENT.md`; `DAILY_UPDATE_RUNBOOK.md` now covers pipeline
+  failures and defers machine failures to it
+
+**Removed**
+
+- The login-triggered auto-snapshot (`daily_snapshot.py`,
+  `src/snapshot_scheduler.py`, `setup_scheduler.bat`, `remove_scheduler.bat`)
+  and two tracked pre-July-2026 snapshot workbooks. It predated the automated
+  publish and only fired when somebody signed into Windows, which never happens
+  on an unattended server; `quota_history_<YEAR>.csv` supersedes it and is
+  strictly more complete
+
+**Verified on the server** — 213 tests passed on Python 3.12.10 (matching the
+laptop baseline), and a full end-to-end run: 283 EU / 0 failed, 75 UK / 0
+failed, 202 seconds. Line endings byte-identical to the laptop.
+
 ## [2.9.0] - 2026-07-07
 
 ### Per-Year History Files + Complete History Detail

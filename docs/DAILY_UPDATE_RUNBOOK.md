@@ -1,7 +1,7 @@
 # Daily Quota Update — Runbook
 
-The workflow `.github/workflows/daily-quota-update.yml` scrapes all EU + UK
-quotas every day at 05:30 UTC and publishes:
+The scheduled task **MEPS EU Quota Daily Update** on the MEPS company server
+scrapes all EU + UK quotas every day at 06:40 local and publishes:
 
 | What | Where | How colleagues get it |
 |---|---|---|
@@ -15,17 +15,26 @@ copies self-update from it (see *Releasing a downloader change* below).
 
 The repository must stay **public** — anonymous downloads depend on it.
 
+> **This runbook covers PIPELINE failures** — the scrape itself, the publish
+> gates, the input workbooks. For failures of the *machine* — the task not
+> firing, the credential, the release upload, antivirus — read
+> **[SERVER_DEPLOYMENT.md](SERVER_DEPLOYMENT.md)** instead. Its triage table
+> tells you which of the two you are looking at.
+
 ## When the daily run fails
 
-A failed run automatically opens (or comments on) a GitHub issue titled
-**"Daily quota update failing"** and uploads whatever it produced as a
-14-day artifact. Colleagues' downloads keep serving the last successful
-day, so one failed day is not urgent — but a widening history gap is.
+Nothing on the server reports its own failure, so the alarm comes from
+`.github/workflows/data-freshness-watchdog.yml`, which runs on GitHub at 09:00
+UTC and opens (or comments on) an issue titled **"Daily quota update has not
+published today"** when the committed `metadata.json` is not current.
+Colleagues' downloads keep serving the last successful day, so one failed day is
+not urgent — but a widening history gap is.
 
-1. Open the run log: repository → Actions → Daily quota update.
+1. Read the run log on the server:
+   `C:\DataScienceProject\EUQuota\data\logs\server_<YYYYMMDD>.log`
+   (45-day retention). The log records the metadata line for the run:
+   `data_date`, EU/UK counts and how many failed.
 2. Common causes:
-   - **Pre-scrape tests failed** — a dependency release broke something;
-     pin/adjust `requirements-ci.txt`, run the suite locally, push.
    - **`Refusing to publish: N/M quotas failed`** — the source website is
      down or changed markup, or (in January) the EU implementing regulation
      was renewed with **new order numbers** → rebuild
@@ -35,17 +44,31 @@ day, so one failed day is not urgent — but a widening history gap is.
      (see quarterly maintenance below).
    - **`ERROR: --publish requested but UK scraping produced no rows`** —
      `data/input/uk_quota_urls.xlsx` is missing/empty or its header moved.
-3. To backfill a missed day: a failed run's artifact contains its
-   `data/published/`; or simply let the next successful run continue the
-   history (the gap stays visible in the CSV dates).
-4. Manual run: Actions → Daily quota update → **Run workflow**.
+3. To backfill a missed day: the failed run's output is still on the server
+   under `data/output/<date>/` and `data/published/` (uncommitted); or simply
+   let the next successful run continue the history — the gap stays visible in
+   the CSV dates, which is honest and preferable to a fabricated row.
+4. Manual run, on the server:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File C:\DataScienceProject\EUQuota\tools\server-daily-task.ps1 -Push
+   ```
+   Drop `-Push` to reproduce the failure without publishing anything.
+5. After fixing anything under `src/`, `tools/` or `data/input/`, push the fix
+   **and pull it on the server** — the server holds its own clone and will
+   otherwise keep running the old code.
 
 ## Scheduled-workflow auto-disable
 
 GitHub disables cron schedules after ~60 days without repository activity.
-The daily bot commit normally keeps the clock fresh, but if the run fails
-for weeks (no commits), the schedule can be disabled silently — the failure
-issue is your alarm. Re-enable: Actions → Daily quota update → Enable.
+This no longer affects the daily scrape (it is a Windows scheduled task now),
+but it **does** affect the freshness watchdog — which is the thing that would
+tell you the scrape had stopped.
+
+In normal operation the server's own daily commit keeps the repository active,
+so the watchdog stays enabled. The failure mode to know about is the compound
+one: if the server stops publishing for ~60 days *and* nobody commits anything,
+GitHub eventually disables the watchdog too, and the alarm goes quiet along with
+the pipeline. Re-enable under Actions → *Data freshness watchdog* → Enable.
 
 ## Releasing a downloader change
 

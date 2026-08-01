@@ -8,6 +8,35 @@ the build narrative is in `docs/SESSION_LOG_2026-07.md`.)
 **Automation health, 2026-08-01:** 27 consecutive unattended days
 (2026-07-06 → 2026-08-01), 9,666 history rows, zero failed scrapes, no gaps.
 
+**Host change, 2026-08-02:** the daily run moved from GitHub Actions to the MEPS
+company server. See `docs/SERVER_DEPLOYMENT.md`. Nothing in the list below
+changed as a result — the pipeline, data format and distribution channel are
+identical — but items are now implemented and tested *on the server*, which is
+the environment they will run in.
+
+---
+
+## 0. Company-server migration — DONE (2026-08-02)
+
+The daily scrape now runs on `WIN-RE1UH50A07U` under Windows Task Scheduler at
+06:40 local, publishing to the same repository and the same `latest-data`
+release. Colleagues' downloaders were not touched and did not need to be.
+
+- **Why:** the company server is a standing requirement for MEPS data projects.
+  Worth recording that the obvious rationale is wrong — this repo is *public*,
+  so its GitHub Actions minutes were unlimited and free. Nothing was being
+  consumed. The move is about where MEPS work is hosted.
+- **Deliberately kept on GitHub Actions:** `build-downloader.yml` (needs a
+  Windows runner, fires only when `download.py` changes) and the new
+  `data-freshness-watchdog.yml` (a heartbeat must not live on the machine it
+  watches). `daily-quota-update.yml` is retained with its schedule disabled as
+  the emergency fallback.
+- **Deferred hardening, not blocking:** `run.py` has no `--date` argument, so
+  `publish_data()` stamps rows with local `date.today()`. At the 06:40 slot
+  local and UTC always agree, and `server-daily-task.ps1` refuses to publish if
+  they ever do not — but threading an explicit UTC date through `main.py` would
+  remove the ambiguity rather than guard against it.
+
 ---
 
 ## 1. UK Category-1 "authorised use" quotas — DECISION PENDING (colleague)

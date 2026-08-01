@@ -1,4 +1,4 @@
-# EU Quota Scraper v2.6
+# EU Quota Scraper v2.10
 
 Automated collection of EU and UK steel tariff quota data from the European Commission's TARIC database and the UK Integrated Online Tariff.
 
@@ -24,13 +24,20 @@ Quota Limit = amount + transferred_amount
 Balance Remaining = balance - awaiting_allocation
 ```
 
-## Automated Daily Updates (GitHub Actions)
+## Automated Daily Updates (MEPS company server)
 
-Since July 2026 the scraping runs automatically every morning (05:30 UTC) on
-GitHub Actions — nobody needs to run the scraper by hand:
+Since August 2026 the scraping runs automatically every morning on the **MEPS
+company server** (`WIN-RE1UH50A07U`), scheduled task **MEPS EU Quota Daily
+Update** at 06:40 local — nobody needs to run the scraper by hand. It ran on
+GitHub Actions from July 2026 until the move; see
+[docs/SERVER_DEPLOYMENT.md](docs/SERVER_DEPLOYMENT.md).
 
-1. A GitHub-hosted runner scrapes all EU + UK quotas and generates the report
-   (`.github/workflows/daily-quota-update.yml`).
+**Nothing changed for colleagues.** The output goes to the same repository and
+the same `latest-data` release, so every installed `MEPS_Quota_Downloader.exe`
+keeps working untouched.
+
+1. The server scrapes all EU + UK quotas and generates the report
+   (`tools/server-daily-task.ps1` → `run.py --publish`).
 2. The results are published in two places:
    - committed to `data/published/`: `quota_history_<YEAR>.csv` (one row per
      quota per day, one file per calendar year — the analysis dataset) and
@@ -44,10 +51,26 @@ GitHub Actions — nobody needs to run the scraper by hand:
    from `download.py`), which fetches those files over public raw URLs.
    The repository must stay **public** — that way no token or login is needed.
 
-Manual trigger: GitHub → Actions → "Daily quota update" → Run workflow.
 Because the history grows daily, day-over-day quota movements can be analysed
 directly from `quota_history_<YEAR>.csv` / `Quota_History_<YEAR>.xlsx`
 (one file per year — this is a long-lived project).
+
+**Manual trigger** (on the server):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\DataScienceProject\EUQuota\tools\server-daily-task.ps1 -Push
+```
+
+Drop `-Push` to scrape without publishing anything — the safe way to test.
+
+**Monitoring.** Nothing on the server notices a scheduled task that never fires,
+so `.github/workflows/data-freshness-watchdog.yml` runs *on GitHub* every
+morning and opens an issue if the published data is not current.
+
+**Emergency fallback.** The old GitHub Actions job still exists with its
+schedule disabled: Actions → "Daily quota update" → Run workflow. Only use it
+when the server task is confirmed not running — two hosts publishing the same
+day race on push.
 
 ## Quick Start
 
@@ -58,7 +81,7 @@ pip install -r requirements.txt
 # Run scraper
 python run.py              # Interactive mode (both EU and UK)
 python run.py --skip-uk    # Scrape EU only
-python run.py --publish    # Scrape + update data/published/ (what the daily CI run does)
+python run.py --publish    # Scrape + update data/published/ (what the daily server run does)
 
 # Download the latest published data (what colleagues' EXE does)
 python download.py
@@ -74,7 +97,8 @@ Files are organized by date in `data/output/YYYY-MM-DD/`:
 | `uk_quota_raw_YYYYMMDD.xlsx` | UK quota data |
 | `MEPS_Quota_Update_YYYYMMDD.xlsx` | Customer-ready report |
 
-Snapshots saved to `data/snapshots/` for historical analysis.
+The permanent historical record is `data/published/quota_history_<YEAR>.csv` —
+one row per quota per day, appended by every run and committed to git.
 
 ### Customer Report Columns
 
@@ -200,4 +224,4 @@ someone must scrape locally, e.g. while GitHub is unreachable.
 
 ---
 
-*Version 2.6 - July 2026 (new EU/UK quota regimes effective 1 July 2026)*
+*Version 2.10 - August 2026 (daily run on the MEPS company server; EU/UK quota regimes effective 1 July 2026)*

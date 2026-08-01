@@ -55,12 +55,12 @@ EU Quota/
 
 3. 不需要 Chrome 瀏覽器 — 爬蟲使用直接 HTTP 請求
 
-## 每日自動化（自 2026 年 7 月起）
+## 每日自動化（自 2026 年 8 月起）
 
 現在不需要任何人手動執行爬蟲：
 
-- GitHub Actions 工作流程（`.github/workflows/daily-quota-update.yml`）每天
-  05:30 UTC 自動爬取所有歐盟與英國配額並發布結果 — `quota_history_<年份>.csv`（每年一個檔案）與
+- **MEPS 公司伺服器**上的排程工作（`MEPS EU Quota Daily Update`，
+  當地時間 06:40）每天自動爬取所有歐盟與英國配額並發布結果 — `quota_history_<年份>.csv`（每年一個檔案）與
   `metadata.json` 提交到 `data/published/`，兩個活頁簿上傳到滾動式
   **latest-data** release。維運與故障處理請見 `docs/DAILY_UPDATE_RUNBOOK.md`。
 - 同事使用 **`MEPS_Quota_Downloader.exe`**（由 `download.py` 建置）取得資料：
@@ -209,9 +209,10 @@ python build/build_exe.py              # EU_Quota_Scraper.exe（完整本機爬�
 
 ## 排程設定
 
-> **已被取代（2026 年 7 月）：** 每日爬取已由 GitHub Actions 處理
-> （`.github/workflows/daily-quota-update.yml`，05:30 UTC），不再需要本機排程。
-> Windows 工作排程器僅適用於完全離線的環境（每日觸發 `python run.py`）。
+> **已被取代（2026 年 8 月）：** 每日爬取已由 MEPS 公司伺服器上的
+> 排程工作處理（`MEPS EU Quota Daily Update`，當地時間 06:40），不再需要本機排程。
+> 詳見 `docs/SERVER_DEPLOYMENT.md`。
+> 自己機器上的 Windows 工作排程器僅適用於完全離線的環境（每日觸發 `python run.py`）。
 
 ### 舊：Windows 工作排程器（僅供離線環境參考）
 
