@@ -1,6 +1,30 @@
 name: Daily quota update
 
-# Scrapes EU TARIC + UK Trade Tariff every morning and publishes the results:
+# ============================================================================
+# EMERGENCY FALLBACK ONLY -- this is no longer the daily pipeline.
+#
+# Since 2026-08-02 the daily run happens on the MEPS company server, as the
+# scheduled task 'MEPS EU Quota Daily Update' at 06:40 local. See
+# docs/SERVER_DEPLOYMENT.md.
+#
+# This workflow is kept, with its schedule disabled, so that a GitHub runner
+# can publish if the server is unavailable. It is unchanged otherwise and
+# produces byte-identical output.
+#
+# >> BEFORE RUNNING IT: confirm the server task is not running. <<
+#
+# Two hosts publishing the same day race on git push. The history append is
+# idempotent per (date, region) so the DATA cannot corrupt, but one run fails
+# noisily and the release assets may end up from the losing run.
+#
+#     ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 \
+#       "Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'"
+#
+# To hand the schedule back to GitHub permanently, disable the server task
+# FIRST, confirm it is disabled, then uncomment the schedule below.
+# ============================================================================
+#
+# Scrapes EU TARIC + UK Trade Tariff and publishes the results:
 #   - quota_history_<YEAR>.csv + metadata.json -> committed to data/published/
 #     (one history file per calendar year)
 #   - the workbooks                            -> rolling release assets
@@ -8,15 +32,18 @@ name: Daily quota update
 # The colleague-facing downloader fetches both over public URLs (repo must
 # stay PUBLIC — that is what makes anonymous downloads work).
 #
-# 05:30 UTC ~ after the UK Trade Tariff daily refresh and the TARIC morning
-# allocation, before European business hours. Runs every day: EU balances
-# move on weekends too. GitHub cron can fire up to ~15 min late.
-#
-# RUNBOOK: see docs/DAILY_UPDATE_RUNBOOK.md (failures open a GitHub issue).
+# RUNBOOK: docs/DAILY_UPDATE_RUNBOOK.md (pipeline failures),
+#          docs/SERVER_DEPLOYMENT.md (server failures).
 
 on:
-  schedule:
-    - cron: '30 5 * * *'
+  # DISABLED 2026-08-02 -- moved to the company server. Do not re-enable
+  # without disabling the server task first (see the banner above).
+  # 05:30 UTC was chosen to land after the UK Trade Tariff daily refresh and
+  # the TARIC morning allocation; the server's 06:40 local trigger preserves
+  # that (05:40 UTC in summer, 06:40 UTC in winter).
+  #
+  # schedule:
+  #   - cron: '30 5 * * *'
   workflow_dispatch: {}
 
 permissions:
