@@ -2,6 +2,31 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.10.1] - 2026-08-02
+
+### Two hardening items on the new server deployment
+
+- **The daily task now retries twice, twenty minutes apart, on failure.** Safe
+  because the publish is idempotent — `update_history_csv()` replaces rows per
+  `(date, region)` and the release upload clobbers by name — so a retry after a
+  partial run converges rather than doubling. The Actions job it replaced had no
+  retry, but a hosted runner had a fresh environment and good connectivity;
+  here a single transient blip would otherwise cost a whole day of history.
+  Both attempts still finish before the 07:15 steel-news job.
+- **The push token's expiry is now reported every run.** GitHub returns it on
+  every authenticated response, so `publish_release_assets.py` reads it from a
+  call it already makes and warns from 14 days out. Previously an expired token
+  first announced itself as a failed push the morning after. The check never
+  fails the run: a token that still works today must publish today's data even
+  if the lookup cannot answer.
+- `tools/register-server-task.ps1` added, so the scheduled task is reproducible
+  from the repo rather than from an ad-hoc command. Refuses to overwrite an
+  existing task without `-Force`.
+
+Tests: **222 passed** (9 new, covering expiry parsing, the warning thresholds,
+an already-expired token, a missing header, and the check failing without
+failing the run).
+
 ## [2.10.0] - 2026-08-02
 
 ### Daily run moved from GitHub Actions to the MEPS company server

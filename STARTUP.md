@@ -135,7 +135,7 @@ finish a live run with 0 failed quotas.
 PYTHONUTF8=1 python -m pytest tests/ -q
 ```
 
-**Check:** `213 passed` (this is the current baseline — if fewer, something regressed).
+**Check:** `222 passed` (this is the current baseline — if fewer, something regressed).
 The same suite runs on the company server against Python 3.12.10 and gives the
 same number; a divergence there is a portability bug, not a flaky test.
 Run this before AND after any code change.

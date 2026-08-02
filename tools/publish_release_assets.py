@@ -31,6 +31,7 @@ import os
 import re
 import sys
 import time
+from datetime import datetime, timezone
 
 import requests
 
@@ -48,6 +49,13 @@ RELEASE_NOTES = (
 API_ROOT = "https://api.github.com"
 UPLOAD_ROOT = "https://uploads.github.com"
 TIMEOUT = 120
+
+# GitHub returns the expiry of a fine-grained PAT on every authenticated
+# response. Without this check, an expired token first announces itself as a
+# failed push the morning after it expires; with it, the daily log warns for
+# two weeks beforehand.
+EXPIRY_HEADER = "github-authentication-token-expiration"
+EXPIRY_WARN_DAYS = 14
 
 
 def read_token(token_file: str) -> str:
@@ -68,6 +76,66 @@ def make_session(token: str) -> requests.Session:
         "User-Agent": "MEPS-EUQuota-Publisher",
     })
     return s
+
+
+def _parse_expiry(raw: str):
+    """Parse GitHub's expiry header. Returns an aware datetime, or None.
+
+    Observed format is '2027-08-02 00:00:00 UTC'; ISO 8601 is accepted too so a
+    format change upstream degrades to 'unknown' rather than to a crash.
+    """
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S %Z", "%Y-%m-%d %H:%M:%S UTC", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    try:  # ISO with offset, e.g. '2027-08-02T00:00:00+00:00'
+        parsed = datetime.fromisoformat(raw)
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def check_token_expiry(session, warn_days: int = EXPIRY_WARN_DAYS):
+    """Log how long the push token remains valid. Returns days left, or None.
+
+    Never raises and never fails the run: a token that still works today must
+    publish today's data even if this check cannot answer. A missing header is
+    normal and means the token has no expiry (a classic PAT, or 'no expiration'
+    on a fine-grained one) -- that is a security observation, not an error, so
+    it is reported rather than warned about.
+    """
+    try:
+        r = session.get(f"{API_ROOT}/rate_limit", timeout=30)
+        raw = r.headers.get(EXPIRY_HEADER)
+    except Exception as e:                       # noqa: BLE001 - never fatal
+        print(f"  Token expiry: could not be checked ({e})")
+        return None
+
+    if not raw:
+        print("  Token expiry: none set (the token does not expire)")
+        return None
+
+    expiry = _parse_expiry(raw)
+    if expiry is None:
+        print(f"  Token expiry: unrecognised format from GitHub ({raw!r})")
+        return None
+
+    days = (expiry - datetime.now(timezone.utc)).days
+    stamp = expiry.strftime("%Y-%m-%d")
+    if days < 0:
+        print(f"  WARNING: the push token EXPIRED on {stamp}. "
+              f"Re-issue it with tools/set-github-token.ps1.")
+    elif days <= warn_days:
+        print(f"  WARNING: the push token expires on {stamp}, in {days} day(s). "
+              f"Re-issue it with tools/set-github-token.ps1 before then, or the "
+              f"daily publish will start failing.")
+    else:
+        print(f"  Token expiry: {stamp} ({days} days away)")
+    return days
 
 
 def collect_assets(publish_dir: str) -> list:
@@ -152,6 +220,7 @@ def upload_asset(session: requests.Session, repo: str, release_id: int,
 def publish_assets(repo: str, tag: str, token: str, paths: list,
                    dry_run: bool = False) -> dict:
     session = make_session(token)
+    check_token_expiry(session)
 
     release = get_release(session, repo, tag)
     if release is None:

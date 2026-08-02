@@ -119,6 +119,27 @@ has been observed running at 07:00.
 publish a mostly-failed scrape or an expired quota window. Those failures are
 covered by `DAILY_UPDATE_RUNBOOK.md`, not this file.
 
+### Retry on failure
+
+The task retries **twice, twenty minutes apart**, if a run fails.
+
+This is safe *because the publish is idempotent*, not merely because retrying is
+usually harmless: `update_history_csv()` replaces rows per `(date, region)`
+rather than appending, and the release upload deletes an asset of the same name
+before re-uploading. A retry after a partial run therefore converges on the same
+result instead of doubling anything.
+
+The GitHub Actions job this replaced had no retry, and the difference is
+deliberate: a hosted runner had a fresh environment and good connectivity,
+whereas here a single transient network blip would otherwise cost a whole day of
+history. Two attempts twenty minutes apart still finish well before the 07:15
+steel-news job. `MultipleInstances IgnoreNew` prevents a retry overlapping a run
+that is somehow still going.
+
+A retry does **not** rescue a genuine failure — a stale quarter, a regulation
+renewal, an expired token — it just tries again and fails again, which the
+watchdog reports as normal.
+
 ---
 
 ## The credential
@@ -146,8 +167,19 @@ be assumed to be *reachable*. Scoped as above, the worst case is someone writing
 to one repository whose entire contents are already public — which is about as
 contained as a write credential gets.
 
-**Set an expiry and diary the renewal.** An expired token surfaces as a push
-failure, which the watchdog catches the next morning.
+**The run warns you before it expires.** GitHub returns the token's expiry on
+every authenticated response, so `publish_release_assets.py` reads it from a call
+it already makes and logs one of:
+
+```
+  Token expiry: 2027-08-02 (365 days away)
+  WARNING: the push token expires on 2026-08-16, in 12 day(s). Re-issue it ...
+  WARNING: the push token EXPIRED on 2026-08-01. Re-issue it ...
+```
+
+The warning starts **14 days out**, so expiry is two weeks' notice rather than a
+surprise outage. The check never fails the run: a token that still works today
+must publish today's data even if the lookup cannot answer.
 
 ### Two encoding traps
 
@@ -261,8 +293,19 @@ git config user.name  meps-server-euquota
 git config user.email euquota@meps.local
 C:\Python312\python.exe -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements-ci.txt pytest
-venv\Scripts\python.exe -m pytest tests -q          # expect 213 passed
+venv\Scripts\python.exe -m pytest tests -q          # expect 222 passed
+
+# credential, then the scheduled task
+powershell -ExecutionPolicy Bypass -File tools\set-github-token.ps1
+powershell -ExecutionPolicy Bypass -File tools\register-server-task.ps1
+
+# prove it before trusting it
+powershell -ExecutionPolicy Bypass -File tools\assert-inert.ps1 -PostCutover
 ```
+
+`register-server-task.ps1` carries the trigger, the SYSTEM principal and the
+retry policy, and refuses to overwrite an existing task without `-Force` — so
+re-running it cannot silently change a working schedule.
 
 Use `git bundle`, not a working-tree copy: git performs the checkout so the
 server's own line-ending rules apply, only tracked content travels, and no

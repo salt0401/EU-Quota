@@ -16,9 +16,10 @@ from tools import publish_release_assets as pra
 
 
 class FakeResponse:
-    def __init__(self, status_code=200, payload=None):
+    def __init__(self, status_code=200, payload=None, headers=None):
         self.status_code = status_code
         self._payload = payload if payload is not None else {}
+        self.headers = headers if headers is not None else {}
 
     def json(self):
         return self._payload
@@ -32,13 +33,18 @@ class FakeResponse:
 class FakeSession:
     """Records every call so the test can assert on ordering and semantics."""
 
-    def __init__(self, release=None, missing=False):
+    def __init__(self, release=None, missing=False, expiry_header=None):
         self.release = release or {"id": 42, "assets": []}
         self.missing = missing
+        self.expiry_header = expiry_header
         self.calls = []
 
     def get(self, url, **kw):
         self.calls.append(("GET", url))
+        if url.endswith("/rate_limit"):
+            headers = ({pra.EXPIRY_HEADER: self.expiry_header}
+                       if self.expiry_header else {})
+            return FakeResponse(200, {}, headers=headers)
         if self.missing:
             return FakeResponse(404)
         return FakeResponse(200, self.release)
@@ -198,6 +204,69 @@ class TestUploadRetry:
 
         monkeypatch.setattr(pra.time, "sleep", lambda s: None)
         assert pra.upload_asset(FlakyOnce(), "o/r", 1, str(f))["name"] == "a.xlsx"
+
+
+class TestTokenExpiry:
+    """The push credential expires. Without this the first sign is a failed
+    push the morning after; with it the daily log warns two weeks ahead."""
+
+    def _future(self, days):
+        from datetime import datetime, timedelta, timezone
+        return (datetime.now(timezone.utc) + timedelta(days=days)
+                ).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    def test_parses_githubs_documented_format(self):
+        dt = pra._parse_expiry("2027-08-02 00:00:00 UTC")
+        assert dt is not None and dt.year == 2027 and dt.month == 8
+
+    def test_parses_iso_variants(self):
+        assert pra._parse_expiry("2027-08-02T00:00:00Z") is not None
+        assert pra._parse_expiry("2027-08-02T00:00:00+00:00") is not None
+
+    def test_unparseable_value_returns_none_rather_than_raising(self):
+        assert pra._parse_expiry("next Thursday") is None
+        assert pra._parse_expiry("") is None
+        assert pra._parse_expiry(None) is None
+
+    def test_warns_when_expiry_is_near(self, capsys):
+        days = pra.check_token_expiry(FakeSession(expiry_header=self._future(5)))
+        out = capsys.readouterr().out
+        assert days is not None and days <= 14
+        assert "WARNING" in out and "set-github-token" in out
+
+    def test_quiet_when_expiry_is_far(self, capsys):
+        days = pra.check_token_expiry(FakeSession(expiry_header=self._future(200)))
+        out = capsys.readouterr().out
+        assert days > 14
+        assert "WARNING" not in out
+
+    def test_reports_an_already_expired_token(self, capsys):
+        pra.check_token_expiry(FakeSession(expiry_header=self._future(-3)))
+        assert "EXPIRED" in capsys.readouterr().out
+
+    def test_missing_header_is_reported_not_warned(self, capsys):
+        # A classic PAT, or 'no expiration' on a fine-grained one. That is a
+        # security observation, not a failure.
+        assert pra.check_token_expiry(FakeSession()) is None
+        out = capsys.readouterr().out
+        assert "does not expire" in out and "WARNING" not in out
+
+    def test_never_raises_when_the_check_itself_fails(self, capsys):
+        # A token that still works today must publish today's data even if the
+        # expiry lookup cannot answer.
+        class Broken:
+            def get(self, *a, **kw):
+                raise RuntimeError("network down")
+
+        assert pra.check_token_expiry(Broken()) is None
+        assert "could not be checked" in capsys.readouterr().out
+
+    def test_publish_checks_expiry_before_touching_the_release(self, publish_dir, monkeypatch):
+        fake = FakeSession(expiry_header=self._future(3))
+        monkeypatch.setattr(pra, "make_session", lambda token: fake)
+        pra.publish_assets("o/r", "latest-data", "tok",
+                           pra.collect_assets(publish_dir), dry_run=True)
+        assert fake.calls[0][1].endswith("/rate_limit")
 
 
 class TestTokenHandling:
