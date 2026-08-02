@@ -218,6 +218,78 @@ manager active. That was caught during deployment.
 
 ---
 
+## Browsing the folder without a terminal
+
+SSH is not limited to PowerShell — the same key already works for **SFTP**, so
+you can use a normal file manager. Verified 2026-08-02.
+
+| Option | Installs on the server? | Good for |
+|---|---|---|
+| **WinSCP** (recommended) | **No** | Two-pane drag-and-drop file manager, closest to Explorer. Point it at `212.227.127.169`, user `Administrator`, and the private key; it offers to convert the key to its own `.ppk` on first use |
+| **sshfs-win** + WinFsp | **No** | Mounts the folder as a **drive letter** in Windows Explorer — genuinely "just like a local folder". Both installs are on *your* machine |
+| **VS Code Remote-SSH** | ⚠️ **Yes** — a ~100 MB VS Code server component under the profile | Full file tree plus in-place editing and an integrated terminal. Convenient, but it *is* new software on a production host, so mention it if you use it |
+| **RDP** (`mstsc`) | No | The literal Windows desktop with File Explorer. Already available. ⚠️ The `Administrator` account is shared — a second sign-in **evicts your session** |
+
+Command-line SFTP works too. Note the **leading slash before the drive letter**:
+
+```bash
+sftp -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169
+sftp> ls /C:/DataScienceProject/EUQuota
+```
+
+A plain `ls C:/...` resolves against the home directory and fails confusingly
+with `"/C:/Users/Administrator/C:/..." not found`.
+
+**SMB / mapped network drives do not work** — ports 139 and 445 are listening
+but blocked upstream at IONOS, and that is not fixable from the server.
+
+---
+
+## Doing git operations by hand on the server
+
+The daily task needs **no** GitHub CLI. `gh` is deliberately **not installed**:
+`tools/publish_release_assets.py` does the release upload against the REST API
+instead, which is why this deployment added no new software.
+
+Everything git needs is already configured in the clone:
+
+| Setting | Value |
+|---|---|
+| `origin` | `https://github.com/salt0401/EU-Quota.git` |
+| `credential.https://github.com.username` | `x-access-token` |
+| `user.name` / `user.email` | `meps-server-euquota` / `euquota@meps.local` |
+| Credential source | `_secrets\euquota-github.token`, via `GIT_ASKPASS` at run time |
+
+**Fetching needs nothing** — the repository is public, so `git pull` works
+unauthenticated:
+
+```powershell
+cd C:\DataScienceProject\EUQuota
+git -c credential.helper= pull --ff-only origin main
+```
+
+**Pushing by hand needs the three environment variables the task normally sets**,
+because they are per-process and an interactive session does not inherit them:
+
+```powershell
+cd C:\DataScienceProject\EUQuota
+$env:EUQUOTA_TOKEN_FILE  = "C:\DataScienceProject\_secrets\euquota-github.token"
+$env:GIT_ASKPASS         = "C:\DataScienceProject\EUQuota\tools\git-askpass.cmd"
+$env:GIT_TERMINAL_PROMPT = "0"
+git -c credential.helper= push origin main
+```
+
+Without them the push either prompts (and hangs) or fails with no useful
+message. `-c credential.helper=` is not optional — see the GCM note above.
+
+Test authentication without pushing anything:
+
+```powershell
+git -c credential.helper= push --dry-run origin main   # exit 0 = write access OK
+```
+
+---
+
 ## Monitoring
 
 Nothing on this server notices a scheduled task that never fires. Windows Task
