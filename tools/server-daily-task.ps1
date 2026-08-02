@@ -38,7 +38,14 @@ function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $stamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
     $line = "{0}Z [{1}] {2}" -f $stamp, $Level, $Message
-    Write-Output $line
+    # Write-Host, NOT Write-Output. Write-Output goes to the success stream --
+    # the same stream a function's return value comes from -- so any function
+    # that logs would return its log lines PLUS its intended value, as an array.
+    # That silently broke both exit-code checks below: `$rebased -ne 0` compared
+    # an array against 0 (always true, so the conflict branch fired every run),
+    # and `$staged -eq 0` returned a filtered array, inverting the
+    # nothing-to-commit path. Found on the first live run.
+    Write-Host $line
     Add-Content -Path $logFile -Value $line -Encoding UTF8
 }
 
@@ -63,7 +70,7 @@ function Invoke-Native {
     if ($code -ne 0 -and -not $AllowFailure) {
         Fail ("{0} failed with exit code {1}" -f $What, $code)
     }
-    return $code
+    return [int]$code
 }
 
 Write-Log "=== EU Quota daily update starting ==="
@@ -183,7 +190,9 @@ Invoke-Native "git" @("add", "data/published/quota_history_2026.csv", "data/publ
 # Re-add by glob for any additional year files that exist (new calendar years).
 Invoke-Native "git" @("add", "--", "data/published/") "git add published dir" | Out-Null
 
-$staged = Invoke-Native "git" @("diff", "--cached", "--quiet") "git diff --cached" -AllowFailure
+# The [int] casts are deliberate insurance: if anything ever pollutes the
+# success stream again, the cast throws instead of quietly comparing an array.
+$staged = [int](Invoke-Native "git" @("diff", "--cached", "--quiet") "git diff --cached" -AllowFailure)
 if ($staged -eq 0) {
     Write-Log "No data changes to publish (identical to the last commit)."
 } else {
@@ -191,7 +200,7 @@ if ($staged -eq 0) {
 
     # Tolerate a manual push that landed while we were scraping, exactly as the
     # Actions job did.
-    $rebased = Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "origin", $Branch)) "git pull --rebase" -AllowFailure
+    $rebased = [int](Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "origin", $Branch)) "git pull --rebase" -AllowFailure)
     if ($rebased -ne 0) {
         Write-Log "Rebase hit a conflict -- aborting and retrying with -X theirs." "WARN"
         Invoke-Native "git" @("rebase", "--abort") "git rebase --abort" -AllowFailure | Out-Null
