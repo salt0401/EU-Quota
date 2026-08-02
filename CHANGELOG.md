@@ -2,6 +2,17 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.10.2] - 2026-08-02
+
+### Documentation is English only
+
+Removed `README_繁體中文.md` and `docs/INSTRUCTIONS_繁體中文.md` (owner
+decision). All references cleaned from `README.md` and `docs/ARCHITECTURE.md`;
+the convention is recorded in `STARTUP.md` so translated docs are not
+reintroduced. A second language copy drifts out of date silently, and a stale
+translation is worse than none. Historical CHANGELOG entries that mention the
+files are left alone — they are a record of what happened.
+
 ## [2.10.1] - 2026-08-02
 
 ### Two hardening items on the new server deployment

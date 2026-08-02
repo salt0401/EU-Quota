@@ -189,7 +189,6 @@ EU Quota/
 │   ├── ARCHITECTURE.md                (this file)
 │   ├── TODO.md
 │   ├── INSTRUCTIONS.md
-│   ├── INSTRUCTIONS_繁體中文.md
 │   └── DATA_FLOW_ANALYSIS.md
 │
 ├── tests/                         ◄── Main pipeline unit tests
@@ -201,7 +200,6 @@ EU Quota/
 │
 ├── requirements.txt                   Core dependencies only
 ├── README.md
-└── README_繁體中文.md
 ```
 
 ## Key Components

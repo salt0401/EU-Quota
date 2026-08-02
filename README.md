@@ -156,7 +156,6 @@ EU Quota/
 ├── docs/                          # DOCS - Documentation
 │   ├── ARCHITECTURE.md            # System architecture
 │   ├── INSTRUCTIONS.md            # English instructions
-│   ├── INSTRUCTIONS_繁體中文.md    # Traditional Chinese instructions
 │   └── TODO.md                    # Feature roadmap
 │
 ├── beta/                          # EXPERIMENTAL - Forecasting (isolated from src/)
@@ -169,8 +168,7 @@ EU Quota/
 ├── download.py                    # Colleague-facing downloader (stdlib only)
 ├── requirements.txt               # Dependencies (local dev, incl. Selenium fallback)
 ├── requirements-ci.txt            # Pinned deps for the daily unattended run
-├── README.md                      # This file
-└── README_繁體中文.md              # Chinese README
+└── README.md                      # This file
 ```
 
 ## Building EXE Distribution
@@ -207,7 +205,6 @@ someone must scrape locally, e.g. while GitHub is unreachable.
 - [Server deployment & runbook](docs/SERVER_DEPLOYMENT.md) — how the daily run works on the company server
 - [Daily update runbook](docs/DAILY_UPDATE_RUNBOOK.md) — triage when a run fails
 - [English Instructions](docs/INSTRUCTIONS.md)
-- [繁體中文說明](docs/INSTRUCTIONS_繁體中文.md)
 - [System Architecture](docs/ARCHITECTURE.md)
 
 > **Removed in v2.10.0:** the login-triggered auto-snapshot (`daily_snapshot.py`,

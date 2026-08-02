@@ -206,6 +206,10 @@ January-2027 regulation renewal) are in `docs/DAILY_UPDATE_RUNBOOK.md`.
 
 ## 9. Working conventions in this repo
 
+- **Documentation is English only.** The Traditional Chinese README and
+  instructions were removed in v2.10.2 (owner decision, 2026-08-02). Do not
+  reintroduce translated docs — a second copy drifts out of date silently, and
+  the stale half is worse than no translation.
 - Match existing code style; the scraper/publisher/downloader are plain, dependency-light.
 - Commit only when asked. Branch off `main` for non-trivial work. The daily server
   job pushes to `main` (as `meps-server-euquota`), so `git pull --rebase origin main`
