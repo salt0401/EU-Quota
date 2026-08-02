@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
-__version__ = "2.9.0"
+__version__ = "2.9.1"
 
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"
@@ -185,7 +185,7 @@ def check_freshness(metadata: dict) -> None:
 def run(dest: str = None, skip_update: bool = False) -> int:
     print("=" * 64)
     print(f"  MEPS Quota Data Downloader  v{__version__}")
-    print(f"  Source: github.com/{REPO} (updated daily by GitHub Actions)")
+    print(f"  Source: github.com/{REPO} (updated daily by the MEPS server)")
     print("=" * 64)
 
     # 0. keep the program itself current (never blocks the data download)

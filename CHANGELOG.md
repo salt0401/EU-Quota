@@ -53,9 +53,28 @@ daily scrape is different.
   on an unattended server; `quota_history_<YEAR>.csv` supersedes it and is
   strictly more complete
 
+**Downloader 2.9.1** — its banner said "updated daily by GitHub Actions", which
+is the one stale string colleagues actually see. Now reads "updated daily by the
+MEPS server". Behaviour is otherwise unchanged, so installed copies self-update
+cleanly on their next run (no renamed or removed files, so none of the one-run
+degraded behaviour described in the runbook applies).
+
 **Verified on the server** — 213 tests passed on Python 3.12.10 (matching the
-laptop baseline), and a full end-to-end run: 283 EU / 0 failed, 75 UK / 0
-failed, 202 seconds. Line endings byte-identical to the laptop.
+laptop baseline). Cutover verified end to end on 2026-08-02:
+
+| Check | Result |
+|---|---|
+| Scheduled task, run as SYSTEM | `LastTaskResult: 0` |
+| Live publish | `data_date=2026-08-02`, 283 EU / 0 failed, 75 UK / 0 failed, 10,024 rows |
+| Commit on `main` | `b20a798`, authored `meps-server-euquota` |
+| Release assets | both workbooks re-uploaded |
+| Colleague downloader | fetched all 3 files from a clean directory |
+| Post-cutover guards | 12/12 asserted |
+
+Two bugs were found by running it rather than by reading it, and both are
+fixed above: `git config credential.helper ""` silently degrading to a read
+(which would have hung the task on a GUI prompt), and `Write-Log` polluting
+PowerShell's success stream (which inverted the nothing-to-commit branch).
 
 ## [2.9.0] - 2026-07-07
 
