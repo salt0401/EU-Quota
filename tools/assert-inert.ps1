@@ -46,7 +46,22 @@ if ($PostCutover) {
         Check "task is enabled" ($task.State -ne "Disabled") "(state: $($task.State))"
         "      trigger: $trigger"
         $info = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction SilentlyContinue
-        if ($info) { "      last run: $($info.LastRunTime)  result: $($info.LastTaskResult)  next: $($info.NextRunTime)" }
+        if ($info) {
+            # 267011 = 0x41303 = SCHED_S_TASK_HAS_NOT_RUN, paired with a 1899/1932
+            # sentinel date. It appears after a re-registration, which resets run
+            # history, and reads exactly like a failure if you do not know it.
+            $res = switch ($info.LastTaskResult) {
+                0      { "0 (success)" }
+                267011 { "not yet run since registration (0x41303) - not a failure" }
+                267009 { "currently running (0x41301)" }
+                267014 { "last run was terminated by the user (0x41306)" }
+                default { "$($info.LastTaskResult) - see the run log" }
+            }
+            $when = if ($info.LastTaskResult -eq 267011) { "never" } else { $info.LastRunTime }
+            "      last run: $when   result: $res"
+            "      next run: $($info.NextRunTime)"
+            "      on failure: restart $($task.Settings.RestartCount)x every $($task.Settings.RestartInterval)"
+        }
     }
 } else {
     $any = Get-ScheduledTask | Where-Object {
