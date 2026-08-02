@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MEPS Quota Tracker — Project Status · July 2026</title>
+<title>MEPS Quota Tracker — Project Status · August 2026</title>
 <style>
   :root{
     --paper:#F0EEE6; --surface:#FAF9F5; --card:#FFFFFF;
@@ -110,16 +110,16 @@
   <div class="kicker">MEPS &middot; EU/UK Steel Quota Tracker</div>
   <h1>The quota tracker now runs itself.</h1>
   <div class="meta-row">
-    <span class="pill"><span class="dot"></span>Live &mdash; updates daily at 05:30 UTC</span>
-    <span>Status as of 6 July 2026</span>
-    <span>Ready ahead of the 17 July deadline</span>
+    <span class="pill"><span class="dot"></span>Live &mdash; updates every morning</span>
+    <span>Status as of 2 August 2026</span>
+    <span>28 days running, no gaps, no failed scrapes</span>
   </div>
 </header>
 
 <p class="lead">
   Since 1 July the EU and UK have run brand-new steel import quota systems, and the
   tracker has been fully rebuilt around them. More importantly for you: <b>you no longer
-  run the scraper.</b> A GitHub server collects every quota every morning, keeps a
+  run the scraper.</b> A MEPS server collects every quota every morning, keeps a
   day-by-day history, and all you do is double-click one small program to fetch the
   latest files &mdash; a program that keeps itself up to date, so you set it up once and forget it.
 </p>
@@ -154,12 +154,12 @@
 
 <section>
   <h2>How it works</h2>
-  <p class="sub">The scraping moved from your desktop to GitHub's servers (free for public projects).</p>
+  <p class="sub">The scraping moved off your desktop entirely &mdash; it now runs unattended on a MEPS server each morning.</p>
   <div class="grid three">
     <div class="card"><span class="step-n">1</span>
-      <h3>GitHub scrapes, every morning</h3>
-      <p>At 05:30 UTC a GitHub Actions job queries all 283 EU quotas on TARIC and all 75 UK
-         quotas on the UK tariff API. A full run takes about 90 seconds.</p></div>
+      <h3>A MEPS server scrapes, every morning</h3>
+      <p>Early each morning the server queries all 283 EU quotas on TARIC and all 75 UK
+         quotas on the UK tariff API. A full run takes about three minutes.</p></div>
     <div class="card"><span class="step-n">2</span>
       <h3>Results are published</h3>
       <p>The report and the growing history are published to the public repository &mdash;
@@ -178,15 +178,18 @@
     <div class="stat"><b>75</b><span>UK quotas tracked<br>(20 categories)</span></div>
     <div class="stat"><b>50%</b><span>out-of-quota duty<br>(both regimes)</span></div>
     <div class="stat"><b>358</b><span>history rows added<br>every day</span></div>
+    <div class="stat"><b>28</b><span>days of history<br>no gaps, no failures</span></div>
   </div>
   <p style="margin-top:18px"></p>
   <div class="callout">
-    <b>The new data is already telling a story.</b> Five days into the new EU regime,
-    26 quotas are past 75% allocated, and hot-rolled coil from T&uuml;rkiye (category 1.A)
-    is oversubscribed 2.3&times; &mdash; 374,000 tonnes requested against a 160,600-tonne
-    quarterly quota.
+    <b>Four weeks in, the picture has moved sharply.</b> On 6 July, 26 quotas were fully
+    exhausted and 30 were past 75% allocated. Today <b>61 are exhausted and 85 are past
+    75%</b> &mdash; the exhausted count has more than doubled in four weeks. Hollow sections
+    (cat. 21), hot-rolled sheet and other welded pipe are the most affected; 58 of the 61
+    exhausted quotas are EU.
     <span class="why">This is exactly what the daily history is for: day-over-day drain
-    rates show which quotas will exhaust weeks before they do.</span>
+    rates show which quotas will exhaust weeks before they do &mdash; and the trend above is
+    only visible because every quota has been recorded every day since 6 July.</span>
   </div>
 </section>
 
@@ -213,6 +216,12 @@
         <div class="what"><b>The program now updates itself.</b> The first unattended morning run
         published cleanly, and the downloader became self-updating &mdash; so any future
         improvement reaches your machine automatically, with no new file to install.</div></li>
+    <li><span class="when">2 August</span>
+        <div class="what"><b>Moved onto a MEPS server.</b> The daily run now happens on company
+        infrastructure rather than on GitHub, alongside our other data projects.
+        <b>Nothing changed for you</b> &mdash; same files, same links, same program; it was
+        deliberately built so no downloader needed updating. 28 days of history had been
+        collected by then, with no gaps and no failed scrapes.</div></li>
   </ul>
 </section>
 
@@ -239,8 +248,10 @@
         unrecognised program &mdash; click <b>More info &rarr; Run anyway</b>. It's expected for a small in-house tool.</li>
     <li><span class="tag">Freshness</span> The downloader shows the data's date and warns if the daily
         update has stopped (a weekend gap is normal for the UK; TARIC moves daily).</li>
-    <li><span class="tag">Failures</span> If a morning run fails, it automatically opens a GitHub issue and
-        your downloads simply keep serving the last good day &mdash; nothing breaks quietly.</li>
+    <li><span class="tag">Failures</span> A separate watchdog checks every morning that fresh data was
+        published, and opens a tracked issue if it was not &mdash; deliberately running somewhere other
+        than the server it watches. Your downloads simply keep serving the last good day, so nothing
+        breaks quietly.</li>
     <li><span class="tag">1 October</span> Quarter turn &mdash; a small input-file update on the maintainer's side.
         The pipeline self-checks against stale-quarter data in the meantime.</li>
     <li><span class="tag">January 2027</span> The EU implementing regulation runs to 31 December 2026; its renewal
@@ -253,7 +264,7 @@
   <span>Latest data: <a href="https://github.com/salt0401/EU-Quota/releases/tag/latest-data">latest-data release</a></span>
   <span>Get the program: <a href="https://github.com/salt0401/EU-Quota/releases/download/latest-data/MEPS_Quota_Downloader.exe">MEPS_Quota_Downloader.exe</a></span>
   <span>Operations guide: docs/DAILY_UPDATE_RUNBOOK.md</span>
-  <span>Updated 7 July 2026</span>
+  <span>Updated 2 August 2026</span>
 </footer>
 
 </div>

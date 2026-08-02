@@ -53,16 +53,37 @@ that sit outside Tables 3 & 4 of the DBT notice.
 - **If the answer is "strict Tables 3 & 4 only":** revert steps are in
   `DECISION_NEEDED_UK_authorised_use.txt` (repo root).
 
-## 1b. PROJECT_STATUS.html has gone stale — REFRESH BEFORE RESENDING
+## 1b. PROJECT_STATUS.html — REFRESHED 2026-08-02
 
-The colleague-facing page still reads "Status as of 6 July 2026" and asks for
-a decision "for Friday" (a Friday now several weeks past), and its figures
-(26 quotas past 75%) are from the launch week. The mechanics it describes are
-still correct; only the dates/stats/framing are out of date.
+Dates, statistics and mechanics are now current as of 2026-08-02. **The decision
+framing was deliberately left untouched** (owner instruction): the UK
+authorised-use question in §1 is still open, so the section reads exactly as it
+did, "One decision for Friday" heading included.
 
-- **Action:** refresh the header date, the stat tiles, and the decision
-  framing before sending the page to anyone again.
-- Current figures can be pulled from `data/published/quota_history_2026.csv`.
+What changed, and why the rewrite was not a patch:
+
+- The old callout said *"26 quotas past 75%, hot-rolled coil from Türkiye
+  oversubscribed 2.3×"*. That claim has **expired**, not merely aged — the
+  oversubscription was an awaiting-allocation spike in the regime's first week,
+  and those volumes have since been allocated (peak pressure today is 0.21×).
+  Patching the number would have preserved a story that is no longer true.
+- Measured replacement: on 2026-07-06 there were **26 exhausted / 30 past 75%**;
+  on 2026-08-02 there are **61 exhausted / 85 past 75%** (58 of the 61 are EU).
+  The exhausted count has more than doubled in four weeks — a stronger and more
+  useful headline than the one it replaced, and only visible *because* of the
+  daily history.
+- Also corrected: 05:30 UTC on GitHub Actions → a MEPS server each morning;
+  "about 90 seconds" → about three minutes (measured 171–202 s); the failure
+  path now describes the off-server watchdog; a 2 August timeline entry records
+  the move and states plainly that nothing changed for colleagues.
+- The stale "Ready ahead of the 17 July deadline" badge is replaced by
+  "28 days running, no gaps, no failed scrapes".
+
+Regenerate the figures with:
+
+```bash
+python -c "from beta.forecasting import load_history, get_snapshot_summary; print(get_snapshot_summary(load_history()))"
+```
 
 ## 2. Quarterly transition (1 Oct 2026, then every quarter) — RESOLVED, procedure only
 
