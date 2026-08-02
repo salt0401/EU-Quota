@@ -181,6 +181,20 @@ The warning starts **14 days out**, so expiry is two weeks' notice rather than a
 surprise outage. The check never fails the run: a token that still works today
 must publish today's data even if the lookup cannot answer.
 
+> **As deployed on 2026-08-02 the token has NO expiry** — the check reports
+> `Token expiry: none set (the token does not expire)`.
+>
+> That is a deliberate trade, and worth restating so it can be revisited. A
+> non-expiring token never breaks the pipeline; an expiring one breaks it if a
+> renewal is missed. Against that: a write credential that never rotates sits
+> indefinitely on an internet-facing host that is over a year behind on patches
+> and is backed up to storage MEPS does not control.
+>
+> **Recommendation: set a 1-year expiry.** The main argument against rotation —
+> that it fails silently and inconveniently — is now largely answered by the
+> warning above plus the freshness watchdog. Re-issue with
+> `tools/set-github-token.ps1`; nothing else needs to change.
+
 ### Two encoding traps
 
 The token file must be **UTF-8 with no BOM** and have **no trailing newline**.
@@ -329,7 +343,7 @@ reproducible.
 | **Transport** | `git bundle` (48 MB), SHA-256 `8f84b0b4...65ea46e0`, verified at both ends |
 | **Interpreter** | Python 3.12.10 (`C:\Python312`, pre-existing, deliberately off PATH) |
 | **Dependencies** | `requests 2.34.2`, `beautifulsoup4 4.15.0`, `lxml 6.1.1`, `pandas 2.3.3`, `openpyxl 3.1.5`, `pytest 9.1.1` |
-| **Test suite on the server** | **213 passed** — identical to the laptop baseline, and the first run of this codebase on 3.12.10 rather than 3.14.2 |
+| **Test suite on the server** | **222 passed** — identical to the laptop baseline, and the first run of this codebase on 3.12.10 rather than 3.14.2. (213 at first deploy; 9 token-expiry tests added the same day) |
 | **Line endings** | `quota_history_2026.csv` CRLF=9667 / bare-LF=0 on both hosts. `.gitattributes` pins it `-text`, so the blob is byte-identical everywhere regardless of `core.autocrlf` |
 | **PATH** | Verified unchanged after deployment: `python` and `py` still resolve to 3.13.1 |
 | **First inert end-to-end run** | 283 EU (0 failed), 75 UK (0 failed), 202 s |
