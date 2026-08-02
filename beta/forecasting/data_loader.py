@@ -1,14 +1,25 @@
 # -*- coding: utf-8 -*-
 """
 Forecasting Data Loader  [EXPERIMENTAL — beta/]
-Loads daily snapshots, merges into time series, and prepares Prophet-format DataFrames.
+Loads the daily quota history, merges into time series, and prepares
+Prophet-format DataFrames.
 
 This module is fully independent of the main src/ pipeline.
 
 Usage:
-    from beta.forecasting import load_all_snapshots, get_quota_time_series
-    data = load_all_snapshots()
-    ts = get_quota_time_series(data, order_number=98967)
+    from beta.forecasting import load_history, get_quota_time_series
+    data = load_history()                       # published daily history
+    ts = get_quota_time_series(data, order_number="099491")
+
+Two sources exist, and only one of them is still fed:
+
+    load_history()        <- USE THIS. data/published/quota_history_<YEAR>.csv,
+                             358 rows/day, written by the daily unattended run
+                             on the company server and committed to git.
+    load_all_snapshots()  <- LEGACY. data/snapshots/*.xlsx, produced by the
+                             login-triggered snapshot mechanism that was
+                             removed in v2.10.0. Nothing writes these any more;
+                             kept only to read an archive if one turns up.
 """
 
 import os
@@ -32,6 +43,106 @@ _snapshot_cache: Optional[pd.DataFrame] = None
 
 # Minimum days of data needed for Prophet to produce meaningful forecasts
 MIN_PROPHET_DAYS = 30
+
+# The EU/UK quota regimes changed on this date. The old safeguard (189 EU
+# quotas) ended 30 June 2026; the replacement (283 EU quotas, different order
+# numbers and volumes) started 1 July 2026. Pre- and post-boundary rows are
+# DIFFERENT QUOTA POPULATIONS, so a model trained across the boundary is
+# fitting a discontinuity, not a trend. load_history() filters to the current
+# regime by default; pass regime_start=None only if you know why.
+REGIME_START = "2026-07-01"
+
+# Column mapping from the published history CSV onto the names the rest of this
+# module already uses, so get_quota_time_series / get_all_quota_ids /
+# get_snapshot_summary work unchanged against either source.
+_HISTORY_COLUMN_MAP = {
+    "date": "snapshot_date",
+    "quota_category": "input_quota_category",
+    "country": "origin",
+    "balance_remaining_t": "balance",
+}
+
+
+def _get_published_folder() -> str:
+    """Path to data/published/ (self-contained, no dependency on src/)."""
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(project_root, "data", "published")
+
+
+def load_history(
+    history_path: Optional[str] = None,
+    year: Optional[int] = None,
+    region: Optional[str] = None,
+    regime_start: Optional[str] = REGIME_START,
+) -> pd.DataFrame:
+    """
+    Load the published daily history — **the preferred forecasting source**.
+
+    ``data/published/quota_history_<YEAR>.csv`` carries one row per quota per
+    day (358/day: 283 EU + 75 UK), written by the daily unattended run and
+    committed to git. It superseded the local snapshot workbooks that
+    ``load_all_snapshots()`` reads, which are no longer produced by anything.
+
+    The returned frame is deliberately shaped like ``load_all_snapshots()``
+    output — ``snapshot_date``, ``order_number``, ``balance``,
+    ``input_quota_category``, ``origin`` — so every other function in this
+    module works against it without change. Native history columns
+    (``pct_allocated``, ``quota_limit_t``, ``awaiting_allocation_t`` …) are kept
+    alongside, since they are richer than the old snapshots.
+
+    Rows whose ``scrape_status`` is not ``'ok'`` are dropped: a failed scrape is
+    a missing observation, not a zero, and feeding it to a model would invent a
+    cliff that never happened.
+
+    Args:
+        history_path: Explicit CSV path. Defaults to the current year's file,
+            or ``year``'s file if given.
+        year: Calendar year to load. Defaults to the newest file present.
+        region: ``'EU'`` or ``'UK'`` to restrict; ``None`` for both. Order
+            numbers do not collide (EU ``0994xx``-``0999xx``, UK ``0586xx``),
+            so mixing regions is safe.
+        regime_start: ISO date; rows before it are dropped. See ``REGIME_START``.
+
+    Returns:
+        pd.DataFrame: empty if the file does not exist.
+    """
+    if history_path is None:
+        folder = _get_published_folder()
+        if year is not None:
+            history_path = os.path.join(folder, f"quota_history_{year}.csv")
+        else:
+            candidates = sorted(glob.glob(os.path.join(folder, "quota_history_[0-9][0-9][0-9][0-9].csv")))
+            if not candidates:
+                return pd.DataFrame()
+            history_path = candidates[-1]
+
+    if not os.path.exists(history_path):
+        return pd.DataFrame()
+
+    # utf-8-sig: publisher.py writes a BOM so Excel opens it cleanly.
+    df = pd.read_csv(history_path, encoding="utf-8-sig", dtype={"order_number": str})
+    if df.empty:
+        return df
+
+    if "scrape_status" in df.columns:
+        df = df[df["scrape_status"] == "ok"]
+
+    if region is not None and "region" in df.columns:
+        df = df[df["region"].str.upper() == region.upper()]
+
+    df = df.rename(columns=_HISTORY_COLUMN_MAP)
+    df["snapshot_date"] = pd.to_datetime(df["snapshot_date"], errors="coerce")
+    df = df.dropna(subset=["snapshot_date"])
+
+    if regime_start is not None:
+        df = df[df["snapshot_date"] >= pd.Timestamp(regime_start)]
+
+    for col in ("balance", "quota_limit_t", "pct_allocated", "pct_remaining",
+                "quota_allocated_t", "awaiting_allocation_t"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    return df.reset_index(drop=True)
 
 
 def load_all_snapshots(

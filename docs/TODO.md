@@ -83,27 +83,28 @@
 - [x] All order numbers validated against UK website
 - [x] Template quota limits fetched from live data
 
-## Priority 4: Auto-Scheduling (Completed - superseded July 2026)
+## Priority 4: Auto-Scheduling — REMOVED (v2.10.0, 2026-08-02)
 
-> **Superseded:** daily collection now runs on GitHub Actions
-> (`.github/workflows/daily-quota-update.yml`) and records every quota every
-> day in `data/published/quota_history_<YEAR>.csv` (one file per calendar
-> year), independent of any local machine.
-> The Windows Task-Scheduler snapshot below still works but is no longer the
-> primary data-collection path.
-
-- [x] `daily_snapshot.py` — Entry point with file logging
-- [x] `src/snapshot_scheduler.py` — Idempotent check + orchestration
-- [x] `setup_scheduler.bat` — Task Scheduler registration (At log on, `pythonw`)
-- [x] `remove_scheduler.bat` — Clean task removal
-- [x] `src/utils.py` — Added `get_logs_folder()`, logs in `ensure_directories()`
-- [x] Tested: first run scrapes, second run skips, logs written to `data/logs/`
+> The login-triggered local snapshot (`daily_snapshot.py`,
+> `src/snapshot_scheduler.py`, `setup_scheduler.bat`, `remove_scheduler.bat`)
+> **has been deleted**. It only fired when somebody signed into Windows, which
+> never happens on an unattended server, and the daily publish supersedes it.
+>
+> Daily collection now runs as the **`MEPS EU Quota Daily Update`** scheduled
+> task on the MEPS company server (06:40 local), recording every quota every day
+> in `data/published/quota_history_<YEAR>.csv`. See `docs/SERVER_DEPLOYMENT.md`.
+>
+> The task list that was here described those four deleted files; it has been
+> removed rather than left as a checklist of things that no longer exist.
 
 ## Priority 5: Prophet Time-Series Forecasting [EXPERIMENTAL — DEFERRED]
 
-> **Decision (2026-07-07):** deferred until a few months of new-regime
-> history data exist (roughly October–November 2026 at the earliest).
-> Tracked in `FUTURE_IMPROVEMENTS.md`.
+> **Decision (2026-07-07, reconciled 2026-08-02):** Phase 2 becomes technically
+> possible at **30 new-regime days (~2026-08-04)** — that is `MIN_PROPHET_DAYS`
+> in the code. The original "a few months / October–November" wording was a
+> judgement about wanting more than the bare minimum before trusting a forecast,
+> not a different threshold. **Starting Phase 2 is an owner decision, not a
+> date.** Tracked in `FUTURE_IMPROVEMENTS.md` §4.
 
 > Forecasting lives in `beta/forecasting/` — a completely separate top-level
 > directory with zero imports from/to `src/`. Changes in beta/ cannot break
@@ -123,11 +124,14 @@
 
 ### Phase 2: Preprocessing + Baseline Models (Pending)
 
-- [ ] Accumulate 30+ daily snapshots **from the new regime** (restarted at the
-      1 July 2026 regime boundary — 1/30 new-regime days as of 2026-07-06)
+- [ ] Accumulate 30+ daily observations **from the new regime** — **28/30 as of
+      2026-08-02**, on track for ~2026-08-04. Use `load_history()`, not the
+      removed snapshot files.
 - [ ] `preprocessor.py` — rolling features, seasonality flags, outlier detection
 - [ ] `simple_models.py` — naive, moving average, linear trend baselines
-- [ ] **Regime boundary guard**: models must never train across 1 July 2026.
+- [x] **Regime boundary guard**: implemented as `REGIME_START` in
+      `data_loader.py`; `load_history()` filters to it by default. Models must
+      never train across 1 July 2026.
       The old safeguard (189 EU quotas) ended 30 June 2026; the new regime
       (283 EU quotas, different order numbers and volumes) started 1 July 2026.
       Pre-July and post-July series are different quota populations — filter
@@ -142,19 +146,29 @@
 
 ### Current Data Status
 
-> **New (July 2026):** the preferred forecasting dataset is now
-> `data/published/quota_history_<YEAR>.csv` - 358 rows/day (283 EU + 75 UK),
-> collected by the daily GitHub Actions run regardless of local machines.
-> **Open task:** re-point `beta/forecasting/data_loader.py` at the history
-> CSV (map date->ds, balance_remaining_t->y per region+order_number, filter
-> scrape_status == 'ok', respect the 1 July 2026 regime boundary).
+> **DONE (2026-08-02):** `beta/forecasting/data_loader.py` now reads the
+> published history via **`load_history()`** — the old `load_all_snapshots()`
+> pointed at `data/snapshots/`, which nothing writes any more. The new loader
+> maps the CSV onto the same column names, so `get_quota_time_series()`,
+> `get_all_quota_ids()`, `get_snapshot_summary()` and `prepare_prophet_df()`
+> all work unchanged. It drops `scrape_status != 'ok'` rows (a failed scrape is
+> a missing observation, not a zero) and filters to `REGIME_START` by default.
 
-| Item | Value |
+| Item | Value (measured 2026-08-02) |
 |------|-------|
-| History days collected (CSV) | 1 new-regime day (from 2026-07-06, grows daily) |
-| Legacy snapshots | 4 days (3 old regime + 1 new - do not mix regimes) |
-| Prophet ready | No (need 30+ new-regime days) |
-| Est. ready date | ~early Aug 2026 |
+| History days collected (CSV) | **28** new-regime days, 2026-07-06 → 2026-08-02 |
+| Gaps | **0** |
+| Failed scrapes in history | **0** |
+| Rows | 10,024 (358/day: 283 EU + 75 UK) |
+| Legacy snapshots | **none** — the two tracked pre-July-2026 workbooks were deleted in v2.10.0 |
+| Prophet ready | **No** — 28 of 30 days |
+| Est. ready date | **~2026-08-04** (2 more days) |
+
+Refresh these numbers with:
+
+```bash
+python -c "from beta.forecasting import load_history, get_snapshot_summary; print(get_snapshot_summary(load_history()))"
+```
 
 ## Priority 6: New-Regime Maintenance (Open)
 
@@ -173,8 +187,8 @@ Taxation (Cross-Border Trade) Act 2018). Recurring/upcoming tasks:
 - [ ] Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py` **only** if HMRC
       changes order numbers (they are not expected to rotate quarterly under the
       new measure).
-- [ ] `beta/` forecasting: enforce the 1 July 2026 regime boundary before any
-      Phase 2/3 training (see Priority 5).
+- [x] `beta/` forecasting: the 1 July 2026 regime boundary is enforced by
+      `REGIME_START` in `data_loader.py` (see Priority 5).
 
 ## Notes
 
@@ -185,4 +199,4 @@ Taxation (Cross-Border Trade) Act 2018). Recurring/upcoming tasks:
 - **Forecasting**: Experimental, completely independent of main pipeline
 
 ---
-*Last updated: 06-Jul-2026*
+*Last updated: 02-Aug-2026*

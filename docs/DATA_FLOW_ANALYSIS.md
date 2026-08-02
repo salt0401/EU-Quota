@@ -266,8 +266,9 @@ balance - awaiting_allocation = Balance Remaining
 
 ## 10. PUBLISHED DATA & DISTRIBUTION (July 2026)
 
-The daily GitHub Actions run (`run.py --publish`) adds a final stage after
-report generation (`src/publisher.py`):
+The daily unattended run on the MEPS company server (`run.py --publish`, via
+`tools/server-daily-task.ps1`) adds a final stage after report generation
+(`src/publisher.py`):
 
 | Output | Location | Purpose |
 |--------|----------|---------|

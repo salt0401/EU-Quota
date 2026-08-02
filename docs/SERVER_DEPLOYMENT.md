@@ -181,19 +181,25 @@ The warning starts **14 days out**, so expiry is two weeks' notice rather than a
 surprise outage. The check never fails the run: a token that still works today
 must publish today's data even if the lookup cannot answer.
 
-> **As deployed on 2026-08-02 the token has NO expiry** — the check reports
-> `Token expiry: none set (the token does not expire)`.
+> **The token has NO expiry — owner decision, 2026-08-02.** The check reports
+> `Token expiry: none set (the token does not expire)`, and that is intended:
+> the pipeline is meant to run for as long as its owner is at MEPS, and a
+> rotation deadline is a scheduled outage waiting for the one month nobody
+> notices the warning.
 >
-> That is a deliberate trade, and worth restating so it can be revisited. A
-> non-expiring token never breaks the pipeline; an expiring one breaks it if a
-> renewal is missed. Against that: a write credential that never rotates sits
-> indefinitely on an internet-facing host that is over a year behind on patches
-> and is backed up to storage MEPS does not control.
+> The warning code above stays regardless — it costs nothing, and it makes the
+> *absence* of an expiry an explicit, visible fact in every day's log rather
+> than an assumption.
 >
-> **Recommendation: set a 1-year expiry.** The main argument against rotation —
-> that it fails silently and inconveniently — is now largely answered by the
-> warning above plus the freshness watchdog. Re-issue with
-> `tools/set-github-token.ps1`; nothing else needs to change.
+> **The offboarding consequence, recorded so it is not discovered late.** The
+> credential and the repository both belong to a personal GitHub account
+> (`salt0401`), so they leave with the owner, not with MEPS. That is a
+> continuity question about *ownership*, not about expiry, and it is not solved
+> by rotating the token — it is solved by transferring the repository to a
+> company-owned GitHub organisation and re-issuing the credential from there.
+> Worth doing before any handover; nothing in this deployment blocks it, and
+> only `DEFAULT_REPO` in `tools/publish_release_assets.py`, the `origin` URL and
+> `REPO` in `download.py` would need to change.
 
 ### Two encoding traps
 

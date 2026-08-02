@@ -5,8 +5,10 @@ decisions. (`STARTUP.md` is onboarding-only and deliberately does not carry
 these; colleague-facing questions are flagged in `PROJECT_STATUS.html`;
 the build narrative is in `docs/SESSION_LOG_2026-07.md`.)
 
-**Automation health, 2026-08-01:** 27 consecutive unattended days
-(2026-07-06 → 2026-08-01), 9,666 history rows, zero failed scrapes, no gaps.
+**Automation health, 2026-08-02:** 28 consecutive unattended days
+(2026-07-06 → 2026-08-02), 10,024 history rows, zero failed scrapes, no gaps.
+The last 27 came from GitHub Actions; 2026-08-02 is the first from the company
+server.
 
 **Host change, 2026-08-02:** the daily run moved from GitHub Actions to the MEPS
 company server. See `docs/SERVER_DEPLOYMENT.md`. Nothing in the list below
@@ -95,12 +97,24 @@ A renewal act is expected around January 2027 and may change order numbers.
 
 ## 4. Prophet forecasting (beta/) — DEFERRED UNTIL ENOUGH DATA
 
-Decision (2026-07-07): no forecasting work until a few months of new-regime
-history exist (roughly October–November 2026 at the earliest; the history
-started 2026-07-06 and grows 358 rows/day).
+Decision (2026-07-07): no forecasting work until enough new-regime history
+exists (the history started 2026-07-06 and grows 358 rows/day).
 
-- **When resumed:** re-point `beta/forecasting/data_loader.py` at
-  `data/published/quota_history_<YEAR>.csv` (map date→ds,
-  balance_remaining_t→y per region+order_number, filter
-  scrape_status == 'ok'), and never train across the 1 July 2026 regime
-  boundary. Details in `docs/TODO.md` Priority 5.
+**Reconciled 2026-08-02** — this section said "October–November 2026 at the
+earliest" while `docs/TODO.md` set the bar at 30 days, which is ~2026-08-04.
+They disagreed. The 30-day figure is `MIN_PROPHET_DAYS` in the code, so it
+wins as the *technical* threshold; "a few months" was a judgement about wanting
+more than the bare minimum before trusting a forecast. Both are now stated
+plainly: **30 days is when Phase 2 becomes possible (~2026-08-04); more history
+still makes it better.** Starting Phase 2 is an owner decision, not a date.
+
+- **Data plumbing: DONE 2026-08-02.** `load_history()` reads
+  `data/published/quota_history_<YEAR>.csv`, maps it onto the existing column
+  names so every other function works unchanged, drops `scrape_status != 'ok'`
+  rows, and filters to `REGIME_START` (1 July 2026) by default. Done ahead of
+  the deferral because the old `load_all_snapshots()` pointed at
+  `data/snapshots/`, which nothing writes since v2.10.0 — it was no longer a
+  future improvement but a dead code path. 15 tests; verified against the real
+  10,024-row history.
+- **Still deferred:** Phase 2 preprocessing and baseline models. Details in
+  `docs/TODO.md` Priority 5.
