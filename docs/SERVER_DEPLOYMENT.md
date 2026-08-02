@@ -4,13 +4,11 @@ Since August 2026 the daily EU + UK quota scrape runs on the **MEPS company
 server**, not on GitHub Actions. This document is the operational reference for
 that: what is installed where, how a run works, and what to do when one fails.
 
-> **Status — 2026-08-02: DEPLOYED, NOT YET CUT OVER.**
-> The code, interpreter and dependencies are on the server and the test suite
-> passes there (213 passed). A full inert end-to-end run succeeded. **Nothing is
-> scheduled and nothing can push**: no scheduled task references this project,
-> `server-daily-task.ps1` requires `-Push`, and the token file does not exist
-> yet. **GitHub Actions remains the live pipeline** until cutover. Update this
-> banner when that changes.
+> **Status — 2026-08-02: LIVE.** Cut over and verified. The GitHub Actions
+> schedule is disabled, the scheduled task is registered and enabled, and the
+> first live run published `data_date=2026-08-02` (283 EU / 0 failed,
+> 75 UK / 0 failed, 10,024 history rows) — commit `b20a798` on `main`, authored
+> by `meps-server-euquota`, with both release workbooks updated.
 
 For anything about the server *itself* — access, firewalls, other workloads,
 constraints — read the separate **`meps-server-docs`** repository. This file
@@ -104,6 +102,19 @@ warns and continues.
 This is not theoretical on this host: `MEPS Currency API` has a 06:00 trigger and
 has been observed running at 07:00.
 
+> **If you trigger a run by hand, gate on the server's clock, not your own.**
+> During cutover a manual run was fired "just after midnight UTC" according to a
+> laptop that turned out to be **6 minutes fast** — the server, verified accurate
+> to 3 seconds against three independent public `Date` headers, was still on the
+> previous UTC day, and the guard correctly refused. Check first:
+>
+> ```powershell
+> [datetime]::UtcNow.ToString("yyyy-MM-dd HH:mm:ss")
+> ```
+>
+> (`Get-Date -UFormat %s` is not a UTC epoch in PowerShell 5.1 — it derives from
+> local time and reads an hour high under BST.)
+
 **3. The pipeline's own publish gates** (`src/publisher.py`, unchanged) refuse to
 publish a mostly-failed scrape or an expired quota window. Those failures are
 covered by `DAILY_UPDATE_RUNBOOK.md`, not this file.
@@ -195,7 +206,7 @@ ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 "Get-Content C:\Dat
 |---|---|---|
 | `venv interpreter not found` | The venv was deleted or the folder moved | Rebuild: `C:\Python312\python.exe -m venv venv` then `pip install -r requirements-ci.txt` |
 | `-Push was requested but the token file ... does not exist` | Credential missing or rotated away | Re-run `set-github-token.ps1` |
-| `Local date ... and UTC date ... disagree` | The trigger drifted into the pre-01:00 window | Move the trigger back to 06:40 local |
+| `Local date ... and UTC date ... disagree` | The trigger drifted into the pre-01:00 window — **or you triggered it manually from a workstation whose clock is ahead of the server's** | Move the trigger back to 06:40 local. For a manual run, check the server's own clock first (see below) |
 | `metadata.json reports data_date ...` mismatch | The publish reused stale metadata | Investigate before re-running; do not force |
 | `release asset upload failed` | Token expired, or GitHub unavailable | Check the token first — expiry is the usual cause |
 | `git push failed` (401) | Token expired or lost `Contents: write` | Re-issue the token |
