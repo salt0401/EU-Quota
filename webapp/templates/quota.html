@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}{{ quota.order_number }} &mdash; {{ quota.category }}{% endblock %}
+{% block heading %}{{ quota.category }}{% endblock %}
+
+{% block headerextra %}
+  <span class="reg">{{ quota.region }}</span>
+  <span>Order no. <b>{{ quota.order_number }}</b></span>
+  <span>{{ quota.country }}</span>
+{% endblock %}
+
+{% block content %}
+
+<p style="margin-bottom:18px"><a href="{{ url_for('index') }}">&larr; All quotas</a></p>
+
+<div class="stats">
+  <div class="stat"><b>{{ quota.limit_t | tonnes }}</b><span>quota limit (t)</span></div>
+  <div class="stat"><b>{{ quota.allocated_t | tonnes }}</b><span>allocated (t)</span></div>
+  <div class="stat"><b>{{ quota.remaining_t | tonnes }}</b><span>remaining (t)</span></div>
+  <div class="stat {% if quota.band == 'exhausted' %}bad{% elif quota.band in ('critical','high') %}warn{% endif %}">
+    <b>{{ quota.pct_used | pct }}</b><span>used</span></div>
+  {% if quota.awaiting_t is not none %}
+  <div class="stat"><b>{{ quota.awaiting_t | tonnes }}</b><span>awaiting allocation (t)</span></div>
+  {% endif %}
+</div>
+
+{% if period %}
+<div class="note">
+  <b>{{ period.year_label }} {{ period.quarter_label }}</b> &mdash;
+  {{ period.start | d }} to {{ period.end | d }}.
+  This quarter is <b>{{ period.pct_elapsed }}% elapsed</b> (day {{ period.day_in_quarter }}
+  of {{ period.quarter_length }}), and the quota is <b>{{ quota.pct_used | pct }}</b> used.
+  {% if quota.pct_used is not none and quota.pct_used > period.pct_elapsed + 10 %}
+    Usage is running <b>ahead</b> of the calendar.
+  {% elif quota.pct_used is not none and quota.pct_used < period.pct_elapsed - 10 %}
+    Usage is running behind the calendar.
+  {% else %}
+    Usage is roughly in line with the calendar.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if quarters|length > 1 %}
+<form class="filters" method="get">
+  <label for="period">Quarter</label>
+  <select name="period" id="period" onchange="this.form.submit()">
+    {% for qtr in quarters %}
+      <option value="{{ qtr.key }}" {% if qtr.key == selected %}selected{% endif %}>{{ qtr.label }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit">Show</button></noscript>
+  <span class="sep"></span>
+  <span style="color:var(--muted); font-size:13px">
+    Day-in-quarter on the x-axis, so quarters line up for comparison.
+  </span>
+</form>
+{% endif %}
+
+{% if series|length < 2 %}
+  <div class="empty">Not enough history yet to chart this quota &mdash;
+    {{ series|length }} day{{ '' if series|length == 1 else 's' }} recorded.</div>
+{% else %}
+<div class="cat" style="padding:18px 20px; background:var(--card); border:1px solid var(--line); border-radius:12px;">
+  <h3 style="font-size:16px; margin-bottom:2px">Quarter-to-date usage</h3>
+  <p style="color:var(--muted); font-size:13px; margin-bottom:14px">
+    Line: cumulative % of the quota used. Bars: tonnes allocated that day.
+    The dashed line is how far through the quarter we are &mdash; above it means
+    the quota is being consumed faster than the calendar.
+  </p>
+  <div id="chart"></div>
+</div>
+{% endif %}
+
+<h3 style="font-size:16px; margin:26px 0 8px">Daily movements</h3>
+<div class="cat" style="background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden;">
+<table>
+  <thead>
+    <tr>
+      <th>Date</th><th class="num">Day</th>
+      <th class="num">Quota limit (t)</th>
+      <th class="num">Allocated (t)</th>
+      <th class="num">Used that day (t)</th>
+      <th class="num">Remaining (t)</th>
+      <th class="num">% used</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in series | reverse %}
+    <tr>
+      <td>{{ p.date }}</td>
+      <td class="num">{{ p.day_in_quarter }}</td>
+      <td class="num">{{ p.limit_t | tonnes }}</td>
+      <td class="num">{{ p.allocated_t | tonnes }}</td>
+      <td class="num">{% if p.used_today_t is none %}&mdash;{% else %}{{ p.used_today_t | tonnes }}{% endif %}</td>
+      <td class="num">{{ p.remaining_t | tonnes }}</td>
+      <td class="num">{{ p.pct_used | pct }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<script id="series-data" type="application/json">{{ series | tojson }}</script>
+<script>
+(function () {
+  var host = document.getElementById('chart');
+  if (!host) return;
+  var pts = JSON.parse(document.getElementById('series-data').textContent);
+  if (pts.length < 2) return;
+
+  var W = 980, H = 320, L = 52, R = 20, T = 16, B = 40;
+  var iw = W - L - R, ih = H - T - B;
+  var qlen = {{ period.quarter_length if period else 92 }};
+
+  var maxDay = Math.max(qlen, pts[pts.length - 1].day_in_quarter);
+  var maxDaily = Math.max.apply(null, pts.map(function (p) {
+    return p.used_today_t == null ? 0 : Math.max(0, p.used_today_t); }).concat([1]));
+
+  function x(day) { return L + (day - 1) / Math.max(1, maxDay - 1) * iw; }
+  function yPct(v) { return T + ih - (Math.min(v, 100) / 100) * ih; }
+  function yBar(v) { return T + ih - (v / maxDaily) * ih; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) {
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+
+  var svg = ['<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" ' +
+             'aria-label="Quarter to date quota usage" style="overflow:visible">'];
+
+  // horizontal gridlines at 25% steps
+  [0, 25, 50, 75, 100].forEach(function (p) {
+    var y = yPct(p);
+    svg.push('<line x1="' + L + '" y1="' + y + '" x2="' + (W - R) + '" y2="' + y +
+             '" stroke="#E3DFD3" stroke-width="1"/>');
+    svg.push('<text x="' + (L - 8) + '" y="' + (y + 4) + '" text-anchor="end" ' +
+             'font-size="11" fill="#8A877D">' + p + '%</text>');
+  });
+
+  // daily-consumption bars
+  var bw = Math.max(2, iw / Math.max(1, maxDay) * 0.7);
+  pts.forEach(function (p) {
+    if (p.used_today_t == null || p.used_today_t <= 0) return;
+    var y = yBar(p.used_today_t);
+    svg.push('<rect x="' + (x(p.day_in_quarter) - bw / 2) + '" y="' + y +
+             '" width="' + bw + '" height="' + (T + ih - y) +
+             '" fill="#5C7E9E" opacity="0.28"><title>' + esc(p.date) + ': ' +
+             Math.round(p.used_today_t).toLocaleString() + ' t that day</title></rect>');
+  });
+
+  // pace reference: where usage would be if consumed evenly across the quarter
+  svg.push('<line x1="' + x(1) + '" y1="' + yPct(100 / qlen) + '" x2="' + x(qlen) +
+           '" y2="' + yPct(100) + '" stroke="#8A877D" stroke-width="1.5" ' +
+           'stroke-dasharray="5 4" opacity="0.75"/>');
+
+  // cumulative % used
+  var line = pts.filter(function (p) { return p.pct_used != null; })
+                .map(function (p, i) {
+                  return (i ? 'L' : 'M') + x(p.day_in_quarter) + ' ' + yPct(p.pct_used); })
+                .join(' ');
+  svg.push('<path d="' + line + '" fill="none" stroke="#CC785C" stroke-width="2.5" ' +
+           'stroke-linejoin="round" stroke-linecap="round"/>');
+
+  pts.forEach(function (p) {
+    if (p.pct_used == null) return;
+    svg.push('<circle cx="' + x(p.day_in_quarter) + '" cy="' + yPct(p.pct_used) +
+             '" r="3.5" fill="#CC785C"><title>' + esc(p.date) + ' (day ' +
+             p.day_in_quarter + '): ' + p.pct_used.toFixed(1) + '% used, ' +
+             Math.round(p.allocated_t || 0).toLocaleString() + ' t allocated</title></circle>');
+  });
+
+  // x axis
+  svg.push('<line x1="' + L + '" y1="' + (T + ih) + '" x2="' + (W - R) + '" y2="' +
+           (T + ih) + '" stroke="#141413" stroke-width="1"/>');
+  var step = maxDay > 60 ? 14 : 7;
+  for (var d = 1; d <= maxDay; d += step) {
+    svg.push('<text x="' + x(d) + '" y="' + (T + ih + 18) + '" text-anchor="middle" ' +
+             'font-size="11" fill="#8A877D">' + d + '</text>');
+  }
+  svg.push('<text x="' + (L + iw / 2) + '" y="' + (H - 4) + '" text-anchor="middle" ' +
+           'font-size="11.5" fill="#66645C">day of quarter</text>');
+  svg.push('</svg>');
+  host.innerHTML = svg.join('');
+})();
+</script>
+
+{% endblock %}

@@ -78,3 +78,9 @@ data/published/*.xlsx
 # only produces cross-machine churn.
 settings.local.json
 **/settings.local.json
+
+# Internal tracker database (derived read model; rebuild with `python -m webapp.etl --rebuild`)
+data/quota_tracker.db
+
+# Local dev launcher: pins a machine-specific interpreter path
+.claude/launch.json

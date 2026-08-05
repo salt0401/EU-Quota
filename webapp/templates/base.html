@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}MEPS Quota Tracker{% endblock %}</title>
+<style>
+  :root{
+    --paper:#F0EEE6; --surface:#FAF9F5; --card:#FFFFFF;
+    --ink:#141413; --muted:#66645C; --faint:#8A877D;
+    --line:#E3DFD3; --accent:#CC785C; --accent-ink:#9C4B32;
+    --accent-wash:#F4E6DE; --olive:#6C8455; --olive-wash:#EDF0E4;
+    --slate:#5C7E9E; --slate-wash:#E8EEF4;
+    --danger:#A63D2F; --danger-wash:#F6E2DE;
+    --warn:#B5761F; --warn-wash:#F8EEDC;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--paper); color:var(--ink);
+       font:15px/1.6 "Segoe UI",-apple-system,"Helvetica Neue",Arial,sans-serif;
+       padding:0 20px 64px;}
+  .page{max-width:1180px; margin:0 auto;}
+  h1,h2,h3,.stat b{font-family:Georgia,"Times New Roman",serif; font-weight:600; letter-spacing:-0.01em;}
+  a{color:var(--accent-ink); text-decoration:none; border-bottom:1px solid #D9B7A6;}
+  a:hover{border-bottom-color:var(--accent-ink);}
+  a.plain{border:none;}
+
+  header{padding:28px 0 20px; border-bottom:1px solid var(--line); margin-bottom:24px;}
+  .kicker{font-size:11.5px; letter-spacing:0.14em; text-transform:uppercase;
+          color:var(--accent-ink); font-weight:600;}
+  h1{font-size:27px; margin:8px 0 10px;}
+  .meta-row{display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center;
+            color:var(--muted); font-size:13.5px;}
+  .pill{display:inline-flex; align-items:center; gap:6px; background:var(--olive-wash);
+        color:var(--olive); border:1px solid #D8DEC8; border-radius:999px;
+        padding:3px 11px; font-size:12.5px; font-weight:600;}
+  .pill .dot{width:7px; height:7px; border-radius:50%; background:var(--olive);}
+  .pill.warnpill{background:var(--warn-wash); color:var(--warn); border-color:#EBD6AE;}
+
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
+         gap:10px; margin-bottom:22px;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:12px;
+        padding:13px 15px; text-align:center;}
+  .stat b{display:block; font-size:23px; color:var(--accent-ink);}
+  .stat.bad b{color:var(--danger);} .stat.warn b{color:var(--warn);}
+  .stat span{font-size:12px; color:var(--muted);}
+
+  form.filters{display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+               background:var(--card); border:1px solid var(--line);
+               border-radius:12px; padding:12px 14px; margin-bottom:20px;}
+  input[type=search],select{font:14px inherit; padding:6px 10px; border-radius:8px;
+        border:1px solid var(--line); background:var(--surface); color:var(--ink);}
+  input[type=search]{min-width:230px;}
+  button{font:600 14px inherit; padding:6px 14px; border-radius:8px; cursor:pointer;
+         border:1px solid var(--accent); background:var(--accent); color:#fff;}
+  button.ghost{background:transparent; color:var(--accent-ink);}
+  .filters .sep{flex:1;}
+
+  details.cat{background:var(--card); border:1px solid var(--line);
+              border-radius:12px; margin-bottom:10px; overflow:hidden;}
+  details.cat > summary{cursor:pointer; padding:13px 16px; display:flex;
+              flex-wrap:wrap; gap:10px; align-items:center; list-style:none;}
+  details.cat > summary::-webkit-details-marker{display:none;}
+  details.cat > summary::before{content:"\25B8"; color:var(--faint); font-size:12px;
+              transition:transform .15s;}
+  details.cat[open] > summary::before{transform:rotate(90deg);}
+  .cat-name{font-weight:600; font-size:15px;}
+  .reg{font-size:11px; font-weight:700; letter-spacing:0.06em; padding:2px 7px;
+       border-radius:5px; background:var(--slate-wash); color:var(--slate);}
+  .chips{margin-left:auto; display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{font-size:11.5px; font-weight:600; padding:2px 9px; border-radius:999px;
+        background:var(--surface); color:var(--muted); border:1px solid var(--line);}
+  .chip.bad{background:var(--danger-wash); color:var(--danger); border-color:#EDCBC4;}
+  .chip.warn{background:var(--warn-wash); color:var(--warn); border-color:#EBD6AE;}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  thead th{text-align:left; font-size:10.5px; letter-spacing:0.07em; text-transform:uppercase;
+        color:var(--faint); font-weight:600; padding:8px 10px; border-top:1px solid var(--line);
+        background:var(--surface); white-space:nowrap;}
+  td{padding:8px 10px; border-top:1px solid var(--line); vertical-align:middle;}
+  td.num,th.num{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+  tbody tr:hover{background:var(--surface);}
+
+  .bar{position:relative; height:16px; min-width:96px; background:var(--surface);
+       border:1px solid var(--line); border-radius:4px; overflow:hidden;}
+  .bar i{position:absolute; inset:0 auto 0 0; background:var(--olive); display:block;}
+  .bar.high i{background:var(--warn);} .bar.critical i{background:var(--accent);}
+  .bar.exhausted i{background:var(--danger);}
+  .bar b{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+         font-size:10.5px; font-weight:700; color:#2B2A26; font-family:inherit;}
+
+  .note{background:var(--slate-wash); border:1px solid #CFDCE8; border-radius:12px;
+        padding:14px 18px; font-size:13.5px; color:#33404D; margin-bottom:18px;}
+  .note b{color:var(--slate);}
+  .empty{background:var(--card); border:1px solid var(--line); border-radius:12px;
+         padding:40px; text-align:center; color:var(--muted);}
+  code{font:12.5px Consolas,"Cascadia Mono",monospace; background:var(--surface);
+       border:1px solid var(--line); border-radius:5px; padding:1px 5px;}
+
+  footer{margin-top:40px; padding-top:16px; border-top:1px solid var(--line);
+         font-size:12.5px; color:var(--faint); display:flex; flex-wrap:wrap; gap:5px 20px;}
+  @media (max-width:760px){ .chips{margin-left:0; width:100%;} }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="kicker">MEPS &middot; Internal &mdash; not for distribution</div>
+  <h1>{% block heading %}EU &amp; UK Steel Quota Tracker{% endblock %}</h1>
+  <div class="meta-row">
+    {% if freshness and freshness.data_date %}
+      <span class="pill"><span class="dot"></span>Data as at {{ freshness.data_date | d }}</span>
+      {% if freshness.period %}
+        <span>{{ freshness.period.year_label }} {{ freshness.period.quarter_label }}
+              &mdash; day {{ freshness.period.day_in_quarter }} of {{ freshness.period.quarter_length }}
+              ({{ freshness.period.pct_elapsed }}% elapsed)</span>
+      {% endif %}
+      {% if freshness.source_generated_utc %}
+        <span>Last update {{ freshness.source_generated_utc }}</span>
+      {% endif %}
+    {% endif %}
+    {% block headerextra %}{% endblock %}
+  </div>
+</header>
+
+{% block content %}{% endblock %}
+
+<footer>
+  <span>Quota year runs 1 July &ndash; 30 June &middot; Q1 Jul-Sep, Q2 Oct-Dec, Q3 Jan-Mar, Q4 Apr-Jun</span>
+  <span>Quota limits are shown exactly as published by the source</span>
+  <span><a href="{{ url_for('index') }}">All quotas</a></span>
+</footer>
+
+</div>
+</body>
+</html>

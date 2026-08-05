@@ -1,0 +1,25 @@
+# Dependencies for the internal quota tracker site (webapp/).
+#
+# DELIBERATELY SEPARATE from requirements-ci.txt. The daily scrape must not
+# grow a web or database dependency: it is the business-critical path, and it
+# runs unattended. Nothing in src/ imports webapp/, and the daily task treats
+# the ETL step as non-fatal, so the site can be broken or absent entirely
+# without affecting the publish.
+#
+#   <venv>\Scripts\python.exe -m pip install -r requirements-webapp.txt
+#
+# Major versions capped so an upstream release cannot silently change the site.
+
+Flask>=3.0,<4
+SQLAlchemy>=2.0,<3
+
+# --- SQL Server only -------------------------------------------------------
+# Not installed by default. SQLite needs nothing extra and is a perfectly
+# adequate store at this volume (358 rows/day, ~131k rows/year).
+#
+# Install this ONLY if pointing QUOTA_DB_URL at SQL Server, and note it needs
+# the "ODBC Driver 17/18 for SQL Server" present on the machine — which is a
+# separate install on the company server and therefore something to give
+# notice about. See docs/INTERNAL_SITE.md.
+#
+# pyodbc>=5.0,<6

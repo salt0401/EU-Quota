@@ -20,6 +20,7 @@
 param(
     [switch]$Push,
     [switch]$SkipScrape,
+    [switch]$SkipEtl,
     [string]$ProjectRoot      = "C:\DataScienceProject\EUQuota",
     [string]$TokenFile        = "C:\DataScienceProject\_secrets\euquota-github.token",
     [string]$Branch           = "main",
@@ -212,6 +213,26 @@ if ($staged -eq 0) {
 }
 
 Remove-Item Env:\EUQUOTA_TOKEN_FILE, Env:\GIT_ASKPASS -ErrorAction SilentlyContinue
+
+# ------------------------------------------------- internal tracker (ETL) ---
+
+# Refresh the internal site's database from the history we just published.
+#
+# DELIBERATELY NON-FATAL. The published data is already committed and uploaded
+# by this point, so colleagues have what they need. A database that is down,
+# unmigrated, or missing its dependencies must not turn a successful publish
+# into a failed task and set off the watchdog. It is a read model: the next
+# run refreshes it, and `python -m webapp.etl --rebuild` fixes any drift.
+if (-not $SkipEtl) {
+    Write-Log "Refreshing the internal tracker database..."
+    $etlCode = Invoke-Native $venvPython @("-m", "webapp.etl") "tracker ETL" -AllowFailure
+    if ($etlCode -ne 0) {
+        Write-Log ("Tracker ETL did not complete (exit {0}). The daily publish is " -f $etlCode +
+                   "unaffected and this run still counts as a success. If this " +
+                   "persists, check that requirements-webapp.txt is installed in " +
+                   "the venv and that QUOTA_DB_URL is reachable.") "WARN"
+    }
+}
 
 # ------------------------------------------------------------- retention ---
 

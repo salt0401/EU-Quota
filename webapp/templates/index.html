@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Quota tracker &mdash; all quotas{% endblock %}
+
+{% block content %}
+
+<div class="stats">
+  <div class="stat"><b>{{ summary.total }}</b><span>quotas tracked</span></div>
+  <div class="stat"><b>{{ summary.eu }}</b><span>EU</span></div>
+  <div class="stat"><b>{{ summary.uk }}</b><span>UK</span></div>
+  <div class="stat bad"><b>{{ summary.exhausted }}</b><span>exhausted</span></div>
+  <div class="stat warn"><b>{{ summary.at_risk }}</b><span>75&ndash;99% used</span></div>
+</div>
+
+<form class="filters" method="get" action="{{ url_for('index') }}">
+  <input type="search" name="q" value="{{ search }}"
+         placeholder="Search category, country or order number&hellip;">
+  <select name="region">
+    <option value="">EU &amp; UK</option>
+    <option value="EU" {% if region == 'EU' %}selected{% endif %}>EU only</option>
+    <option value="UK" {% if region == 'UK' %}selected{% endif %}>UK only</option>
+  </select>
+  <select name="min_pct">
+    <option value="">Any usage</option>
+    <option value="50" {% if min_pct == 50 %}selected{% endif %}>50%+ used</option>
+    <option value="75" {% if min_pct == 75 %}selected{% endif %}>75%+ used</option>
+    <option value="90" {% if min_pct == 90 %}selected{% endif %}>90%+ used</option>
+    <option value="100" {% if min_pct == 100 %}selected{% endif %}>Exhausted only</option>
+  </select>
+  <button type="submit">Apply</button>
+  <span class="sep"></span>
+  <a class="plain" href="{{ url_for('index') }}"><button type="button" class="ghost">Reset</button></a>
+</form>
+
+{% if not groups %}
+  <div class="empty">No quotas match those filters.</div>
+{% endif %}
+
+{% for g in groups %}
+<details class="cat" {% if loop.index <= 3 %}open{% endif %}>
+  <summary>
+    <span class="reg">{{ g.region }}</span>
+    <span class="cat-name">{{ g.category }}</span>
+    <span class="chips">
+      <span class="chip">{{ g.count }} quota{{ '' if g.count == 1 else 's' }}</span>
+      {% if g.exhausted %}<span class="chip bad">{{ g.exhausted }} exhausted</span>{% endif %}
+      {% if g.at_risk %}<span class="chip warn">{{ g.at_risk }} nearing limit</span>{% endif %}
+      {% if g.pct_used is not none %}<span class="chip">{{ g.pct_used }}% of category used</span>{% endif %}
+    </span>
+  </summary>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Order no.</th>
+        <th>Country / allocation</th>
+        <th class="num">Quota limit (t)</th>
+        <th class="num">Allocated (t)</th>
+        <th class="num">Remaining (t)</th>
+        <th class="num">Awaiting (t)</th>
+        <th>% used</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for q in g.quotas %}
+      <tr>
+        <td><a href="{{ url_for('quota', region=q.region, order_number=q.order_number) }}">{{ q.order_number }}</a></td>
+        <td>{{ q.country }}</td>
+        <td class="num">{{ q.limit_t | tonnes }}</td>
+        <td class="num">{{ q.allocated_t | tonnes }}</td>
+        <td class="num">{{ q.remaining_t | tonnes }}</td>
+        <td class="num">{{ q.awaiting_t | tonnes }}</td>
+        <td>
+          <span class="bar {{ q.band }}">
+            <i style="width:{{ 100 if q.pct_used is none else (q.pct_used if q.pct_used < 100 else 100) }}%"></i>
+            <b>{{ q.pct_used | pct }}</b>
+          </span>
+        </td>
+        <td>{{ q.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endfor %}
+
+{% endblock %}

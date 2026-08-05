@@ -1,0 +1,214 @@
+# -*- coding: utf-8 -*-
+"""
+Read queries for the tracker site.
+
+Kept separate from the Flask layer so they can be tested without a request
+context, and so a future consumer (Power BI, a notebook, an export job) can
+import them directly.
+
+Grouping and shaping happen in Python rather than SQL wherever the row count is
+small — the main view is one day, 358 rows. That keeps the SQL portable between
+SQLite and SQL Server instead of reaching for dialect-specific window functions
+for no measurable gain.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from typing import Optional
+
+from sqlalchemy import and_, distinct, func, select
+
+from webapp import quota_period as qp
+from webapp.db import etl_run, quota_daily
+
+
+def latest_snapshot_date(conn) -> Optional[date]:
+    return conn.execute(select(func.max(quota_daily.c.snapshot_date))).scalar()
+
+
+def freshness(conn) -> dict:
+    """What the site shows as 'last update'.
+
+    Reports the *source* scrape time, not the ETL time and certainly not the
+    page-load time — those would overstate how fresh the numbers are.
+    """
+    row = conn.execute(
+        select(etl_run).order_by(etl_run.c.id.desc()).limit(1)
+    ).mappings().first()
+    latest = latest_snapshot_date(conn)
+    return {
+        "data_date": latest,
+        "source_generated_utc": row["source_generated_utc"] if row else None,
+        "loaded_at_utc": row["loaded_at_utc"] if row else None,
+        "period": qp.describe(latest) if latest else None,
+    }
+
+
+def _row_to_quota(r) -> dict:
+    limit = float(r["quota_limit_t"]) if r["quota_limit_t"] is not None else None
+    allocated = float(r["quota_allocated_t"]) if r["quota_allocated_t"] is not None else None
+    remaining = float(r["balance_remaining_t"]) if r["balance_remaining_t"] is not None else None
+    pct = float(r["pct_allocated"]) if r["pct_allocated"] is not None else None
+    awaiting = float(r["awaiting_allocation_t"]) if r["awaiting_allocation_t"] is not None else None
+    return {
+        "region": r["region"],
+        "order_number": r["order_number"],
+        "category": r["quota_category"] or "(uncategorised)",
+        "country": r["country"] or "",
+        "limit_t": limit,
+        "allocated_t": allocated,
+        "remaining_t": remaining,
+        "pct_used": pct,
+        "awaiting_t": awaiting,
+        "validity_start": r["validity_start"],
+        "validity_end": r["validity_end"],
+        "status": r["status"] or "",
+        "snapshot_date": r["snapshot_date"],
+        # Presentation band, computed once here so template and chart agree.
+        "band": ("exhausted" if pct is not None and pct >= 100
+                 else "critical" if pct is not None and pct >= 90
+                 else "high" if pct is not None and pct >= 75
+                 else "normal"),
+    }
+
+
+def categories_overview(conn, snapshot_date: date, region: Optional[str] = None,
+                        search: Optional[str] = None,
+                        min_pct: Optional[float] = None) -> list[dict]:
+    """The main view: quotas grouped by product category.
+
+    Categories are ordered by how pressed they are (most exhausted quotas
+    first), because a list sorted alphabetically buries the thing the reader
+    opened the page to find.
+    """
+    stmt = select(quota_daily).where(quota_daily.c.snapshot_date == snapshot_date)
+    if region:
+        stmt = stmt.where(quota_daily.c.region == region.upper())
+
+    quotas = [_row_to_quota(r) for r in conn.execute(stmt).mappings()]
+
+    if search:
+        needle = search.strip().lower()
+        quotas = [q for q in quotas
+                  if needle in q["category"].lower()
+                  or needle in q["country"].lower()
+                  or needle in q["order_number"]]
+    if min_pct is not None:
+        quotas = [q for q in quotas
+                  if q["pct_used"] is not None and q["pct_used"] >= min_pct]
+
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for q in quotas:
+        grouped.setdefault((q["region"], q["category"]), []).append(q)
+
+    out = []
+    for (reg, category), items in grouped.items():
+        items.sort(key=lambda q: (-(q["pct_used"] or -1), q["country"]))
+        exhausted = sum(1 for q in items if q["band"] == "exhausted")
+        at_risk = sum(1 for q in items if q["band"] in ("critical", "high"))
+        limits = [q["limit_t"] for q in items if q["limit_t"] is not None]
+        allocs = [q["allocated_t"] for q in items if q["allocated_t"] is not None]
+        total_limit = sum(limits) if limits else None
+        total_alloc = sum(allocs) if allocs else None
+        out.append({
+            "region": reg,
+            "category": category,
+            "quotas": items,
+            "count": len(items),
+            "exhausted": exhausted,
+            "at_risk": at_risk,
+            "total_limit_t": total_limit,
+            "total_allocated_t": total_alloc,
+            "pct_used": (round(100.0 * total_alloc / total_limit, 1)
+                         if total_limit else None),
+        })
+
+    out.sort(key=lambda c: (-c["exhausted"], -c["at_risk"], c["region"], c["category"]))
+    return out
+
+
+def quota_detail(conn, region: str, order_number: str,
+                 snapshot_date: Optional[date] = None) -> Optional[dict]:
+    if snapshot_date is None:
+        snapshot_date = conn.execute(
+            select(func.max(quota_daily.c.snapshot_date)).where(and_(
+                quota_daily.c.region == region.upper(),
+                quota_daily.c.order_number == order_number))).scalar()
+    if snapshot_date is None:
+        return None
+    row = conn.execute(select(quota_daily).where(and_(
+        quota_daily.c.snapshot_date == snapshot_date,
+        quota_daily.c.region == region.upper(),
+        quota_daily.c.order_number == order_number))).mappings().first()
+    return _row_to_quota(row) if row else None
+
+
+def quota_series(conn, region: str, order_number: str,
+                 quarter_start: Optional[date] = None) -> list[dict]:
+    """Daily movement for one quota within one quarter.
+
+    ``used_today_t`` is the day-over-day delta, which is what "how quickly is
+    this being used" actually means — the cumulative line alone hides a quota
+    that took 80% in three days.
+    """
+    stmt = select(quota_daily).where(and_(
+        quota_daily.c.region == region.upper(),
+        quota_daily.c.order_number == order_number))
+    if quarter_start is not None:
+        stmt = stmt.where(quota_daily.c.quarter_start == quarter_start)
+    stmt = stmt.order_by(quota_daily.c.snapshot_date)
+
+    points, prev = [], None
+    for r in conn.execute(stmt).mappings():
+        allocated = float(r["quota_allocated_t"]) if r["quota_allocated_t"] is not None else None
+        delta = None
+        if allocated is not None and prev is not None:
+            delta = round(allocated - prev, 3)
+        prev = allocated if allocated is not None else prev
+        points.append({
+            "date": r["snapshot_date"].isoformat(),
+            "day_in_quarter": r["day_in_quarter"],
+            "limit_t": float(r["quota_limit_t"]) if r["quota_limit_t"] is not None else None,
+            "allocated_t": allocated,
+            "remaining_t": float(r["balance_remaining_t"]) if r["balance_remaining_t"] is not None else None,
+            "pct_used": float(r["pct_allocated"]) if r["pct_allocated"] is not None else None,
+            "used_today_t": delta,
+        })
+    return points
+
+
+def available_quarters(conn, region: Optional[str] = None,
+                       order_number: Optional[str] = None) -> list[dict]:
+    """Quarters that actually hold data, newest first.
+
+    Driven by the data rather than by generating every quarter since the regime
+    started, so the selector never offers an empty period.
+    """
+    stmt = select(distinct(quota_daily.c.quarter_start))
+    if region and order_number:
+        stmt = stmt.where(and_(quota_daily.c.region == region.upper(),
+                               quota_daily.c.order_number == order_number))
+    starts = sorted((r[0] for r in conn.execute(stmt)), reverse=True)
+    out = []
+    for s in starts:
+        p = qp.describe(s)
+        out.append({"key": p.key, "start": s, "label": f"{p.year_label} {p.quarter_label}"})
+    return out
+
+
+def summary_counts(conn, snapshot_date: date) -> dict:
+    """Headline numbers for the masthead."""
+    rows = [_row_to_quota(r) for r in conn.execute(
+        select(quota_daily).where(quota_daily.c.snapshot_date == snapshot_date)).mappings()]
+    # exhausted and at_risk are deliberately DISJOINT: they are displayed side
+    # by side, so overlapping counts would double-count the same quota in two
+    # tiles. at_risk therefore means 75-99% used, and the labels say exactly
+    # that rather than "past 75%", which would also be true of an exhausted one.
+    return {
+        "total": len(rows),
+        "eu": sum(1 for r in rows if r["region"] == "EU"),
+        "uk": sum(1 for r in rows if r["region"] == "UK"),
+        "exhausted": sum(1 for r in rows if r["band"] == "exhausted"),
+        "at_risk": sum(1 for r in rows if r["band"] in ("critical", "high")),
+    }

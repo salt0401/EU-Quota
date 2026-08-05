@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Quota tracker &mdash; no data{% endblock %}
+{% block content %}
+<div class="empty">
+  <h3 style="margin-bottom:10px">No quota data loaded yet</h3>
+  <p>The database (<code>{{ db }}</code>) is reachable but empty.</p>
+  <p style="margin-top:14px">Load it from the published history:</p>
+  <p style="margin-top:8px"><code>python -m webapp.etl --rebuild</code></p>
+  <p style="margin-top:14px; font-size:13px">
+    That reads <code>data/published/quota_history_&lt;YEAR&gt;.csv</code>, which the daily
+    run writes. If that file is missing, the daily publish has not run in this checkout.
+  </p>
+</div>
+{% endblock %}
