@@ -111,14 +111,21 @@ def create_app(db_url: str | None = None, require_auth: bool | None = None) -> F
             min_pct = float(request.args["min_pct"]) if request.args.get("min_pct") else None
         except ValueError:
             min_pct = None
+        pressure_only = request.args.get("pressure") == "1"
+        # Anything unrecognised falls back to the default rather than 500ing:
+        # these arrive from a URL and a bad value is a bad request, not a crash.
+        sort = request.args.get("sort") if request.args.get("sort") in ("pressure", "name") else "pressure"
 
         return render_template(
             "index.html",
             groups=queries.categories_overview(g.conn, latest, region=region,
-                                               search=search, min_pct=min_pct),
+                                               search=search, min_pct=min_pct,
+                                               pressure_only=pressure_only,
+                                               sort=sort),
             summary=queries.summary_counts(g.conn, latest),
             freshness=queries.freshness(g.conn),
             region=region, search=search or "", min_pct=min_pct,
+            pressure_only=pressure_only, sort=sort,
         )
 
     @app.route("/quota/<region>/<order_number>")

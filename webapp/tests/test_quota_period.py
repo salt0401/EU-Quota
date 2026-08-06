@@ -171,3 +171,36 @@ class TestRegimeStart:
         # quota-year boundary, so no partial first quarter needs handling.
         assert qp.day_in_quarter(qp.REGIME_START) == 1
         assert qp.quota_quarter(qp.REGIME_START) == 1
+
+
+class TestDaysRemaining:
+
+    def test_counts_the_days_after_the_given_date(self):
+        # 2026-08-02 is day 33 of Q1's 92 days, so 59 remain after it.
+        p = qp.describe(date(2026, 8, 2))
+        assert (p.day_in_quarter, p.quarter_length) == (33, 92)
+        assert p.days_remaining == 59
+
+    def test_is_zero_on_the_final_day_of_the_quarter(self):
+        for d in (date(2026, 9, 30), date(2026, 12, 31),
+                  date(2027, 3, 31), date(2027, 6, 30)):
+            assert qp.describe(d).days_remaining == 0, d
+
+    def test_is_one_less_than_the_length_on_day_one(self):
+        for d in (date(2026, 7, 1), date(2026, 10, 1),
+                  date(2027, 1, 1), date(2027, 4, 1)):
+            p = qp.describe(d)
+            assert p.days_remaining == p.quarter_length - 1, d
+
+    def test_agrees_with_pct_elapsed(self):
+        """Both describe the same clock, so they must not contradict.
+
+        The masthead shows them side by side; a countdown measured from today
+        while the percentage was measured from the data date would disagree
+        visibly on any day the scrape was stale.
+        """
+        for d in (date(2026, 7, 15), date(2026, 8, 2), date(2027, 5, 20)):
+            p = qp.describe(d)
+            assert p.days_remaining + p.day_in_quarter == p.quarter_length
+            assert p.pct_elapsed == round(
+                100.0 * (p.quarter_length - p.days_remaining) / p.quarter_length, 1)

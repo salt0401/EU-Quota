@@ -66,7 +66,15 @@ def _row_to_quota(r) -> dict:
         "status": r["status"] or "",
         "snapshot_date": r["snapshot_date"],
         # Presentation band, computed once here so template and chart agree.
-        "band": ("exhausted" if pct is not None and pct >= 100
+        #
+        # Banded on the value AS DISPLAYED (one decimal), not the raw one. A
+        # quota at 99.99% renders as "100.0%" everywhere on the site, so banding
+        # it "critical" put a row reading 100.0% under a tile labelled
+        # "75-99% used" — and made the fastest-burning callout claim it excludes
+        # exhausted quotas while naming one that shows 100.0%. Both read as
+        # broken logic. The rule is that the band must agree with the number
+        # printed next to it.
+        "band": ("exhausted" if pct is not None and round(pct, 1) >= 100
                  else "critical" if pct is not None and pct >= 90
                  else "high" if pct is not None and pct >= 75
                  else "normal"),
@@ -75,12 +83,21 @@ def _row_to_quota(r) -> dict:
 
 def categories_overview(conn, snapshot_date: date, region: Optional[str] = None,
                         search: Optional[str] = None,
-                        min_pct: Optional[float] = None) -> list[dict]:
+                        min_pct: Optional[float] = None,
+                        pressure_only: bool = False,
+                        sort: str = "pressure") -> list[dict]:
     """The main view: quotas grouped by product category.
 
     Categories are ordered by how pressed they are (most exhausted quotas
     first), because a list sorted alphabetically buries the thing the reader
-    opened the page to find.
+    opened the page to find. ``sort='name'`` restores alphabetical order for
+    someone who came looking for one specific category rather than for trouble.
+
+    ``pressure_only`` and ``min_pct`` filter at different levels on purpose:
+    ``min_pct`` drops individual quota *rows*, whereas ``pressure_only`` drops
+    whole *categories* that have nothing under pressure — keeping every row of
+    the categories it retains, so the calm quotas still provide context for the
+    pressed ones beside them.
     """
     stmt = select(quota_daily).where(quota_daily.c.snapshot_date == snapshot_date)
     if region:
@@ -124,7 +141,13 @@ def categories_overview(conn, snapshot_date: date, region: Optional[str] = None,
                          if total_limit else None),
         })
 
-    out.sort(key=lambda c: (-c["exhausted"], -c["at_risk"], c["region"], c["category"]))
+    if pressure_only:
+        out = [c for c in out if c["exhausted"] or c["at_risk"]]
+
+    if sort == "name":
+        out.sort(key=lambda c: (c["category"].lower(), c["region"]))
+    else:
+        out.sort(key=lambda c: (-c["exhausted"], -c["at_risk"], c["region"], c["category"]))
     return out
 
 
@@ -197,10 +220,45 @@ def available_quarters(conn, region: Optional[str] = None,
     return out
 
 
+def _fastest_burning(rows: list[dict], period: qp.QuotaPeriod) -> Optional[dict]:
+    """The quota consuming its allowance fastest relative to the calendar.
+
+    Ranked by ``pct_used / pct_elapsed``, **not** by tonnes per day. Tonnes per
+    day just finds the largest quota every time: a 1.5 Mt line out-consumes a
+    20 kt line while sitting nowhere near its own limit, so the answer would be
+    the same every day and tell nobody anything. The ratio is scale-free — 2.0
+    means "using it twice as fast as the quarter is passing", whatever the size.
+
+    Exhausted quotas are excluded. They score highest by construction, they are
+    already counted in their own tile, and the useful question here is which
+    quota is *about to* become a problem rather than which one already is.
+
+    Returns None when no quota qualifies, which is the honest answer on a day
+    when everything is either exhausted or missing a percentage.
+    """
+    elapsed = period.pct_elapsed
+    if elapsed <= 0:
+        return None
+    best, best_ratio = None, None
+    for r in rows:
+        pct = r["pct_used"]
+        # Reuse the band rather than re-testing the threshold, so this can never
+        # drift out of step with what the tiles and the bars call exhausted.
+        if pct is None or r["band"] == "exhausted":
+            continue
+        ratio = pct / elapsed
+        if best_ratio is None or ratio > best_ratio:
+            best, best_ratio = r, ratio
+    if best is None:
+        return None
+    return dict(best, pace_ratio=round(best_ratio, 2))
+
+
 def summary_counts(conn, snapshot_date: date) -> dict:
     """Headline numbers for the masthead."""
     rows = [_row_to_quota(r) for r in conn.execute(
         select(quota_daily).where(quota_daily.c.snapshot_date == snapshot_date)).mappings()]
+    period = qp.describe(snapshot_date)
     # exhausted and at_risk are deliberately DISJOINT: they are displayed side
     # by side, so overlapping counts would double-count the same quota in two
     # tiles. at_risk therefore means 75-99% used, and the labels say exactly
@@ -211,4 +269,10 @@ def summary_counts(conn, snapshot_date: date) -> dict:
         "uk": sum(1 for r in rows if r["region"] == "UK"),
         "exhausted": sum(1 for r in rows if r["band"] == "exhausted"),
         "at_risk": sum(1 for r in rows if r["band"] in ("critical", "high")),
+        # Counted per (region, category) so this equals the number of
+        # collapsible sections below it — a reader who doubts the figure can
+        # count them. A bare category-name count would not match the page.
+        "categories": len({(r["region"], r["category"]) for r in rows}),
+        "days_remaining": period.days_remaining,
+        "fastest": _fastest_burning(rows, period),
     }

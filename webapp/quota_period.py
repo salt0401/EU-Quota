@@ -123,6 +123,17 @@ class QuotaPeriod:
         """
         return round(100.0 * self.day_in_quarter / self.quarter_length, 1)
 
+    @property
+    def days_remaining(self) -> int:
+        """Days left in the quarter after this one; 0 on the final day.
+
+        Deliberately measured from the date this period describes — which on the
+        site is the latest *data* date, not today. Every other number in the
+        masthead describes that snapshot, and a countdown running on a different
+        clock would contradict the ``pct_elapsed`` sitting next to it.
+        """
+        return self.quarter_length - self.day_in_quarter
+
 
 def describe(d: date) -> QuotaPeriod:
     """Resolve a date into its full quota period."""

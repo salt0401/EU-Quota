@@ -4,12 +4,26 @@
 {% block content %}
 
 <div class="stats">
+  <div class="stat"><b>{{ summary.days_remaining }}</b><span>days left in quarter</span></div>
   <div class="stat"><b>{{ summary.total }}</b><span>quotas tracked</span></div>
+  <div class="stat"><b>{{ summary.categories }}</b><span>categories</span></div>
   <div class="stat"><b>{{ summary.eu }}</b><span>EU</span></div>
   <div class="stat"><b>{{ summary.uk }}</b><span>UK</span></div>
   <div class="stat bad"><b>{{ summary.exhausted }}</b><span>exhausted</span></div>
   <div class="stat warn"><b>{{ summary.at_risk }}</b><span>75&ndash;99% used</span></div>
 </div>
+
+{% if summary.fastest %}
+<div class="note">
+  <b>Burning fastest:</b>
+  <a href="{{ url_for('quota', region=summary.fastest.region, order_number=summary.fastest.order_number) }}">{{ summary.fastest.order_number }}</a>
+  &mdash; {{ summary.fastest.category }}{% if summary.fastest.country %} ({{ summary.fastest.country }}){% endif %},
+  at {{ summary.fastest.pct_used | pct }} used with only
+  {{ freshness.period.pct_elapsed }}% of the quarter gone &mdash;
+  <b>{{ summary.fastest.pace_ratio }}&times;</b> the pace of the calendar.
+  Exhausted quotas are excluded; this is the one most likely to close next.
+</div>
+{% endif %}
 
 <form class="filters" method="get" action="{{ url_for('index') }}">
   <input type="search" name="q" value="{{ search }}"
@@ -26,6 +40,14 @@
     <option value="90" {% if min_pct == 90 %}selected{% endif %}>90%+ used</option>
     <option value="100" {% if min_pct == 100 %}selected{% endif %}>Exhausted only</option>
   </select>
+  <select name="sort">
+    <option value="pressure" {% if sort != 'name' %}selected{% endif %}>Most pressed first</option>
+    <option value="name" {% if sort == 'name' %}selected{% endif %}>Category A&ndash;Z</option>
+  </select>
+  <label class="check">
+    <input type="checkbox" name="pressure" value="1" {% if pressure_only %}checked{% endif %}>
+    Under pressure only
+  </label>
   <button type="submit">Apply</button>
   <span class="sep"></span>
   <a class="plain" href="{{ url_for('index') }}"><button type="button" class="ghost">Reset</button></a>

@@ -121,3 +121,39 @@ class TestHealthAndAuth:
             assert c.get("/", headers={"Authorization": f"Basic {bad}"}).status_code == 401
         finally:
             os.environ.pop("QUOTA_SITE_PASSWORD_FILE", None)
+
+
+class TestOverviewHeadlines:
+    """The masthead additions taken from the reference site.
+
+    Route-level because the last bug of this shape was invisible to the query
+    tests: the numbers were right and the view described the wrong date.
+    """
+
+    def test_masthead_shows_days_left_and_category_count(self, client):
+        body = client.get("/").get_data(as_text=True)
+        assert "days left in quarter" in body
+        assert "categories" in body
+        # 2026-08-02 is day 33 of 92.
+        assert ">59<" in body
+
+    def test_fastest_burning_callout_names_the_quota_and_its_pace(self, client):
+        body = client.get("/").get_data(as_text=True)
+        assert "Burning fastest:" in body
+        assert "099837" in body
+        assert "1.67&times;" in body        # 60.0% used / 35.9% elapsed
+
+    def test_pressure_filter_hides_categories_with_nothing_at_risk(self, client):
+        """The only quota here sits at 60%, below the 75% band."""
+        assert "Metallic Coated" in client.get("/").get_data(as_text=True)
+        body = client.get("/?pressure=1").get_data(as_text=True)
+        assert "No quotas match those filters." in body
+
+    def test_sort_toggle_renders_both_orders_without_erroring(self, client):
+        for qs in ("?sort=name", "?sort=pressure", "?sort=nonsense", "?sort="):
+            assert client.get("/" + qs).status_code == 200
+
+    def test_new_filters_survive_junk_input(self, client):
+        for qs in ("?pressure=yes", "?pressure=1&sort=name&min_pct=abc",
+                   "?pressure=" + "z" * 200):
+            assert client.get("/" + qs).status_code == 200

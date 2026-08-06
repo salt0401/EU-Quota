@@ -203,13 +203,39 @@ class TestQueries:
         assert eu["band"] == "normal"        # 30%
         assert uk["band"] == "exhausted"     # 150%
 
+    def test_a_quota_that_displays_as_100_is_banded_exhausted(self, tmp_path):
+        """Regression: bands must agree with the number printed beside them.
+
+        Real data, 2026-08-05: order 058627 sat at 99.99% (2.15 t left of
+        17,093). The site prints percentages to one decimal, so the row read
+        "100.0%" while being banded critical — putting it under a tile labelled
+        "75-99% used", and making the fastest-burning callout name a quota
+        showing 100.0% in the same sentence as "exhausted quotas are excluded".
+        """
+        published = write_history(tmp_path, "".join([
+            row("2026-08-02", "EU", "099491", pct="99.99", limit="17093",
+                alloc="17090.85", bal="2.15"),
+            row("2026-08-02", "EU", "099492", pct="99.94"),   # still prints 99.9
+        ]))
+        engine = get_engine(f"sqlite:///{tmp_path/'b.db'}")
+        etl.load(engine, published_dir=published)
+        with engine.connect() as c:
+            assert queries.quota_detail(c, "EU", "099491")["band"] == "exhausted"
+            assert queries.quota_detail(c, "EU", "099492")["band"] == "critical"
+            assert queries.summary_counts(c, LATEST)["fastest"]["order_number"] == "099492"
+
     def test_summary_counts_keeps_exhausted_and_at_risk_disjoint(self, loaded):
         # The two are shown side by side, so a quota must appear in exactly one.
         # 30% -> normal, 150% -> exhausted, neither is 75-99%.
         engine, _ = loaded
         with engine.connect() as c:
             s = queries.summary_counts(c, date(2026, 7, 8))
-        assert s == {"total": 2, "eu": 1, "uk": 1, "exhausted": 1, "at_risk": 0}
+        assert (s["total"], s["eu"], s["uk"]) == (2, 1, 1)
+        assert (s["exhausted"], s["at_risk"]) == (1, 0)
+        # The property the name promises, stated directly: no quota is counted
+        # in both tiles. Previously this rested on a whole-dict equality, which
+        # made the test fail for any added key regardless of disjointness.
+        assert s["exhausted"] + s["at_risk"] <= s["total"]
 
     def test_at_risk_counts_the_75_to_99_band(self, tmp_path):
         published = write_history(tmp_path, "".join([
@@ -267,3 +293,126 @@ class TestFreshness:
         assert f["source_generated_utc"] == "2026-08-02T05:43:08Z"
         assert f["data_date"] == date(2026, 7, 8)
         assert f["period"].key == "2026/27-Q1"
+
+
+@pytest.fixture
+def sized(tmp_path):
+    """One enormous quota barely touched, one small quota nearly full.
+
+    Built specifically to separate the two candidate definitions of "burning
+    fastest". By tonnes per day the huge quota wins by a factor of sixteen; by
+    share of its own allowance the small one is the one about to close. Only
+    the second answer is useful, so the fixture makes the two disagree.
+    """
+    body = ""
+    for i, d in enumerate(("2026-07-06", "2026-08-02")):
+        body += row(d, "EU", "099001", cat="Hot Rolled - 1", country="India",
+                    limit="1500000", alloc=str(150000 * (i + 1)),
+                    pct=str(10.0 * (i + 1)), bal=str(1500000 - 150000 * (i + 1)))
+        body += row(d, "EU", "099002", cat="Rebar - 13", country="Egypt",
+                    limit="20000", alloc=str(9000 * (i + 1)),
+                    pct=str(45.0 * (i + 1)), bal=str(20000 - 9000 * (i + 1)))
+        body += row(d, "UK", "058999", cat="Rebar - 13", country="Other countries",
+                    limit="5000", alloc="6000", pct="120.0", bal="0")
+    published = write_history(tmp_path, body)
+    engine = get_engine(f"sqlite:///{tmp_path/'s.db'}")
+    etl.load(engine, published_dir=published)
+    return engine
+
+
+LATEST = date(2026, 8, 2)          # day 33 of 92, so 35.9% of Q1 elapsed
+
+
+class TestFastestBurning:
+
+    def test_ranks_by_share_of_allowance_not_by_tonnage(self, sized):
+        with sized.connect() as c:
+            s = queries.summary_counts(c, LATEST)
+            series = {o: queries.quota_series(c, "EU", o) for o in ("099001", "099002")}
+        # The tonnage answer and the share answer genuinely disagree here...
+        assert series["099001"][-1]["used_today_t"] > series["099002"][-1]["used_today_t"]
+        # ...and we report the share answer.
+        assert s["fastest"]["order_number"] == "099002"
+
+    def test_reports_the_pace_ratio(self, sized):
+        with sized.connect() as c:
+            s = queries.summary_counts(c, LATEST)
+        # 90.0% used / 35.9% elapsed
+        assert s["fastest"]["pace_ratio"] == 2.51
+        assert s["fastest"]["pct_used"] == 90.0
+
+    def test_excludes_exhausted_quotas(self, sized):
+        """They score highest by construction and have their own tile.
+
+        The question this answers is which quota is *about to* close, not which
+        one already has.
+        """
+        with sized.connect() as c:
+            s = queries.summary_counts(c, LATEST)
+        assert s["fastest"]["order_number"] != "058999"
+        assert s["fastest"]["pct_used"] < 100
+
+    def test_returns_none_when_every_quota_is_exhausted(self, tmp_path):
+        body = row("2026-08-02", "EU", "099003", limit="100", alloc="120",
+                   pct="120.0", bal="0")
+        published = write_history(tmp_path, body)
+        engine = get_engine(f"sqlite:///{tmp_path/'x.db'}")
+        etl.load(engine, published_dir=published)
+        with engine.connect() as c:
+            assert queries.summary_counts(c, LATEST)["fastest"] is None
+
+
+class TestSummaryExtras:
+
+    def test_counts_categories_per_region(self, sized):
+        """Rebar - 13 exists under both EU and UK and counts twice.
+
+        That matches the number of collapsible sections on the page, which is
+        what a reader who doubts the figure would count.
+        """
+        with sized.connect() as c:
+            s = queries.summary_counts(c, LATEST)
+        assert s["categories"] == 3
+        assert s["total"] == 3
+
+    def test_days_remaining_matches_the_snapshot_date(self, sized):
+        with sized.connect() as c:
+            s = queries.summary_counts(c, LATEST)
+        assert s["days_remaining"] == 59
+
+
+class TestOverviewFilteringAndSort:
+
+    def test_pressure_only_drops_calm_categories_whole(self, sized):
+        with sized.connect() as c:
+            all_groups = queries.categories_overview(c, LATEST)
+            pressed = queries.categories_overview(c, LATEST, pressure_only=True)
+        assert len(all_groups) == 3
+        assert {g["category"] for g in pressed} == {"Rebar - 13"}
+
+    def test_pressure_only_keeps_every_row_of_a_kept_category(self, sized):
+        """Unlike min_pct, which filters rows — the calm quotas inside a pressed
+        category are the context that makes the pressed one legible."""
+        with sized.connect() as c:
+            pressed = queries.categories_overview(c, LATEST, pressure_only=True)
+            rows = queries.categories_overview(c, LATEST, min_pct=100)
+        assert sum(g["count"] for g in pressed) == 2
+        assert sum(g["count"] for g in rows) == 1
+
+    def test_sort_by_name_is_alphabetical(self, sized):
+        with sized.connect() as c:
+            named = queries.categories_overview(c, LATEST, sort="name")
+        assert [g["category"] for g in named] == [
+            "Hot Rolled - 1", "Rebar - 13", "Rebar - 13"]
+
+    def test_default_sort_puts_the_exhausted_category_first(self, sized):
+        with sized.connect() as c:
+            default = queries.categories_overview(c, LATEST)
+        assert default[0]["region"] == "UK" and default[0]["exhausted"] == 1
+        assert default[-1]["category"] == "Hot Rolled - 1"
+
+    def test_unknown_sort_value_falls_back_to_the_default(self, sized):
+        with sized.connect() as c:
+            junk = queries.categories_overview(c, LATEST, sort="nonsense")
+            default = queries.categories_overview(c, LATEST)
+        assert [g["category"] for g in junk] == [g["category"] for g in default]
