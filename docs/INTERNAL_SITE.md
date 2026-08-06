@@ -15,9 +15,17 @@ usage, grouped by product category, with per-quota daily history.
 | | |
 |---|---|
 | **Built and tested** | ✅ 84 tests, running against the real 10,024-row history |
-| **Deployed to the server** | ⏳ Not yet — blocked on SSH access (see below) |
-| **Database** | SQLite today; SQL Server is a connection-string change |
-| **Reachable by researchers** | ⏳ Needs a decision + a firewall change |
+| **Code on the server** | ✅ Arrives by itself — the daily task runs `git pull --rebase` before it pushes |
+| **One-off setup done** | ⏳ Not yet — `pip install`, `--rebuild`, password file. **RDP is enough; SSH is not required** |
+| **Database** | SQLite — see below; SQL Server is a connection-string change |
+| **Reachable by researchers** | ⏳ Needs a decision, but **no firewall change** — 443 is already open |
+
+> **SSH being down does not block this.** `tools/server-daily-task.ps1` runs
+> `git pull --rebase origin main` before pushing, so anything merged to `main`
+> lands on the server at 05:43 the next morning with no action from anyone.
+> Until the extras are installed the ETL step logs a `WARN` each morning and the
+> publish carries on untouched — which is exactly what the non-fatal design is
+> for.
 
 ---
 
@@ -133,37 +141,95 @@ QUOTA_DB_URL=mssql+pyodbc://@localhost/MEPSQuota?driver=ODBC+Driver+17+for+SQL+S
 | Permission needed | none | ⚠️ ask the box owner |
 | Extra install | none | `pyodbc` + an ODBC driver |
 | Adequate at this volume? | **yes** — 358 rows/day, ~131k/year | yes |
+| Reachable from the internet | **no — local file** | ⚠️ **yes, port 1433 is open** |
 | Power BI / other consumers | no | **yes** |
-| Backed up by the existing job | no | yes |
+| Backed up by the existing job | not needed — see below | yes |
 
-**Recommendation: start on SQLite, move to SQL Server when the Power BI or
-shared-access case is real.** Moving is `--rebuild` against the new URL; no data
-is lost because the CSV is canonical. Starting on SQL Server means asking
-permission for something not yet needed.
+**Recommendation: SQLite, and not merely as a stopgap.** The deciding argument
+is exposure, not convenience: **SQL Server on this host listens on 1433 to the
+open internet.** Putting new data there widens what sits behind an
+internet-facing service on a host 13 months behind on patches. A SQLite file can
+only be opened by local processes.
+
+The usual objections do not survive contact with this project:
+
+- **Concurrency** — one writer (the 05:43 ETL), a few readers. In WAL mode
+  readers never block. This is SQLite's ideal workload, not a compromise.
+- **Backup** — normally the strongest argument for SQL Server, and here it
+  evaporates. The CSV is canonical and replicated to GitHub. Losing the database
+  file costs one `--rebuild`, under a minute.
+- **"Connected to SQL"** — the requirement was retaining daily snapshots for
+  historical comparison, not a particular product. SQLite *is* SQL.
+
+**The one thing that decides against it is Power BI.** The gateway is already on
+this server pointing at SQL Server and cannot read a SQLite file. The moment
+anyone wants quota data in Power BI alongside price data, SQL Server wins
+outright. **That is the trigger — not a date, and not a row count.** Migration
+is a connection-string change plus `--rebuild`; nothing is lost, because the CSV
+is canonical.
+
+> **Host-specific caveat.** Defender and Acronis run with zero exclusions and can
+> hold a handle on a file just after it is written. If the ETL ever fails with
+> `WinError 32` on the database file, that is the cause — not the code — and
+> re-running will succeed.
 
 ### 2. How researchers reach it
 
-This is the harder one, and it is genuinely blocked on infrastructure.
-
 The server is **standalone in `WORKGROUP`, not on `meps.local`** — there is no
 internal LAN path to it. Everyone, including researchers, reaches it over the
-internet. So "internal" here means *authenticated and IP-restricted*, not
-network-isolated. IIS already owns ports 80 and 443 with the live public API.
+internet. So "internal" here means *authenticated*, not network-isolated.
 
-| Option | Work | Who is needed |
+**These are two independent decisions**, and conflating them is what made this
+look harder than it is:
+
+#### (a) The network path
+
+Port **443 is already open in both firewalls** (verified 2026-08-05: it answers
+from an address that is not on the SSH allowlist). A route that reuses it needs
+**no firewall change at either layer**, which removes the IONOS account holder
+from the picture permanently.
+
+| Route | Cost | Who is needed |
 |---|---|---|
-| **A. New IIS site on a new port**, reverse-proxying to the Flask app on `127.0.0.1` | new port opened in **both** firewalls | ⚠️ **IONOS account holder** for the upstream firewall, plus the box owner |
-| **B. Host header on 443** under the existing IIS site | DNS record + certificate + editing a **production** site's config | box owner; touches the live API's IIS |
-| **C. SSH tunnel** (`ssh -L 8081:127.0.0.1:8081 …`) | none | nobody — works today |
+| **New IIS site on 443**, own hostname via SNI, reverse-proxy to Flask on loopback | URL Rewrite + ARR install **restarts IIS — seconds of downtime on the live API** — plus a DNS record and a certificate | box owner, with notice |
+| New port served directly by `waitress` | new port in **both** firewalls; TLS handled in Python | ⚠️ IONOS account holder, repeatedly |
+| Path under the existing hostname (`/quota`) | no DNS or certificate, but edits the **production** site's config | box owner; highest blast radius |
+| SSH tunnel | none | nobody — unusable for non-technical users |
 
-**C works right now and needs no permission**, but it is fine for one or two
-technical users and unreasonable for a researcher who just wants a bookmark.
+**Take the first.** A one-time, schedulable IIS restart buys permanent
+independence from the account holder, and adding a *new site* is far safer than
+editing the live one. Confirm the modules install without a **reboot** first —
+nothing requiring a reboot can go on this box.
 
-**A is the right destination.** It keeps the production site untouched and puts
-the tracker on its own port. It needs the IONOS account holder, who is the same
-person who had to open port 22 — so this is a known, previously-executed request.
+#### (b) Who is allowed in
 
-Until then the app binds to `127.0.0.1` by default, deliberately: this host
+| Mechanism | Constraint enforced | Works from home? | Effort |
+|---|---|---|---|
+| IP allowlist | *location* | ❌ no | low, then constant |
+| Password over HTTPS | *knows a secret* | ✅ yes | trivial — built |
+| **Client certificate (mTLS)** | ***the device*** | ✅ yes | one cert per desktop |
+| Entra/M365 SSO via outbound tunnel | *company identity* | ✅ yes | tenant admin + DNS |
+
+> **Do not IP-allowlist researchers.** They work hybrid — two days a week from
+> residential connections whose addresses change without warning. It recreates
+> the port-22 firewall treadmill, but for a dozen people instead of one.
+
+"Company desktop only, from any location" is buildable, and **client
+certificates are the mechanism**: IIS rejects a machine without one at the TLS
+handshake, before the request ever reaches Flask. Authentication inside the
+application can only reject requests the application has already parsed;
+authentication at the edge means unauthorised traffic never touches our code —
+which matters on a host 13 months behind on patches. The dependency is whether
+company desktops are Intune/GPO-managed, so IT can push the certificate
+centrally. **One question to IT decides this.**
+
+**Start with the password anyway.** The quota balances are *already public* —
+TARIC and the UK tariff publish them, and the TrueNorth site shows the same
+numbers to anyone. What is internal here is MEPS's framing, not the figures.
+Certificate infrastructure to protect public data is the wrong trade; ship with
+a password over HTTPS and add mTLS later if it is cheap.
+
+Until deployed the app binds to `127.0.0.1` by default, deliberately: this host
 already has SQL Server exposed to the open internet, and nothing here should
 widen that surface by accident.
 
@@ -226,6 +292,57 @@ committed data. They skip cleanly if the webapp extras are not installed, so
 - **No email or alerting.** The existing freshness watchdog already covers "did
   the data update", and a second alerting path would be a second thing to
   maintain.
+
+---
+
+## Measured against the reference site
+
+The colleague named a model: TrueNorth Engineering's *Free Steel Quota Tracker*
+(UK balances). Read 2026-08-05. It is more useful than the requirements list,
+because it shows what "good" looks like to him.
+
+The two hardest things to build, we already have: the **pace metric** (usage
+speed against elapsed time) and **status bands**. We also carry things it does
+not — it is UK-only, so no EU quotas, no awaiting-allocation, and no per-quota
+daily drill-down.
+
+| TrueNorth has | Status |
+|---|---|
+| Days remaining in the quarter, headline | ✅ built — masthead tile, measured from the data date |
+| **Fastest-burning quota line** | ✅ built — see the ranking note below |
+| Count of categories tracked | ✅ built — counted per `(region, category)`, so it equals the sections on the page |
+| One-click "under pressure" filter | ✅ built — `?pressure=1`, filters whole categories |
+| Sort toggle: most-used vs category order | ✅ built — `?sort=pressure\|name` |
+| Bands at 70 / 90 | ⏳ **ask** — we use 75 / 90 / 100; arbitrary either way, so match his mental model |
+| **Search by steel grade** (EN3B, 304, S355) | ⏳ **ask** — needs a grade→category map that is not in the source data |
+| 12-month import history, YoY, 3-month weighted average | ⏳ **ask** — HMRC/Eurostat trade data, a different source entirely |
+
+### "Burning fastest" is ranked by pace, not tonnage
+
+`pct_used / pct_elapsed`, so 2.0 means "consuming its allowance twice as fast as
+the quarter is passing". Ranking by tonnes per day was the obvious alternative
+and is useless: a 1.5 Mt line out-consumes a 20 kt line every single day while
+sitting nowhere near its own limit, so the answer would never change. The ratio
+is scale-free. Exhausted quotas are excluded — they score highest by
+construction, they have their own tile, and the question is which quota is
+*about to* close.
+
+> **Bands are computed on the value as displayed**, to one decimal — not on the
+> raw one. Found on real data: order 058627 sat at 99.99% (2.15 t left of
+> 17,093), so it printed "100.0%" while being banded critical. That put a row
+> reading 100.0% under a tile labelled "75-99% used", and made the
+> fastest-burning callout name a quota showing 100.0% in the same sentence as
+> "exhausted quotas are excluded". The rule is that a band must agree with the
+> number printed beside it.
+
+The grade search is the one genuinely new capability: TrueNorth maps engineering
+grades to quota categories, which is domain knowledge held by a person, not
+anything derivable from TARIC. Worth having only if researchers think in grades
+rather than category numbers.
+
+The import-history charts are probably part of what he meant by *"some of the
+information there is redundant"*, but that is worth confirming rather than
+guessing — trade-flow ingestion is a project, not a feature.
 
 ## Possible next steps, not started
 
