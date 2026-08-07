@@ -14,11 +14,11 @@ usage, grouped by product category, with per-quota daily history.
 
 | | |
 |---|---|
-| **Built and tested** | ✅ 84 tests, running against the real 10,024-row history |
+| **Built and tested** | ✅ 105 tests, verified against the real published history |
 | **Code on the server** | ✅ Arrives by itself — the daily task runs `git pull --rebase` before it pushes |
 | **One-off setup done** | ⏳ Not yet — `pip install`, `--rebuild`, password file. **RDP is enough; SSH is not required** |
-| **Database** | SQLite — see below; SQL Server is a connection-string change |
-| **Reachable by researchers** | ⏳ Needs a decision, but **no firewall change** — 443 is already open |
+| **Database** | SQLite today; **moving to SQL Server** — decided 2026-08-07, see below |
+| **Reachable by researchers** | Via **Power BI** once the report is built; the site routes below are superseded |
 
 > **SSH being down does not block this.** `tools/server-daily-task.ps1` runs
 > `git pull --rebase origin main` before pushing, so anything merged to `main`
@@ -141,15 +141,18 @@ QUOTA_DB_URL=mssql+pyodbc://@localhost/MEPSQuota?driver=ODBC+Driver+17+for+SQL+S
 | Permission needed | none | ⚠️ ask the box owner |
 | Extra install | none | `pyodbc` + an ODBC driver |
 | Adequate at this volume? | **yes** — 358 rows/day, ~131k/year | yes |
-| Reachable from the internet | **no — local file** | ⚠️ **yes, port 1433 is open** |
+| Coupled to the production instance | no | yes — shares it with the live API |
 | Power BI / other consumers | no | **yes** |
 | Backed up by the existing job | not needed — see below | yes |
 
-**Recommendation: SQLite, and not merely as a stopgap.** The deciding argument
-is exposure, not convenience: **SQL Server on this host listens on 1433 to the
-open internet.** Putting new data there widens what sits behind an
-internet-facing service on a host 13 months behind on patches. A SQLite file can
-only be opened by local processes.
+**Update 2026-08-07: SQL Server, at the instance owner's own request.** The
+original recommendation below was SQLite-first, with a real Power BI need named
+as the trigger for moving. That trigger has now fired — the colleague who runs
+the instance asked for the dashboard in Power BI and offered a database, which
+also settles the ask-first constraint, since he is the person to ask. See
+`SESSION_LOG.md` for the migration steps.
+
+The original reasoning, kept for the record:
 
 The usual objections do not survive contact with this project:
 
@@ -175,6 +178,10 @@ is canonical.
 
 ### 2. How researchers reach it
 
+> **Superseded 2026-08-07:** researchers will reach the data through **Power
+> BI** with their existing Microsoft accounts, so none of the routes below need
+> building. Kept for the record.
+
 The server is **standalone in `WORKGROUP`, not on `meps.local`** — there is no
 internal LAN path to it. Everyone, including researchers, reaches it over the
 internet. So "internal" here means *authenticated*, not network-isolated.
@@ -184,8 +191,8 @@ look harder than it is:
 
 #### (a) The network path
 
-Port **443 is already open in both firewalls** (verified 2026-08-05: it answers
-from an address that is not on the SSH allowlist). A route that reuses it needs
+Port **443 is already open in both firewalls** (verified 2026-08-05). A route
+that reuses it needs
 **no firewall change at either layer**, which removes the IONOS account holder
 from the picture permanently.
 
@@ -219,7 +226,7 @@ certificates are the mechanism**: IIS rejects a machine without one at the TLS
 handshake, before the request ever reaches Flask. Authentication inside the
 application can only reject requests the application has already parsed;
 authentication at the edge means unauthorised traffic never touches our code —
-which matters on a host 13 months behind on patches. The dependency is whether
+which matters on a production host. The dependency is whether
 company desktops are Intune/GPO-managed, so IT can push the certificate
 centrally. **One question to IT decides this.**
 
@@ -230,8 +237,8 @@ Certificate infrastructure to protect public data is the wrong trade; ship with
 a password over HTTPS and add mTLS later if it is cheap.
 
 Until deployed the app binds to `127.0.0.1` by default, deliberately: this host
-already has SQL Server exposed to the open internet, and nothing here should
-widen that surface by accident.
+runs production services, and nothing here should widen its surface by
+accident.
 
 ### Authentication
 

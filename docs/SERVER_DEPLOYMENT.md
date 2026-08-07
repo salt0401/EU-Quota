@@ -160,9 +160,8 @@ ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169
 powershell -ExecutionPolicy Bypass -File C:\DataScienceProject\EUQuota\tools\set-github-token.ps1
 ```
 
-**Why fine-grained and single-repo matters here.** This host is internet-facing,
-is over a year behind on patches, has SQL Server exposed on 1433, and is backed
-up by Acronis to storage MEPS does not control. A credential placed here should
+**Why fine-grained and single-repo matters here.** This host is internet-facing
+and is backed up by Acronis to storage MEPS does not control. A credential placed here should
 be assumed to be *reachable*. Scoped as above, the worst case is someone writing
 to one repository whose entire contents are already public — which is about as
 contained as a write credential gets.

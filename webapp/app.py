@@ -7,10 +7,10 @@ Internal only. This is deliberately NOT the customer-facing MEPS site.
     python -m webapp.app                      # http://127.0.0.1:8081
     python -m webapp.app --host 0.0.0.0       # only behind a firewall/proxy
 
-Binds to 127.0.0.1 by default on purpose. The host it runs on has SQL Server
-already exposed to the open internet, so nothing here should widen that surface
-by accident — see docs/INTERNAL_SITE.md for the three ways to let researchers
-reach it, and which of them needs the IONOS account holder.
+Binds to 127.0.0.1 by default on purpose. The host it runs on is a production
+server, and nothing here should widen its surface by accident. Researchers get
+this data through Power BI (see docs/INTERNAL_SITE.md); this site is a local
+diagnostics tool, not a deployment target.
 
 Server-rendered HTML with a small amount of vanilla JavaScript. No CDN, no npm,
 no build step: the site must still work in five years without anyone
