@@ -1,126 +1,172 @@
-# Session log — handover to the server (2026-08-07)
+# Session log — server session (2026-08-08)
 
-**Convention: this file is the *only* session log.** Each handover overwrites it;
-older logs are deleted, not archived — history lives in git. It exists because
-session context (decisions, in-flight threads, who is waiting on what) does not
-travel with the code, and the work is moving from a laptop session to a Claude
-Code session running directly on the company server.
+**Convention: this file is the *only* session log.** Each handover overwrites
+it; older logs are deleted, not archived — history lives in git. It exists
+because session context (decisions, in-flight threads, who is waiting on what)
+does not travel with the code.
 
 **This repository is public.** People and infrastructure are deliberately
 anonymised: colleagues appear by role, and there are no addresses, hostnames,
 ticket numbers or security details here. The person-to-role mapping arrives via
 the session kickoff prompt, not this file. Keep it that way in everything you
-commit — see *Conventions* at the bottom.
+commit — see *Conventions*.
 
 ---
 
-## 1. State at handover — all verified
+## 1. State at handover — all verified on the server
 
 | | |
 |---|---|
-| Daily task | ✅ Healthy and unattended — data commits present for every day through 2026-08-07, pushed at ~05:43 each morning |
-| Code on the server | ✅ Already current — the task's `git pull --rebase` step carried the webapp commits onto the server before this handover was written |
-| Test suites | ✅ 327 passed (222 `tests/` + 105 `webapp/tests/`) at commit `b89e195`; `beta/` has its own 45 |
-| Webapp | ✅ Built and verified against the real data locally; **not yet installed on the server** (see queue item 2) |
-| Database | SQLite (`data/quota_tracker.db`, gitignored) — SQL Server switch approved, waiting on the database being created (queue item 3) |
-| GitHub Actions | The freshness watchdog still runs there as the external heartbeat. Leave it — it is the "did data arrive today" check that does not depend on the server |
+| Daily task | ✅ Healthy — `LastTaskResult 0`, 0 missed runs, next run 06:40 local. **A break was found and fixed tonight, see §5** |
+| Interpreter | ✅ `venv\Scripts\python.exe` = Python 3.12.10. Bare `python` is 3.13.1 — not ours |
+| Test suites | ✅ **327** (222 `tests/` + 105 `webapp/tests/`) + **45** in `beta/`, all passing on the server |
+| Webapp | ✅ **Installed and running on the server.** Extras in the venv, database built, `waitress` serving `/` and `/healthz` on `127.0.0.1:8081` |
+| Database | SQLite at `data/quota_tracker.db` (gitignored), 11,814 rows / 33 days, matching `metadata.json` exactly |
+| Deployment guards | ✅ `tools\assert-inert.ps1 -PostCutover` → **exit 0, all 12 guards pass** |
+| GitHub Actions | The freshness watchdog still runs there as the external heartbeat. Leave it |
 
-Recent non-data commits: `b89e195` (overview features + banding fix),
-`a746bd1` (access/database analysis), `71d8fa2` (the webapp itself).
+**On the two clocks.** The trigger is **06:40 local**; the server runs
+`GMT Standard Time`, currently BST (UTC+1), and the logs stamp UTC — so a run
+starts `05:40:02Z` and commits `05:43:45Z`. Earlier notes calling this "the
+05:43 task" were quoting the UTC commit time. Same event, two clocks. Anything
+date-gated reasons from **the server's** clock, never another machine's.
 
 ---
 
-## 2. Decision of record: deliver the dashboard in Power BI
+## 2. Decision of record: ship the internal site first, SQL Server + Power BI after
 
-**2026-08-07.** The colleague who runs the SQL Server instance and the
-company's reporting asked for the dashboard to be delivered **in Power BI**
-rather than as a standalone website, to avoid parallel systems. Accepted — and
-it resolves two open questions at once:
+**2026-08-08, owner decision. This reverses the 2026-08-07 decision** that made
+Power BI the delivery mechanism and marked the Flask site superseded.
 
-- **The database question.** The tracker was built on SQLAlchemy Core so the
-  store is one connection string. The documented trigger for moving from SQLite
-  to SQL Server was "a real Power BI need"; it has now fired, and it fired from
-  the person whose permission the move needed. The CSV in `data/published/`
-  remains canonical; the database stays a rebuildable projection either way.
-- **The researcher-access question.** Power BI reaches researchers through
-  their existing Microsoft accounts. The entire IIS reverse-proxy plan in
-  `INTERNAL_SITE.md` — new site, DNS record, certificate, VPN-gated access,
-  shared password — is **superseded**. Nothing from it needs building.
+The destination has not changed — the *order* has. Building a Power BI report
+researchers find useful is slow while three content questions are still open
+with the research colleague; the site already exists, is tested, and runs on the
+server today. Put it in front of researchers, learn what they actually use, and
+let that be the specification for the report.
 
-**The Flask site (`webapp/app.py`) is demoted to a local diagnostics tool.**
-It keeps working against whichever database `QUOTA_DB_URL` points at and costs
-nothing to keep, but nothing researcher-facing depends on it, so do not deploy
-it behind IIS and do not spend effort polishing it.
+> ### ⚠️ This is sequencing, not cancellation
+> **The end state is still SQL Server as the store and Power BI as the
+> researcher-facing dashboard.** The reasons have not changed: the gateway is
+> already on this host, it cannot read SQLite, and quota data belongs alongside
+> price data. **Trigger for migrating:** researchers confirm the site is useful,
+> *or* the first request arrives for quota data alongside anything else in Power
+> BI — whichever comes first.
 
-What Power BI needs from our side, once the database exists: the `quota_daily`
-table already carries denormalised `quota_year`, `quota_quarter`,
-`quarter_start` and `day_in_quarter` columns precisely so report measures never
-have to re-derive the Jul–Jun quota calendar. The pace/fastest-burning logic in
-`webapp/queries.py` documents the intended measure definitions
-(`pct_used / pct_elapsed`, exhausted excluded, bands on the displayed value).
+**The objection, recorded honestly.** The instance owner asked for Power BI
+*specifically to avoid parallel systems*, and standing this site up builds the
+thing he asked to avoid. That is deferred, not answered. Two consequences, both
+load-bearing:
+
+1. **This site must not accumulate features that only exist here.** Anything
+   researchers come to depend on has to be reproducible as a Power BI measure.
+2. **The IIS work needs him anyway**, and it is a larger favour than creating a
+   database was — so be straight with him about what it is for.
+
+Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
 
 ---
 
 ## 3. Work queue, in order
 
-1. **Verify the environment before changing anything.** `git status` clean,
-   venv interpreter by full path (see `SERVER_DEPLOYMENT.md` — bare `python`
-   is NOT ours on this machine), both test suites green, latest daily log in
-   `data\logs\` shows a clean run.
-2. **Install the webapp extras and load the database.**
-   `<venv>\Scripts\python.exe -m pip install -r requirements-webapp.txt`, then
-   `<venv>\Scripts\python.exe -m webapp.etl --rebuild`. Until this is done the
-   daily task logs a WARN at its (deliberately non-fatal) ETL step; the next
-   05:43 run should then show the step succeeding. That log line is the
-   verification — no need to force a publish.
-3. **Stage the SQL Server switch so it is one action when the database
-   appears.** The instance owner is creating a database and a login for the
-   account the daily task runs under. Prepare, but do not execute: the ODBC
-   driver install (machine-wide → give notice first, though installs are
-   generally approved), `pyodbc` into the venv, the `QUOTA_DB_URL` value (see
-   `INTERNAL_SITE.md` for the shape), and a `--rebuild` against it. Migration
-   loses nothing — the CSV is canonical.
-4. **Power BI report.** Built in Power BI Desktop (not on this server) against
-   the new database through the already-installed gateway; scheduled refresh
-   ~06:30, after the 05:43 publish. Offer the instance owner either a finished
-   report or the table/measure definitions, his choice.
-5. **Process documentation for the company SharePoint** (being set up by the
-   same colleague): a top-level write-up — problem statement, plain-English
-   solution, architecture outline, where each piece runs. Distil from
-   `ARCHITECTURE.md`, `INTERNAL_SITE.md` and `SERVER_DEPLOYMENT.md`; do not
-   duplicate them, summarise them.
+1. **Set the site password.** `tools\set-site-password.ps1` (written this
+   session; prompts, no BOM, ACLs to SYSTEM/Administrators). **The site runs
+   unauthenticated until this is done** — acceptable only while it is bound to
+   `127.0.0.1`. This must happen *before* the IIS proxy exists, not after.
+2. **Ask the box owner for the IIS reverse proxy.** The complete ask is in
+   `INTERNAL_SITE.md` → *What to ask the box owner for*: URL Rewrite + ARR
+   (machine-wide, **restarts IIS**, so confirm no reboot is required and
+   schedule it), a DNS record, a certificate, and a new site on 443 via SNI
+   proxying to `127.0.0.1:8081`. **This is the only thing blocking researcher
+   access.** Everything on our side is ready.
+3. **Keep `waitress` running across a reboot.** A scheduled task with an
+   `At startup` trigger needs no new software. Not built yet.
+4. **Chase the research colleague's three questions** (§4) — they change what
+   gets built, and one of them (grade search) is the only genuinely new
+   capability the reference site has.
+5. **Migrate to SQL Server** when §2's trigger fires. Staged and cheap: the ODBC
+   driver is **already installed** (verified — no machine-wide install, no
+   notice needed), so it is `pip install pyodbc`, set `QUOTA_DB_URL`, `--rebuild`.
+6. **Power BI report**, built in Power BI Desktop (not on this server) against
+   the SQL Server database through the existing gateway; scheduled refresh
+   ~06:30, after the publish. Offer the instance owner either a finished report
+   or the table/measure definitions, his choice.
+7. **Process documentation for the company SharePoint**: problem statement,
+   plain-English solution, architecture outline, where each piece runs. Distil
+   from `ARCHITECTURE.md`, `INTERNAL_SITE.md`, `SERVER_DEPLOYMENT.md` — do not
+   duplicate them.
 
 ## 4. In-flight threads with people
 
-- **The IT colleague** (runs the SQL Server, the hosting provider's firewall
-  panel, and the backup/endpoint tooling): setting up the user's VPN access via
-  an IT ticket; creating the Power BI database and task-account login; building
-  the SharePoint documentation site. He has generally approved software
-  installs on this box.
-- **The research colleague** (owns dashboard content): three questions sent,
-  answers pending — (a) is search by *steel grade* wanted, and can he supply
-  the grade→category mapping, since it is not in the source data; (b) status
-  thresholds 70/90 (the reference site's) vs our current 75/90; (c) are the
-  reference site's import-history charts wanted eventually — different data
-  source entirely, a project not a feature.
-- **SSH from the user's laptop**: the home ISP rotates its address, which broke
-  the per-address allow rule. The Windows-side rule is updated; the upstream
-  (hosting-panel) rule is pending — the plan is to point it at the company
-  VPN's fixed egress address once the user's VPN works. **None of this blocks
-  server-side work any more**, since the session now runs on the server.
+- **The IT colleague / instance owner** (runs the SQL Server, the hosting
+  provider's firewall panel, the backup tooling): owes the Power BI database and
+  a login for the task account; is building the SharePoint site; has generally
+  approved software installs. **Now also the blocker on the IIS proxy** (queue
+  item 2). He is setting up the user's VPN access via an IT ticket.
+- **The research colleague** (owns dashboard content): three questions still
+  unanswered — (a) is search by *steel grade* wanted, and can he supply the
+  grade→category mapping, which is not in the source data; (b) status thresholds
+  70/90 (the reference site's) vs our 75/90/100; (c) are the reference site's
+  import-history charts wanted eventually — different data source, a project not
+  a feature.
+- **The user's VPN / SSH from the laptop**: an IT ticket, expected to progress
+  after a call the week of 2026-08-10. Its egress address is what gets
+  allowlisted for port 22. **This is the user's thread, not the agent's** — the
+  session runs on the server and is not blocked by it.
 
-## 5. Built this session (already committed and pushed)
+## 5. Done this session (2026-08-08, all committed)
 
-- Five overview features modelled on the reference tracker the research team
-  named: days-left-in-quarter tile, fastest-burning callout, category count,
-  `?pressure=1` category filter, `?sort=pressure|name` toggle.
-- **Banding fix found via the rendered page, not tests**: bands were computed
-  on raw percentages while the site prints one decimal, so a quota at 99.99%
-  displayed "100.0%" under a tile labelled "75–99% used". Bands now use the
-  displayed value; regression tests pin the boundary (99.99 → exhausted,
-  99.94 → critical). Lesson repeated from the pace bug: anything the *view*
-  computes needs a view-level check against the real render.
-- SSH outage diagnosed (dynamic ISP address, not a server change) — see §4.
+- **Environment verified** before anything changed (queue item 1 of the previous
+  handover): git clean, correct interpreter, suites green, daily log clean.
+- **Webapp installed and the database built** (previous queue item 2). Flask
+  3.1.3 + SQLAlchemy 2.0.51 into the venv, `webapp.etl --rebuild` → 11,814 rows
+  across 33 days, cross-checked against `metadata.json`. The incremental command
+  the daily task actually runs (`python -m webapp.etl`, no `--rebuild`) was also
+  exercised: exit 0, row count unchanged, confirming idempotency. `SYSTEM` has
+  `FullControl` on the database file, which matters because the task runs as
+  SYSTEM while it was created by Administrator.
+- **`waitress` added** and verified serving the real data. `python -m webapp.app`
+  is Flask's *development* server and is now documented as such.
+- **`tools\set-site-password.ps1` written**, mirroring `set-github-token.ps1`.
+- **Public-repo sanitisation.** The host address, hostname and SSH key name were
+  committed in eight files; all are now placeholders resolved by a local
+  uncommitted note beside the GitHub token. The worst instance was not a doc:
+  the freshness watchdog embedded the SSH command in the heredoc it posts as a
+  **GitHub issue body**, so every failure published the address publicly.
+- **Repo reorganised**, stale docs pruned, dangling references fixed. See the
+  commit message on `df4c7aa` for what moved and why.
+
+### ⚠️ The daily task was broken, and is fixed
+
+**`origin` had been changed to SSH** (`git@github.com:...`) at some point after
+yesterday's successful run — `.git/config` was modified at 00:24 local, and an
+SSH key appeared in the Administrator profile at 21:30 the evening before.
+
+The task runs as **`SYSTEM`, which has no private key** — only `known_hosts`.
+`ssh-agent` is Stopped and Disabled, and there is no `core.sshCommand` or
+`GIT_SSH_COMMAND` override. Simulating SYSTEM's environment reproduced it
+exactly:
+
+```
+git@github.com: Permission denied (publickey).
+EXIT CODE = 128
+```
+
+Tomorrow's 06:40 run would have scraped, uploaded the release assets (the REST
+API uses the token and is unaffected), committed — and then failed at
+`git pull --rebase`. The fallback on the next line has no `-AllowFailure`, so
+the script would have died **after committing and before pushing**, stranding
+the day's data locally and firing the watchdog at 09:00 UTC.
+
+**Fixed** by restoring the documented remote:
+
+```powershell
+git remote set-url origin https://github.com/salt0401/EU-Quota.git
+```
+
+Verified: anonymous fetch works, and `push --dry-run` with the token through
+`GIT_ASKPASS` returns exit 0. `assert-inert.ps1 -PostCutover` now passes all 12
+guards. **If SSH access from this box to GitHub is wanted, it must not be on
+`origin`** — use a second remote, or the task loses its credential path.
 
 ## 6. Server rules — non-negotiable
 
@@ -129,23 +175,31 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
 
 - **Never install anything that requires a reboot.** Check before running any
   installer.
-- **Give notice before machine-wide installs** (the ODBC driver qualifies);
-  per-project/venv installs are fine.
-- **Treat `MSSQLSERVER`, the IIS sites and the gateway as read-only** until
-  the instance owner has created our database — and even then, touch only ours.
-- **The 05:43 daily task is the business-critical path.** Test with inert runs
+- **Give notice before machine-wide installs**; per-project/venv installs are
+  fine. *(The ODBC driver turned out to be installed already, so the SQL Server
+  migration no longer needs a notice.)*
+- **Treat `MSSQLSERVER`, the IIS sites and the gateway as read-only** until the
+  instance owner has acted — and even then, touch only ours.
+- **The 06:40 daily task is the business-critical path.** Test with inert runs
   (`server-daily-task.ps1` without `-Push`); never leave it broken overnight.
-- **The server's clock is authoritative** for anything date-gated. Do not
-  reason from another machine's clock; earlier work found a laptop running
-  minutes fast, and only the server decides when its tasks fire.
+- **Never leave the working tree dirty overnight.** *(New, learned tonight.)*
+  The task runs `git pull --rebase`, which refuses outright with unstaged
+  changes — verified, exit 128, `cannot pull with rebase: You have unstaged
+  changes` — and the retry that follows is not fault-tolerant. The run would
+  commit and then fail before pushing. Commit or stash before you stop.
+- **`origin` must stay HTTPS.** *(New, see §5.)* The credential path is
+  `GIT_ASKPASS` + the token file, which is HTTPS-only, and SYSTEM has no SSH
+  key. `assert-inert.ps1` guards this — run it after touching git config.
+- **The server's clock is authoritative** for anything date-gated. Do not reason
+  from another machine's clock.
 - **Three Python installs coexist here and bare `python` is not ours.** Always
   the venv interpreter by full path.
 - **Antivirus races are a known failure mode**: intermittent
-  `PermissionError`/`WinError 32` on `os.replace`/rename of a file your own
-  code just wrote, succeeding on rerun ⇒ a scanner held the handle. Retry;
-  do not debug your own code first.
+  `PermissionError`/`WinError 32` on `os.replace`/rename of a file your own code
+  just wrote, succeeding on rerun ⇒ a scanner held the handle. Retry; do not
+  debug your own code first.
 - **Secrets live in `C:\DataScienceProject\_secrets\`**, outside every working
-  copy, never committed.
+  copy, never committed. That folder now also holds the server access note.
 
 ## 7. Conventions
 
@@ -154,16 +208,20 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
   server's security posture in committed files. If continuation context needs
   such details, they go in the session prompt or a local uncommitted note.
 - Documentation is **English only**.
-- The published CSV is **canonical**; every database is a rebuildable
-  projection of it. Nothing may make the publish depend on the database.
+- The published CSV is **canonical**; every database is a rebuildable projection
+  of it. Nothing may make the publish depend on the database.
 - Baseline the test suite before changing code; report honestly — anything not
   run is labelled UNVERIFIED, and failing tests are never weakened to pass.
+  Note that `webapp/tests` reporting "53 passed, 2 skipped" means the extras are
+  missing and half the suite did not run — it is not a smaller suite passing.
+- `docs/archive/` holds superseded material kept because it explains *why*
+  something is the way it is. Nothing there is maintained; if it contradicts a
+  document outside it, the outside document wins.
 - No destructive git (`reset --hard`, `checkout --`, `clean -f`) to escape a
   confusing state — stash or WIP-commit first.
 
 ## 8. What does not transfer automatically
 
-The laptop session's memory directory and user-level preference file do not
-travel with the repo. Their durable content is absorbed above (§6 clock rule,
-§4 role map, §7 conventions). Person-to-role names arrive in the kickoff
-prompt. If something seems missing, ask the user rather than guessing.
+Person-to-role names arrive in the kickoff prompt, not here. The durable content
+of any previous session's memory is absorbed above (§6 rules, §4 role map, §7
+conventions). If something seems missing, ask the user rather than guessing.
