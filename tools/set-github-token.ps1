@@ -7,7 +7,7 @@
 # token never appears in a command line, a shell history, a script, or a
 # transcript.
 #
-#   ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169
+#   ssh <server>   (details: C:\DataScienceProject\_secrets\server-access.md)
 #   powershell -ExecutionPolicy Bypass -File C:\DataScienceProject\EUQuota\tools\set-github-token.ps1
 #
 # Two encoding details that are easy to get wrong and fail confusingly:

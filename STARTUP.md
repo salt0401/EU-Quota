@@ -145,7 +145,7 @@ Run this before AND after any code change.
 ## 6. How the daily automation fits together
 
 ```
-MEPS company server, Task Scheduler 06:40 local  (WIN-RE1UH50A07U)
+MEPS company server, Task Scheduler 06:40 local
   tools/server-daily-task.ps1 -Push
     -> venv\Scripts\python.exe run.py --publish
     -> data/published/quota_history_<YEAR>.csv + metadata.json  (committed to

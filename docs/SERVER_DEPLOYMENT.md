@@ -16,11 +16,28 @@ covers only what is specific to this project.
 
 ---
 
+## Connection details
+
+**This repository is public, so it carries no host address, hostname or key
+name.** Commands below use placeholders:
+
+| Placeholder | Where the real value lives |
+|---|---|
+| `<server-host>` | `C:\DataScienceProject\_secrets\server-access.md` on the server |
+| `<server-address>` | same |
+| `<ssh-key>` | same |
+
+That note is a sibling of every working copy and cannot be committed by
+accident. It is the same convention as the GitHub token. If you are reading
+this on a machine that does not have it, ask the project owner.
+
+---
+
 ## At a glance
 
 | | |
 |---|---|
-| **Host** | `WIN-RE1UH50A07U` · `212.227.127.169` · Windows Server 2019 |
+| **Host** | `<server-host>` · Windows Server 2019 — address in the local access note, see *Connection details* below |
 | **Location** | `C:\DataScienceProject\EUQuota` — sibling of `MEPSWebsScrap`, per the server's layout convention |
 | **Interpreter** | `C:\DataScienceProject\EUQuota\venv\Scripts\python.exe` (Python **3.12.10**) |
 | **Scheduled task** | `MEPS EU Quota Daily Update`, daily **06:40 local**, runs as `SYSTEM` |
@@ -156,15 +173,14 @@ never lands in `.git/config`.
 Set or rotate it with:
 
 ```
-ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169
+ssh -i <ssh-key> Administrator@<server-address>
 powershell -ExecutionPolicy Bypass -File C:\DataScienceProject\EUQuota\tools\set-github-token.ps1
 ```
 
-**Why fine-grained and single-repo matters here.** This host is internet-facing
-and is backed up by Acronis to storage MEPS does not control. A credential placed here should
-be assumed to be *reachable*. Scoped as above, the worst case is someone writing
-to one repository whose entire contents are already public — which is about as
-contained as a write credential gets.
+**Why fine-grained and single-repo matters here.** A credential stored on a
+shared, backed-up host should be assumed to be *reachable*. Scoped as above, the
+worst case is someone writing to one repository whose entire contents are
+already public — which is about as contained as a write credential gets.
 
 **The run warns you before it expires.** GitHub returns the token's expiry on
 every authenticated response, so `publish_release_assets.py` reads it from a call
@@ -230,7 +246,7 @@ you can use a normal file manager. Verified 2026-08-02.
 
 | Option | Installs on the server? | Good for |
 |---|---|---|
-| **WinSCP** (recommended) | **No** | Two-pane drag-and-drop file manager, closest to Explorer. Point it at `212.227.127.169`, user `Administrator`, and the private key; it offers to convert the key to its own `.ppk` on first use |
+| **WinSCP** (recommended) | **No** | Two-pane drag-and-drop file manager, closest to Explorer. Point it at `<server-address>`, user `Administrator`, and the private key; it offers to convert the key to its own `.ppk` on first use |
 | **sshfs-win** + WinFsp | **No** | Mounts the folder as a **drive letter** in Windows Explorer — genuinely "just like a local folder". Both installs are on *your* machine |
 | **VS Code Remote-SSH** | ⚠️ **Yes** — a ~100 MB VS Code server component under the profile | Full file tree plus in-place editing and an integrated terminal. Convenient, but it *is* new software on a production host, so mention it if you use it |
 | **RDP** (`mstsc`) | No | The literal Windows desktop with File Explorer. Already available. ⚠️ The `Administrator` account is shared — a second sign-in **evicts your session** |
@@ -238,15 +254,15 @@ you can use a normal file manager. Verified 2026-08-02.
 Command-line SFTP works too. Note the **leading slash before the drive letter**:
 
 ```bash
-sftp -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169
+sftp -i <ssh-key> Administrator@<server-address>
 sftp> ls /C:/DataScienceProject/EUQuota
 ```
 
 A plain `ls C:/...` resolves against the home directory and fails confusingly
 with `"/C:/Users/Administrator/C:/..." not found`.
 
-**SMB / mapped network drives do not work** — ports 139 and 445 are listening
-but blocked upstream at IONOS, and that is not fixable from the server.
+**SMB / mapped network drives do not work** — blocked upstream by the hosting
+provider, and not fixable from the server.
 
 ---
 
@@ -316,13 +332,13 @@ on it while the problem persists, and closes it automatically on recovery.
 ## Triage
 
 ```bash
-ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 "Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'"
+ssh -i <ssh-key> Administrator@<server-address> "Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'"
 ```
 
 `LastTaskResult` of `0` means the script ran and succeeded. Then read the log:
 
 ```bash
-ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 "Get-Content C:\DataScienceProject\EUQuota\data\logs\server_$(date -u +%Y%m%d).log"
+ssh -i <ssh-key> Administrator@<server-address> "Get-Content C:\DataScienceProject\EUQuota\data\logs\server_$(date -u +%Y%m%d).log"
 ```
 
 | Symptom in the log | Cause | Fix |
@@ -338,15 +354,15 @@ ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 "Get-Content C:\Dat
 
 ### The antivirus failure signature
 
-Windows Defender real-time scanning **and** Acronis Active Protection both watch
-file writes on this host, with **no exclusions** (a standing owner decision —
-SQL Server runs here without exclusions too). The predicted symptom is an
+Two separate real-time file-scanning products watch writes on this host, and
+neither has a path exclusion for this project (a standing owner decision; other
+workloads on the box run the same way). The predicted symptom is an
 **intermittent** `PermissionError` / `WinError 32` on `os.replace`, `os.rename`
 or `shutil.move`, on a file this code just wrote, which **succeeds on an
 immediate re-run**.
 
-If you see that, do not start by suspecting the Python. Request a path exclusion
-for `C:\DataScienceProject` in both products, then re-test.
+If you see that, do not start by suspecting the Python. Ask the box owner for a
+path exclusion for `C:\DataScienceProject` in both products, then re-test.
 
 *(`src/publisher.py` already tolerates the most likely instance of this: a
 workbook locked by Excel is skipped with a warning rather than crashing the

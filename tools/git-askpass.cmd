@@ -8,5 +8,5 @@ REM
 REM Why this exists rather than putting the token in the remote URL or on a
 REM command line: arguments are visible in the process list to every account on
 REM this shared machine, and a token in .git/config would be captured by the
-REM Acronis backup along with the rest of the folder.
+REM host's backup job along with the rest of the folder.
 type "%EUQUOTA_TOKEN_FILE%"

@@ -16,16 +16,68 @@ usage, grouped by product category, with per-quota daily history.
 |---|---|
 | **Built and tested** | ✅ 105 tests, verified against the real published history |
 | **Code on the server** | ✅ Arrives by itself — the daily task runs `git pull --rebase` before it pushes |
-| **One-off setup done** | ⏳ Not yet — `pip install`, `--rebuild`, password file. **RDP is enough; SSH is not required** |
-| **Database** | SQLite today; **moving to SQL Server** — decided 2026-08-07, see below |
-| **Reachable by researchers** | Via **Power BI** once the report is built; the site routes below are superseded |
+| **One-off setup done** | ✅ **2026-08-08** — extras installed in the venv, database built (11,814 rows), ETL verified. Password file still outstanding |
+| **Database** | SQLite, on the server, loaded. SQL Server remains the **eventual** target — see *The database plan* |
+| **Reachable by researchers** | ⏳ Not yet — needs the IIS reverse proxy, which needs the box owner. This is the current blocker |
 
 > **SSH being down does not block this.** `tools/server-daily-task.ps1` runs
 > `git pull --rebase origin main` before pushing, so anything merged to `main`
-> lands on the server at 05:43 the next morning with no action from anyone.
-> Until the extras are installed the ETL step logs a `WARN` each morning and the
-> publish carries on untouched — which is exactly what the non-fatal design is
-> for.
+> lands on the server the next morning with no action from anyone.
+
+**Verified on the server, 2026-08-08:** `python -m webapp.app` serves `/` (195 KB
+of real HTML) and `/healthz` on `127.0.0.1:8081`, against 33 days of published
+history. What is missing is not the application — it is the route to it.
+
+---
+
+## Decision of record: ship this site first, move to SQL Server + Power BI after
+
+**2026-08-08, owner decision. This reverses the 2026-08-07 decision that made
+Power BI the delivery mechanism and marked this site superseded.**
+
+### What changed
+
+Nothing about the *destination* — it is the *order* that changed. Building a
+Power BI report that researchers actually find useful is slow: it needs the
+database created, the gateway pointed at it, measures written, and a report
+designed for people whose requirements are still three open questions. This
+site already exists, is tested, and runs on the server today.
+
+So: **put this in front of researchers first and learn what they use.** Whatever
+they actually reach for is the specification for the Power BI report — a far
+better specification than one written before anyone has seen the data.
+
+### ⚠️ This is a sequencing decision, not a cancellation
+
+**The end state is still SQL Server as the store and Power BI as the
+researcher-facing dashboard.** If you are reading this months later wondering
+why the tracker is a Flask app: it was a deliberate first step, and finishing
+the migration is outstanding work, not an abandoned idea. The reasons SQL Server
+wins have not changed — the gateway is already on this host, it cannot read
+SQLite, and quota data belongs alongside price data.
+
+**The trigger for migrating:** researchers confirm the site is useful, *or* the
+first request arrives for quota data alongside anything else in Power BI.
+Whichever comes first. Migration is a connection-string change plus
+`--rebuild`; nothing is lost, because the CSV is canonical.
+
+`SESSION_LOG.md` carries this in its work queue so it stays visible.
+
+### The objection, recorded honestly
+
+The instance owner asked for Power BI **specifically to avoid parallel
+systems**, and standing this site up builds the thing he asked to avoid. That
+concern is legitimate and is not dismissed — it is *deferred*, on the
+understanding that this site is an evaluation step with a defined end, not a
+second permanent system. Two consequences follow, and both are load-bearing:
+
+1. **Do not let this site accumulate features that only exist here.** Anything
+   researchers depend on has to be reproducible as a Power BI measure. The
+   pace/banding logic in `webapp/queries.py` is already written to be portable
+   for exactly this reason.
+2. **The IIS work needs him anyway** — see *How researchers reach it*. It is a
+   larger favour than creating a database was, so it is worth being straight
+   about what it is for.
 
 ---
 
@@ -118,7 +170,7 @@ itself, which replaces history rows per `(date, region)` rather than appending.
 
 ## Two things that need someone else
 
-### 1. Where the database lives
+### 1. Where the database lives — *the database plan*
 
 The colleague asked for SQL, and MEPS already runs **SQL Server 2022** on this
 host — which is also the natural home if researchers later want Power BI on this
@@ -145,18 +197,31 @@ QUOTA_DB_URL=mssql+pyodbc://@localhost/MEPSQuota?driver=ODBC+Driver+17+for+SQL+S
 | Power BI / other consumers | no | **yes** |
 | Backed up by the existing job | not needed — see below | yes |
 
-**Update 2026-08-07: SQL Server, at the instance owner's own request.** The
-original recommendation below was SQLite-first, with a real Power BI need named
-as the trigger for moving. That trigger has now fired — the colleague who runs
-the instance asked for the dashboard in Power BI and offered a database, which
-also settles the ask-first constraint, since he is the person to ask. See
-`SESSION_LOG.md` for the migration steps.
+**Update 2026-08-07: SQL Server, at the instance owner's own request.** He asked
+for the dashboard in Power BI and offered a database — which also settles the
+ask-first constraint, since he is the person to ask.
+
+**Update 2026-08-08: running on SQLite for now, SQL Server still the target.**
+The sequencing decision above puts the Flask site in front of researchers first,
+and that site runs perfectly well on SQLite at this volume. The permission is
+granted and the offer stands, so the migration is *staged and waiting*, not
+blocked:
+
+| Step | State |
+|---|---|
+| ODBC Driver 17 for SQL Server | ✅ **already installed** (64-bit) — verified 2026-08-08, so no machine-wide install and no notice needed |
+| `pyodbc` in the venv | ⏳ one `pip install`, venv-local |
+| Database + login for the task account | ⏳ the instance owner is creating these |
+| `QUOTA_DB_URL` → SQL Server | ⏳ one environment variable |
+| `--rebuild` against it | ⏳ under a minute |
+
+That is the whole migration. It stays one action whenever it is wanted.
 
 The original reasoning, kept for the record:
 
 The usual objections do not survive contact with this project:
 
-- **Concurrency** — one writer (the 05:43 ETL), a few readers. In WAL mode
+- **Concurrency** — one writer (the daily ETL), a few readers. In WAL mode
   readers never block. This is SQLite's ideal workload, not a compromise.
 - **Backup** — normally the strongest argument for SQL Server, and here it
   evaporates. The CSV is canonical and replicated to GitHub. Losing the database
@@ -171,16 +236,16 @@ outright. **That is the trigger — not a date, and not a row count.** Migration
 is a connection-string change plus `--rebuild`; nothing is lost, because the CSV
 is canonical.
 
-> **Host-specific caveat.** Defender and Acronis run with zero exclusions and can
-> hold a handle on a file just after it is written. If the ETL ever fails with
-> `WinError 32` on the database file, that is the cause — not the code — and
-> re-running will succeed.
+> **Host-specific caveat.** Two real-time file scanners run on this host with no
+> path exclusions, and either can hold a handle on a file just after it is
+> written. If the ETL ever fails with `WinError 32` on the database file, that is
+> the cause — not the code — and re-running will succeed.
 
 ### 2. How researchers reach it
 
-> **Superseded 2026-08-07:** researchers will reach the data through **Power
-> BI** with their existing Microsoft accounts, so none of the routes below need
-> building. Kept for the record.
+> **Reinstated 2026-08-08.** Briefly marked superseded when Power BI was to be
+> the delivery mechanism; the sequencing decision above puts this back on the
+> critical path. **This is now the one thing blocking researcher access.**
 
 The server is **standalone in `WORKGROUP`, not on `meps.local`** — there is no
 internal LAN path to it. Everyone, including researchers, reaches it over the
@@ -192,14 +257,13 @@ look harder than it is:
 #### (a) The network path
 
 Port **443 is already open in both firewalls** (verified 2026-08-05). A route
-that reuses it needs
-**no firewall change at either layer**, which removes the IONOS account holder
-from the picture permanently.
+that reuses it needs **no firewall change at either layer**, which removes the
+hosting provider's account holder from the picture permanently.
 
 | Route | Cost | Who is needed |
 |---|---|---|
 | **New IIS site on 443**, own hostname via SNI, reverse-proxy to Flask on loopback | URL Rewrite + ARR install **restarts IIS — seconds of downtime on the live API** — plus a DNS record and a certificate | box owner, with notice |
-| New port served directly by `waitress` | new port in **both** firewalls; TLS handled in Python | ⚠️ IONOS account holder, repeatedly |
+| New port served directly by `waitress` | new port in **both** firewalls; TLS handled in Python | ⚠️ hosting provider's account holder, repeatedly |
 | Path under the existing hostname (`/quota`) | no DNS or certificate, but edits the **production** site's config | box owner; highest blast radius |
 | SSH tunnel | none | nobody — unusable for non-technical users |
 
@@ -207,6 +271,26 @@ from the picture permanently.
 independence from the account holder, and adding a *new site* is far safer than
 editing the live one. Confirm the modules install without a **reboot** first —
 nothing requiring a reboot can go on this box.
+
+#### What to ask the box owner for
+
+This is the whole ask, in one place, so it can be forwarded as-is. **None of it
+has been done — IIS is untouched, per the read-only rule.**
+
+| # | Ask | Why it needs him | Risk |
+|---|---|---|---|
+| 1 | Install **URL Rewrite 2.1** and **Application Request Routing 3.0** | Machine-wide installs, and the install **restarts IIS** | Seconds of downtime on the live public API. Schedule it. **Confirm neither needs a reboot before starting** |
+| 2 | A **DNS record** for an internal hostname pointing at this host | He runs DNS | None |
+| 3 | A **TLS certificate** for that hostname, bound via SNI on 443 | Certificate issuance | None — SNI means the existing site keeps its own binding |
+| 4 | A **new IIS site** bound to that hostname, reverse-proxying to `127.0.0.1:8081` | IIS administration | Low — a *new* site, not an edit to the live one |
+
+Everything on our side of that boundary is ready: the app runs, the database is
+loaded, and `waitress` is installed to serve it properly rather than through
+Flask's development server.
+
+**Before it is exposed, the password file must exist** (see *Authentication*).
+The app runs unauthenticated without it and says so on startup — harmless on
+loopback, unacceptable on 443.
 
 #### (b) Who is allowed in
 
@@ -248,6 +332,22 @@ GitHub token — outside every working copy, ACL'd). If the file is absent the a
 runs **unauthenticated** and says so loudly on startup, which is fine bound to
 `127.0.0.1` and not fine otherwise.
 
+Set it with **`tools\set-site-password.ps1`**, which prompts (so the password
+never reaches a command line or a shell history), writes UTF-8 with no BOM, and
+ACLs the file to `SYSTEM` and `Administrators`. The BOM detail is not
+decoration: `app.py` reads the file as UTF-8, so a BOM would silently become
+part of the password and every login would fail with nothing useful in the log.
+Windows PowerShell 5.1 writes one by default from `Set-Content` and `Out-File`
+alike, which is why the script uses .NET directly — the same trap that
+`set-github-token.ps1` exists to avoid.
+
+**The password is read at startup, not per request.** Restart `waitress` after
+changing it.
+
+**Status 2026-08-08: not set.** The site therefore runs unauthenticated today,
+which is acceptable only because it is bound to `127.0.0.1`. This must be done
+before the IIS proxy is created, not after.
+
 A password makes the site useless to a passer-by; it is not a substitute for
 restricting who can reach the port. Do both, or neither is worth much.
 `/healthz` stays open so a monitor does not need the password.
@@ -256,29 +356,52 @@ restricting who can reach the port. Do both, or neither is worth much.
 
 ## Running it
 
+On the company server the first two steps are **already done** (2026-08-08).
+They are listed for a fresh machine, or after a venv rebuild:
+
 ```bash
 # one-off: install the extras into the venv (NOT in requirements-ci.txt)
 venv\Scripts\python.exe -m pip install -r requirements-webapp.txt
 
 # load the database from the published history
 venv\Scripts\python.exe -m webapp.etl --rebuild
+```
 
-# serve
-venv\Scripts\python.exe -m webapp.app                 # 127.0.0.1:8081
+Serving — **use `waitress`, not `python -m webapp.app`**. The latter is Flask's
+development server, which prints its own warning and is single-threaded:
+
+```bash
+venv\Scripts\waitress-serve.exe --listen=127.0.0.1:8081 --call webapp.app:create_app
+```
+
+`python -m webapp.app` stays useful for a quick look with `--no-auth`, and
+nothing else.
+
+Set the password before exposing it beyond loopback:
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools\set-site-password.ps1
 ```
 
 The daily task refreshes the database automatically after each publish. Pass
 `-SkipEtl` to `server-daily-task.ps1` to suppress that.
 
-For a real deployment, run it behind a WSGI server rather than Flask's
-development server — `waitress` is the pragmatic Windows choice
-(`waitress-serve --listen=127.0.0.1:8081 --call webapp.app:create_app`).
+> **Still to do before researchers can reach it:** the password file, the IIS
+> reverse proxy (see *What to ask the box owner for*), and something that keeps
+> `waitress` running across a reboot — a scheduled task with an `At startup`
+> trigger is the low-ceremony option and needs no new software, but it has not
+> been created yet.
 
 ### Tests
 
 ```bash
-python -m pytest webapp/tests -q          # expect 84 passed
+<venv>\Scripts\python.exe -m pytest webapp/tests -q     # expect 105 passed
 ```
+
+Both suites together are **327** (`tests` 222 + `webapp/tests` 105), verified on
+the server 2026-08-08. If `webapp/tests` reports "53 passed, 2 skipped" the
+extras are not installed — the two heaviest modules skip at collection, which is
+easy to misread as a smaller suite passing rather than most of it not running.
 
 They use synthetic CSVs and temporary SQLite files — no network, no server, no
 committed data. They skip cleanly if the webapp extras are not installed, so

@@ -313,7 +313,7 @@ data through a downloader instead of running the scraper. It ran on GitHub
 Actions from July 2026 until the move -- see `docs/SERVER_DEPLOYMENT.md`.
 
 ```
-MEPS company server, Task Scheduler 06:40 local  (WIN-RE1UH50A07U)
+MEPS company server, Task Scheduler 06:40 local
   tools/server-daily-task.ps1 -Push
     -> venv\Scripts\python.exe run.py --publish
      |- scrape EU (283) + UK (75)            src/scraper.py, src/uk_scraper.py

@@ -27,8 +27,8 @@ Balance Remaining = balance - awaiting_allocation
 ## Automated Daily Updates (MEPS company server)
 
 Since August 2026 the scraping runs automatically every morning on the **MEPS
-company server** (`WIN-RE1UH50A07U`), scheduled task **MEPS EU Quota Daily
-Update** at 06:40 local — nobody needs to run the scraper by hand. It ran on
+company server**, scheduled task **MEPS EU Quota Daily Update** at 06:40
+local — nobody needs to run the scraper by hand. It ran on
 GitHub Actions from July 2026 until the move; see
 [docs/SERVER_DEPLOYMENT.md](docs/SERVER_DEPLOYMENT.md).
 

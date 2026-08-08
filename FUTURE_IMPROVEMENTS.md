@@ -20,8 +20,8 @@ the environment they will run in.
 
 ## 0. Company-server migration — DONE (2026-08-02)
 
-The daily scrape now runs on `WIN-RE1UH50A07U` under Windows Task Scheduler at
-06:40 local, publishing to the same repository and the same `latest-data`
+The daily scrape now runs on the MEPS company server under Windows Task
+Scheduler at 06:40 local, publishing to the same repository and the same `latest-data`
 release. Colleagues' downloaders were not touched and did not need to be.
 
 - **Why:** the company server is a standing requirement for MEPS data projects.

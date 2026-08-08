@@ -17,8 +17,8 @@ name: Daily quota update
 # idempotent per (date, region) so the DATA cannot corrupt, but one run fails
 # noisily and the release assets may end up from the losing run.
 #
-#     ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 \
-#       "Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'"
+#     ssh <server>  "Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'"
+#     (connection details: C:\DataScienceProject\_secrets\server-access.md)
 #
 # To hand the schedule back to GitHub permanently, disable the server task
 # FIRST, confirm it is disabled, then uncomment the schedule below.

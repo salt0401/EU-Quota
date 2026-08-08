@@ -13,13 +13,22 @@
 Flask>=3.0,<4
 SQLAlchemy>=2.0,<3
 
+# Production WSGI server. Flask's built-in server prints "do not use this in a
+# production deployment" for good reason: it is single-threaded and has no
+# hardening. waitress is the pragmatic Windows choice (no compilation, no
+# fork/uwsgi assumptions) and is what serves the site behind the IIS reverse
+# proxy:
+#
+#   <venv>\Scripts\waitress-serve.exe --listen=127.0.0.1:8081 --call webapp.app:create_app
+waitress>=3.0,<4
+
 # --- SQL Server only -------------------------------------------------------
 # Not installed by default. SQLite needs nothing extra and is a perfectly
 # adequate store at this volume (358 rows/day, ~131k rows/year).
 #
-# Install this ONLY if pointing QUOTA_DB_URL at SQL Server, and note it needs
-# the "ODBC Driver 17/18 for SQL Server" present on the machine — which is a
-# separate install on the company server and therefore something to give
-# notice about. See docs/INTERNAL_SITE.md.
+# Install this ONLY if pointing QUOTA_DB_URL at SQL Server. It needs the
+# "ODBC Driver 17/18 for SQL Server" on the machine — verified present
+# (Driver 17, 64-bit) on the company server 2026-08-08, so no machine-wide
+# install and no installation notice are required. See docs/INTERNAL_SITE.md.
 #
 # pyodbc>=5.0,<6
