@@ -105,10 +105,16 @@ automatically from the MEPS template (EU and UK sheets). Failed scrapes are
 excluded from this report, with a console warning listing the affected order
 numbers.
 
-### 3.3 Historical Snapshot
-**File:** `data/snapshots/snapshot_YYYYMMDD_HHMMSS.xlsx`
+### 3.3 Daily History
+**File:** `data/published/quota_history_<YEAR>.csv` (canonical, git-tracked)
 
-Timestamped snapshot for trend analysis.
+One row per quota per day — 358 rows added each morning — and the permanent
+record for trend analysis. Rows are replaced per `(date, region)` rather than
+appended, so re-running a day converges instead of duplicating.
+
+> **Superseded:** timestamped workbooks in `data/snapshots/` filled this role
+> until v2.10.0. That folder is no longer written; anything reading it will find
+> nothing.
 
 ---
 

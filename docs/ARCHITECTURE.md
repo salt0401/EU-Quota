@@ -50,7 +50,7 @@
 │                   │   │ ├─uk_scraper.py   │   │   ├─uk_raw.xlsx   │
 │                   │   │ ├─data_processor  │   │   └─MEPS.xlsx     │
 │                   │   │ ├─excel_generator │   │                   │
-│                   │   │ └─utils.py        │   │ data/snapshots/   │
+│                   │   │ └─utils.py        │   │ data/published/   │
 └───────────────────┘   └───────────────────┘   └───────────────────┘
 ```
 
@@ -380,9 +380,9 @@ New files in this layer: `.github/workflows/daily-quota-update.yml`,
 ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
 │                     beta/ — EXPERIMENTAL (isolated)                          │
 │                                                                             │
-│   from beta.forecasting import load_all_snapshots                           │
+│   from beta.forecasting import load_history                                 │
 │                                                                             │
-│   Reads: data/snapshots/snapshot_*.xlsx  (read-only)                        │
+│   Reads: data/published/quota_history_<YEAR>.csv  (read-only)               │
 │   Dependencies: beta/requirements.txt                                       │
 │                                                                             │
 │   - Lives in separate top-level directory                                   │
@@ -391,8 +391,14 @@ New files in this layer: `.github/workflows/daily-quota-update.yml`,
 └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
 ```
 
-The only shared touchpoint is `data/snapshots/` — the main pipeline writes snapshots,
-the beta forecasting module reads them. No code dependency exists between the two.
+The only shared touchpoint is `data/published/quota_history_<YEAR>.csv` — the
+main pipeline writes it, the beta forecasting module reads it. No code
+dependency exists between the two.
+
+> **Superseded:** `data/snapshots/` was the shared touchpoint until v2.10.0,
+> when the login-triggered local snapshot was deleted. Nothing writes that
+> folder now; `load_all_snapshots()` remains in `beta/` as a legacy entry point
+> but has no input. Use `load_history()`.
 
 ## Folder Purpose Summary
 

@@ -143,7 +143,8 @@ EU Quota/
 │   │   ├── quota_urls.xlsx        # EU quota list to track (283 quotas)
 │   │   ├── uk_quota_urls.xlsx     # UK quota list to track (75 quotas)
 │   │   └── archive/               # Old safeguard inputs (pre-July 2026)
-│   ├── 0702NewData/               # Reference data for the July 2026 regimes
+│   ├── reference/                 # Source material, not runtime inputs
+│   │   └── regime-2026-07/        # Extracts from the July 2026 regulations
 │   ├── output/                    # Output by date
 │   │   └── YYYY-MM-DD/            # Dated folders
 │   ├── published/                 # What the downloader fetches (history + metadata)

@@ -185,11 +185,11 @@ January-2027 regulation renewal.
 | In a fresh clone | NOT in a clone (gitignored / generated) |
 |---|---|
 | all `src/`, `run.py`, `download.py`, `build/` | `dist/` (both exes) |
-| `data/input/` (the quota lists) + template | `data/output/`, `data/snapshots/`, `data/logs/` |
+| `data/input/` (the quota lists) + template | `data/output/`, `data/logs/`, `data/quota_tracker.db` |
 | `data/published/quota_history_<YEAR>.csv` + `metadata.json` | `data/published/*.xlsx` (they're release assets) |
 | all docs, tests, `requirements*.txt` | `__pycache__/`, `.venv/`, `*.spec` |
 
-Reference extractions from the regulations are in `data/0702NewData/`.
+Reference extractions from the regulations are in `data/reference/regime-2026-07/`.
 
 ---
 
@@ -197,10 +197,13 @@ Reference extractions from the regulations are in `data/0702NewData/`.
 
 They do NOT live in this file — this file is onboarding only. See
 `FUTURE_IMPROVEMENTS.md` (repo root) for the tracked list with status and
-decisions, and `docs/SESSION_LOG_2026-07.md` for the narrative of how the
-current system was built (what changed, why, and where to pick up). Colleague-facing questions (e.g. the UK authorised-use quotas)
-are flagged in `PROJECT_STATUS.html`; operational procedures (quarter turn,
-January-2027 regulation renewal) are in `docs/DAILY_UPDATE_RUNBOOK.md`.
+decisions, and `docs/SESSION_LOG.md` for the current session handover (what is
+in flight, who is waiting on what, and the server rules). That log is
+**overwritten each handover** — the narrative of how the system was built lives
+in git history, not in a file. Colleague-facing material is in
+`PROJECT_STATUS.html`; operational procedures (quarter turn, January-2027
+regulation renewal) are in `docs/DAILY_UPDATE_RUNBOOK.md`; superseded decisions
+that still explain something are in `docs/archive/`.
 
 ---
 

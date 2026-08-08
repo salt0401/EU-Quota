@@ -3,12 +3,13 @@
 The tracked list of open questions and deferred work, with status and dated
 decisions. (`STARTUP.md` is onboarding-only and deliberately does not carry
 these; colleague-facing questions are flagged in `PROJECT_STATUS.html`;
-the build narrative is in `docs/SESSION_LOG_2026-07.md`.)
+current session state is in `docs/SESSION_LOG.md`, which is overwritten each
+handover — the narrative of how the project was built lives in git history.)
 
-**Automation health, 2026-08-02:** 28 consecutive unattended days
-(2026-07-06 → 2026-08-02), 10,024 history rows, zero failed scrapes, no gaps.
-The last 27 came from GitHub Actions; 2026-08-02 is the first from the company
-server.
+**Automation health, 2026-08-07:** 33 consecutive unattended days
+(2026-07-06 → 2026-08-07), 11,814 history rows, zero failed scrapes, no gaps.
+The first 27 came from GitHub Actions; every run from 2026-08-02 is from the
+company server.
 
 **Host change, 2026-08-02:** the daily run moved from GitHub Actions to the MEPS
 company server. See `docs/SERVER_DEPLOYMENT.md`. Nothing in the list below
@@ -41,17 +42,20 @@ release. Colleagues' downloaders were not touched and did not need to be.
 
 ---
 
-## 1. UK Category-1 "authorised use" quotas — DECISION PENDING (colleague)
+## 1. UK Category-1 "authorised use" quotas — SETTLED BY PRACTICE (2026-08-08)
 
 Whether the tracker should keep the three authorised-use quotas
 (order numbers 058673/058674/058675, ~5x the ordinary Category 1 volume)
 that sit outside Tables 3 & 4 of the DBT notice.
 
-- **Status:** currently INCLUDED (three extra rows on the UK tab).
-- **Where it's raised:** flagged for colleagues in `PROJECT_STATUS.html`
-  ("One decision for Friday") — to be raised at the run-through.
-- **If the answer is "strict Tables 3 & 4 only":** revert steps are in
-  `DECISION_NEEDED_UK_authorised_use.txt` (repo root).
+- **Status: INCLUDED, and treated as settled.** They have been in every daily
+  run since 2026-07-06 — the 75 UK count depends on them — and no one has asked
+  for their removal in the month since the question was raised. Recording it as
+  decided rather than leaving it "pending" indefinitely; if the answer ever
+  changes, the revert steps are in
+  `docs/archive/DECISION_NEEDED_UK_authorised_use.txt`.
+- **Worth keeping in mind:** they are most of the true UK hot-rolled headroom,
+  so excluding them would make the UK picture misleading, not merely narrower.
 
 ## 1b. PROJECT_STATUS.html — REFRESHED 2026-08-02
 
@@ -114,7 +118,7 @@ A renewal act is expected around January 2027 and may change order numbers.
   with a "N/M quotas failed to scrape" publish refusal (it will not publish
   nonsense). Rebuild `data/input/quota_urls.xlsx` from the new act — the
   extraction approach is documented by the scripts referenced in
-  `data/0702NewData/` and the repo history.
+  `data/reference/regime-2026-07/` and the repo history.
 
 ## 4. Prophet forecasting (beta/) — DEFERRED UNTIL ENOUGH DATA
 

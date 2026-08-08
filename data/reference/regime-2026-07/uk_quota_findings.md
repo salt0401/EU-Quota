@@ -32,7 +32,7 @@ Status: FOUND_FULL. The colleague's lost hyperlink is the GOV.UK notice below; T
 - `uk_quotas_table3.csv` — Table 3 verbatim (72 rows: Category, Country or residual, Annual quota, Q1–Q4 tonnes).
 - `uk_quotas_table4.csv` — Table 4 verbatim (72 rows: Category, Origin country/territory/residual, Order Number with leading zero).
 - `uk_quotas.csv` — combined, sorted by order number: category_code, category_name, country, order_number, annual_quota_t, q1_jul_sep_t, q2_oct_dec_t, q3_jan_mar_t, q4_apr_jun_t (thousands separators removed).
-- `uk_measure.html` / `uk_measure_text.txt` — raw page snapshot and extracted text (includes full commodity-code lists per category).
+- `uk_measure.html` / `uk_measure_text.txt` — raw page snapshot and extracted text (includes full commodity-code lists per category). **Never committed** — they were working files for the extraction above and are not in this repository. Re-fetch from the DBT notice if the commodity-code lists are needed again.
 
 ## Category names (from the notice)
 1 non-alloy and other alloy hot-rolled sheets and strips (authorised-use measure also in place); 4 metallic coated sheets; 5 organic coated sheets; 6 tin mill products; 7 non-alloy and other alloy quarto plates; 12A alloy merchant bars and light sections; 12B non-alloy merchant bars and light sections; 13 rebars; 14 stainless bars and light sections; 15 stainless wire rod; 16 non-alloy and other alloy wire rod; 17 angles, shapes and sections of iron or non-alloy steel; 19 railway material; 20 gas pipes; 21 hollow sections; 25A large welded tubes (1); 25B large welded tubes (2); 26 other welded tubes; 27 non-alloy and other alloy cold finished bars; 28 non-alloy wire.

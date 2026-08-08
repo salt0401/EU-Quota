@@ -1,202 +1,102 @@
-# EU Quota Scraper - TODO List
+# EU Quota Scraper — open work
 
-## Priority 1: Completed
-- [x] Fix MEPS calculation formulas
-- [x] Create dated output folders (YYYY-MM-DD)
-- [x] Auto-detect quota period dates
-- [x] Generate basic MEPS report
+Only **open** items live here. Completed work is not a checklist — it is in
+`CHANGELOG.md` and git history, and a page of ticked boxes buries the two or
+three things that actually need doing.
 
-## Priority 2: Completed
-- [x] Make EU output 100% match MEPS template
-  - [x] Add slicers for Country and Quota Category (Fixed: Jan 2026 - using string-based XML manipulation)
-  - [x] Match exact column widths and formatting
-  - [x] Match header styles and colors
-  - [x] Add explanatory text sections
-  - [x] Preserve MEPS logo image
+Pruned 2026-08-08: former Priorities 1–4 (MEPS report formatting, UK support,
+the deleted login-triggered scheduler) were entirely `[x]`, superseded, or
+described files that no longer exist.
 
-## Priority 3: UK Support (Completed)
+---
 
-> **Superseded (1 July 2026):** The order numbers and category list below describe
-> the old UK steel safeguard, which expired 30 June 2026. The current UK steel
-> trade measure uses order numbers `058600`-`058671` (20 categories, Table 4 of
-> the DBT notice) plus Category-1 authorised-use quotas `058673`/`058674`/`058675`
-> — 75 quotas total. See `data/0702NewData/uk_quota_findings.md` and
-> `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py`. Section kept as a historical
-> record of the completed work.
-
-### Research Completed (Jan 2026)
-
-**UK Data Source Verified:**
-- Website: UK Integrated Online Tariff (HMRC)
-- URL: `https://www.trade-tariff.service.gov.uk/quota_search?order_number={ORDER_NUMBER}`
-- Data updated: Daily (excluding weekends and bank holidays)
-- Units: **Kilograms** (must convert to Tonnes for MEPS report)
-- Order numbers: 6 digits starting with "058" (e.g., 058001, 058006 — old safeguard; now 058600+)
-
-**UK Categories (17 total):**
-| Category | Name |
-|----------|------|
-| 1A | Non-alloy hot-rolled sheet |
-| 1B | Other alloy hot-rolled sheet |
-| 4 | Metallic coated sheet |
-| 5 | Organic coated sheet |
-| 6 | Tin mill products |
-| 7 | Quarto plates |
-| 12A | Alloy merchant bars |
-| 12B | Non-alloy merchant bars |
-| 13 | Rebar |
-| 16 | Wire rod |
-| 17 | Angles/shapes/sections |
-| 19 | Railway material |
-| 20 | Gas pipe |
-| 21 | Hollow section |
-| 25A | Large welded tube (1) |
-| 25B | Large welded tube (2) |
-| 26 | Other welded tube |
-
-### 2026 Q1 Order Number Updates (Jan 2026)
-
-**Invalid order numbers replaced:**
-- `058003` (Category 1B) → `058110`, `058111`, `058112` (3 sub-quotas)
-- `058019` (Rebars All others) → `058020`
-
-**New individual country quotas for Rebars:**
-- `058130` - Algeria*
-- `058131` - Egypt*
-- `058133` - New Zealand*
-- `058134` - Norway*
-- `058136` - Vietnam*
-
-### Files Created/Updated
-
-- [x] `src/uk_scraper.py` - Full implementation with order numbers reference (updated 2026-01-25)
-- [x] `src/config.py` - UK_BASE_URL and UK_QUOTA_FIELDS added
-- [x] `src/__init__.py` - UKQuotaScraper exported
-- [x] `data/input/uk_quota_urls.xlsx` - Created with EU-matching format (updated 2026-01-25)
-- [x] `dev/scripts/update_uk_input.py` - Script to regenerate UK input file *(removed in v2.5.0; update the input workbook manually)*
-
-### Completed Tasks
-
-- [x] UK input file created matching EU format exactly
-- [x] UK scraper implementation complete
-- [x] Excel generator handles UK data
-- [x] All order numbers validated against UK website
-- [x] Template quota limits fetched from live data
-
-## Priority 4: Auto-Scheduling — REMOVED (v2.10.0, 2026-08-02)
-
-> The login-triggered local snapshot (`daily_snapshot.py`,
-> `src/snapshot_scheduler.py`, `setup_scheduler.bat`, `remove_scheduler.bat`)
-> **has been deleted**. It only fired when somebody signed into Windows, which
-> never happens on an unattended server, and the daily publish supersedes it.
->
-> Daily collection now runs as the **`MEPS EU Quota Daily Update`** scheduled
-> task on the MEPS company server (06:40 local), recording every quota every day
-> in `data/published/quota_history_<YEAR>.csv`. See `docs/SERVER_DEPLOYMENT.md`.
->
-> The task list that was here described those four deleted files; it has been
-> removed rather than left as a checklist of things that no longer exist.
-
-## Priority 5: Prophet Time-Series Forecasting [EXPERIMENTAL — DEFERRED]
-
-> **Decision (2026-07-07, reconciled 2026-08-02):** Phase 2 becomes technically
-> possible at **30 new-regime days (~2026-08-04)** — that is `MIN_PROPHET_DAYS`
-> in the code. The original "a few months / October–November" wording was a
-> judgement about wanting more than the bare minimum before trusting a forecast,
-> not a different threshold. **Starting Phase 2 is an owner decision, not a
-> date.** Tracked in `FUTURE_IMPROVEMENTS.md` §4.
-
-> Forecasting lives in `beta/forecasting/` — a completely separate top-level
-> directory with zero imports from/to `src/`. Changes in beta/ cannot break
-> the main scraping + MEPS report pipeline.
-
-### Phase 1: Data Loader (Completed — Feb 2026)
-
-- [x] `beta/forecasting/data_loader.py` — 5 public functions
-  - `load_all_snapshots()` — glob + merge + deduplicate snapshots
-  - `get_quota_time_series()` — extract per-quota `{ds, y}` for Prophet
-  - `get_all_quota_ids()` — list unique quota identifiers
-  - `get_snapshot_summary()` — count, date range, `prophet_ready` flag
-  - `prepare_prophet_df()` — add `cap`/`floor` for logistic growth
-- [x] `beta/forecasting/__init__.py` — public API exports
-- [x] `beta/tests/test_forecasting_data_loader.py` — 30 unit tests passing
-- [x] `beta/requirements.txt` — separated from core requirements
-
-### Phase 2: Preprocessing + Baseline Models (Pending)
-
-- [ ] Accumulate 30+ daily observations **from the new regime** — **28/30 as of
-      2026-08-02**, on track for ~2026-08-04. Use `load_history()`, not the
-      removed snapshot files.
-- [ ] `preprocessor.py` — rolling features, seasonality flags, outlier detection
-- [ ] `simple_models.py` — naive, moving average, linear trend baselines
-- [x] **Regime boundary guard**: implemented as `REGIME_START` in
-      `data_loader.py`; `load_history()` filters to it by default. Models must
-      never train across 1 July 2026.
-      The old safeguard (189 EU quotas) ended 30 June 2026; the new regime
-      (283 EU quotas, different order numbers and volumes) started 1 July 2026.
-      Pre-July and post-July series are different quota populations — filter
-      snapshots to a single regime before fitting.
-
-### Phase 3: Prophet Models (Pending)
-
-- [ ] Build Prophet model for quota depletion forecasting
-- [ ] Generate "days to exhaustion" predictions per quota
-- [ ] Cross-validation and accuracy evaluation
-- [ ] Add forecasting visualizations
-
-### Current Data Status
-
-> **DONE (2026-08-02):** `beta/forecasting/data_loader.py` now reads the
-> published history via **`load_history()`** — the old `load_all_snapshots()`
-> pointed at `data/snapshots/`, which nothing writes any more. The new loader
-> maps the CSV onto the same column names, so `get_quota_time_series()`,
-> `get_all_quota_ids()`, `get_snapshot_summary()` and `prepare_prophet_df()`
-> all work unchanged. It drops `scrape_status != 'ok'` rows (a failed scrape is
-> a missing observation, not a zero) and filters to `REGIME_START` by default.
-
-| Item | Value (measured 2026-08-02) |
-|------|-------|
-| History days collected (CSV) | **28** new-regime days, 2026-07-06 → 2026-08-02 |
-| Gaps | **0** |
-| Failed scrapes in history | **0** |
-| Rows | 10,024 (358/day: 283 EU + 75 UK) |
-| Legacy snapshots | **none** — the two tracked pre-July-2026 workbooks were deleted in v2.10.0 |
-| Prophet ready | **No** — 28 of 30 days |
-| Est. ready date | **~2026-08-04** (2 more days) |
-
-Refresh these numbers with:
-
-```bash
-python -c "from beta.forecasting import load_history, get_snapshot_summary; print(get_snapshot_summary(load_history()))"
-```
-
-## Priority 6: New-Regime Maintenance (Open)
+## 1. New-regime maintenance — RECURRING, the important one
 
 The EU/UK quota systems changed on 1 July 2026 (EU: Regulation (EU) 2026/1384 +
 Implementing Regulation (EU) 2026/1457; UK: steel trade measure under the
-Taxation (Cross-Border Trade) Act 2018). Recurring/upcoming tasks:
+Taxation (Cross-Border Trade) Act 2018).
 
-- [ ] **1 Oct 2026 quarter turn**: update the `Current Quarter` column in
+- [ ] **1 Oct 2026 — quarter turn.** Update the `Current Quarter` column in
       `data/input/quota_urls.xlsx` and `data/input/uk_quota_urls.xlsx` to
-      `2026-10-01`, and update the UK `Template Quota Limit` column to the
-      Oct-Dec tonnages (`q2_oct_dec_t` in `data/0702NewData/uk_quotas.csv`).
-      Repeat each quarter (`q3_jan_mar_t` on 1 Jan, `q4_apr_jun_t` on 1 Apr).
-- [ ] **Jan 2027**: Implementing Regulation (EU) 2026/1457 defines the EU quotas
-      only for 1 Jul - 31 Dec 2026; renewal expected January 2027. Check the new
-      IR and update `data/input/quota_urls.xlsx` if order numbers/volumes change.
+      `2026-10-01`, and the UK `Template Quota Limit` column to the Oct–Dec
+      tonnages (`q2_oct_dec_t` in
+      `data/reference/regime-2026-07/uk_quotas.csv`).
+      **Repeat every quarter** — `q3_jan_mar_t` on 1 Jan, `q4_apr_jun_t` on
+      1 Apr. Procedure in `docs/DAILY_UPDATE_RUNBOOK.md`.
+- [ ] **Jan 2027 — EU regulation renewal.** IR (EU) 2026/1457 defines the EU
+      quotas only for 1 Jul – 31 Dec 2026; a renewal act is expected around
+      January 2027. Check the new IR and rebuild `data/input/quota_urls.xlsx`
+      if order numbers or volumes change. No preparatory work — the 2026-07-07
+      decision is to adapt when it is published.
+      **Expected symptom if it lands unnoticed:** the daily run fails loudly
+      with an "N/M quotas failed to scrape" publish refusal. It will not
+      publish nonsense.
 - [ ] Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py` **only** if HMRC
-      changes order numbers (they are not expected to rotate quarterly under the
-      new measure).
-- [x] `beta/` forecasting: the 1 July 2026 regime boundary is enforced by
-      `REGIME_START` in `data_loader.py` (see Priority 5).
+      changes order numbers. They are not expected to rotate quarterly under
+      the new measure.
+
+## 2. Internal tracker site — IN PROGRESS
+
+The sequencing decision of 2026-08-08 puts this ahead of Power BI. Full detail
+in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
+
+- [x] Webapp extras installed on the server, database built (2026-08-08)
+- [x] `waitress` installed and verified serving the real data
+- [ ] **Set the site password** — `tools\set-site-password.ps1`. Must happen
+      before the site is reachable from anything but loopback
+- [ ] **IIS reverse proxy** — needs the box owner; see *What to ask the box
+      owner for* in `docs/INTERNAL_SITE.md`. **This is the blocker**
+- [ ] Keep `waitress` running across a reboot (scheduled task, `At startup`)
+- [ ] **Migrate to SQL Server** once researchers confirm the site is useful —
+      deferred, **not cancelled**
+
+## 3. Questions out with the research colleague
+
+Answers pending; each changes what gets built.
+
+- [ ] **Search by steel grade** (EN3B, 304, S355) — needs a grade→category map
+      that is not in the source data. Domain knowledge held by a person, and
+      the one genuinely new capability the reference site has
+- [ ] **Status thresholds** — the reference site uses 70/90, we use 75/90/100.
+      Arbitrary either way, so match his mental model
+- [ ] **Import-history charts** (12-month, YoY, 3-month weighted average) —
+      HMRC/Eurostat trade data, a different source entirely. A project rather
+      than a feature
+
+## 4. Prophet forecasting (`beta/`) — DEFERRED
+
+Phase 1 (data loader) is done. Phase 2 became *technically* possible at 30
+new-regime days (~2026-08-04; 33 days as of 2026-08-07) — `MIN_PROPHET_DAYS` in
+the code. **Starting Phase 2 is an owner decision, not a date**, and more
+history still makes it better. Tracked in `FUTURE_IMPROVEMENTS.md` §4.
+
+- [ ] `preprocessor.py` — rolling features, seasonality flags, outlier detection
+- [ ] `simple_models.py` — naive, moving average, linear trend baselines
+- [ ] Phase 3: Prophet models, days-to-exhaustion, cross-validation
+
+`beta/` is a separate top-level directory with zero imports from/to `src/`.
+Changes there cannot break the pipeline.
+
+> **Regime boundary — already enforced.** `REGIME_START` in
+> `beta/forecasting/data_loader.py` filters to 1 July 2026 by default. The old
+> safeguard (189 EU quotas) and the new regime (283, different order numbers and
+> volumes) are different quota populations; a model must never train across the
+> boundary. Use `load_history()` — `load_all_snapshots()` is legacy and its
+> input folder is no longer written.
+
+Refresh the history figures with:
+
+```bash
+venv\Scripts\python.exe -c "from beta.forecasting import load_history, get_snapshot_summary; print(get_snapshot_summary(load_history()))"
+```
+
+---
 
 ## Notes
 
-- EU scraping: ~1-2 minutes for 283 quotas (fast HTTP)
-- UK scraping: ~30 seconds for 75 quotas (API)
-- Combined runtime: ~2-3 minutes
-- **Main pipeline focus**: Correct data + correct format in `meps_customer_template.xlsx`
-- **Forecasting**: Experimental, completely independent of main pipeline
+- EU scraping ~1–2 min (283 quotas), UK ~30 s (75 quotas), ~3 min combined
+- **Main pipeline focus:** correct data, correct format in
+  `meps_customer_template.xlsx`
+- **Forecasting:** experimental, completely independent of the main pipeline
 
----
-*Last updated: 02-Aug-2026*
+*Last updated: 08-Aug-2026*

@@ -103,7 +103,7 @@ same run. The next run is clean. No action needed.
    and the publish gate blocks genuinely stale data — but update it anyway.
 2. `data/input/uk_quota_urls.xlsx` — set `Current Quarter` and update
    `Template Quota Limit` to the new quarter's tonnages from
-   `data/0702NewData/uk_quotas.csv` (columns `q1_jul_sep_t` … `q4_apr_jun_t`).
+   `data/reference/regime-2026-07/uk_quotas.csv` (columns `q1_jul_sep_t` … `q4_apr_jun_t`).
 3. Push; the next daily run picks the changes up.
 
 ## January 2027
@@ -111,5 +111,5 @@ same run. The next run is clean. No action needed.
 Implementing Regulation (EU) 2026/1457 applies 1 July – 31 December 2026.
 Expect a renewal act around January 2027 — order numbers may change, which
 surfaces here as the *"N/M quotas failed"* publish refusal. Rebuild the EU
-input workbook from the new act (the `data/0702NewData/` extraction scripts
+input workbook from the new act (the `data/reference/regime-2026-07/` extraction scripts
 in the repo history show how the current one was built).

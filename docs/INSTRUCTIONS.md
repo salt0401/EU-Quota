@@ -28,10 +28,12 @@ EU Quota/
 │   │   ├── quota_urls.xlsx        # EU quota list to scrape (283 quotas)
 │   │   ├── uk_quota_urls.xlsx     # UK quota list to scrape (75 quotas)
 │   │   └── archive/               # Old safeguard-era input files (pre-July 2026)
-│   ├── 0702NewData/               # Reference data from the 1 July 2026 regulations
+│   ├── reference/                 # Source material, not runtime inputs
+│   │   └── regime-2026-07/        # Extracts from the 1 July 2026 regulations
 │   ├── output/                    # Output files by date
 │   │   └── YYYY-MM-DD/            # Dated folders
-│   └── snapshots/                 # Historical snapshots
+│   ├── published/                 # Canonical history + metadata (git-tracked)
+│   └── logs/                      # Daily server-run logs
 │
 ├── templates/                     # TEMPLATES - Excel templates
 │   ├── meps_customer_template.xlsx  # MEPS template with slicers
@@ -195,7 +197,7 @@ At the start of each new quarter (1 January, 1 April, 1 July, 1 October):
    (`data/input/quota_urls.xlsx` and `data/input/uk_quota_urls.xlsx`)
    to the new quarter start date
 2. Update the `Template Quota Limit` column in `data/input/uk_quota_urls.xlsx`
-   to that quarter's tonnage, taken from `data/0702NewData/uk_quotas.csv`
+   to that quarter's tonnage, taken from `data/reference/regime-2026-07/uk_quotas.csv`
    (columns `q1_jul_sep_t` through `q4_apr_jun_t`)
 3. Update `UK_QUOTA_ORDER_NUMBERS` in `src/uk_scraper.py` only if HMRC
    changes the order numbers
