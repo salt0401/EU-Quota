@@ -72,12 +72,12 @@ jobs:
           cat > /tmp/watchdog-body.md <<'EOF'
           The freshness watchdog found: __DETAIL__
 
-          The daily scrape runs on the MEPS company server (`WIN-RE1UH50A07U`), scheduled task **MEPS EU Quota Daily Update** at 06:40 local. Nothing on that host alerts, which is why this check exists.
+          The daily scrape runs on the MEPS company server, scheduled task **MEPS EU Quota Daily Update** at 06:40 local. Nothing on that host alerts, which is why this check exists.
 
           **Triage, in order:**
 
-          1. Check the task result:
-             `ssh -i ~/.ssh/meps_vps_ed25519 Administrator@212.227.127.169 "Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'"`
+          1. Check the task result over SSH (connection details are in the local access note, not this public repo):
+             `Get-ScheduledTaskInfo -TaskName 'MEPS EU Quota Daily Update'`
              `LastTaskResult` of `0` means the script ran and succeeded.
           2. Read the run log on the server:
              `C:\DataScienceProject\EUQuota\data\logs\server_<YYYYMMDD>.log`
