@@ -17,7 +17,9 @@ commit — see *Conventions*.
 
 | | |
 |---|---|
-| Daily task | ✅ Healthy — `LastTaskResult 0`, 0 missed runs, next run 06:40 local. **A break was found and fixed tonight, see §5** |
+| Daily task | ⚠️ **Two consecutive runs failed (08-08, 08-09), both now resolved or understood — see §5.** Publishing is current again as of 2026-08-09 |
+| Published data | ✅ `data_date 2026-08-09`, 12,172 rows, 283 EU / 75 UK, live at origin |
+| History integrity | ⚠️ **One permanent gap: 2026-08-08.** 34 days present, 2026-07-06 → 2026-08-09. Not recoverable — the sources publish *current* balances only |
 | Interpreter | ✅ `venv\Scripts\python.exe` = Python 3.12.10. Bare `python` is 3.13.1 — not ours |
 | Test suites | ✅ **327** (222 `tests/` + 105 `webapp/tests/`) + **45** in `beta/`, all passing on the server |
 | Webapp | ✅ **Installed and running on the server.** Extras in the venv, database built, `waitress` serving `/` and `/healthz` on `127.0.0.1:8081` |
@@ -68,6 +70,13 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
 
 ## 3. Work queue, in order
 
+0. **Find out why the retry policy did not fire on 2026-08-08** (§5). The task
+   is configured to restart twice at 20-minute intervals specifically to absorb
+   the transient source failure that cost a day of history, and the log shows a
+   single run start. Until this is understood, every transient network blip is
+   a permanent one-day hole. Cheapest check: watch `Get-ScheduledTaskInfo`
+   after the next failure, and confirm what Task Scheduler treats as a
+   restartable "failure" for an action that exits non-zero.
 1. **Set the site password.** `tools\set-site-password.ps1` (written this
    session; prompts, no BOM, ACLs to SYSTEM/Administrators). **The site runs
    unauthenticated until this is done** — acceptable only while it is bound to
@@ -188,10 +197,67 @@ the day's data locally and firing the watchdog at 09:00 UTC.
 git remote set-url origin https://github.com/salt0401/EU-Quota.git
 ```
 
-Verified: anonymous fetch works, and `push --dry-run` with the token through
-`GIT_ASKPASS` returns exit 0. `assert-inert.ps1 -PostCutover` now passes all 12
-guards. **If SSH access from this box to GitHub is wanted, it must not be on
-`origin`** — use a second remote, or the task loses its credential path.
+That fix held and was confirmed in production: the 2026-08-09 run reached
+`https://github.com/...` with the PAT, which is exactly the path it was supposed
+to take.
+
+### Incident, 2026-08-08 — source timeouts, one permanent day lost
+
+262 of 283 EU quotas failed with `Read timed out` against `ec.europa.eu`; UK was
+fine at 75/75. The publish gate refused, correctly:
+
+```
+RuntimeError: Refusing to publish: 262/283 EU quotas failed to scrape
+```
+
+**This is the guard working**, not a bug — publishing 21 of 283 quotas would
+have filed a day that looks like mass quota expiry. The cause was transient; the
+next day scraped cleanly.
+
+**2026-08-08 is therefore a permanent hole in the history.** TARIC and the UK
+tariff publish *current* balances, so that day cannot be re-scraped. Partial
+output survives on disk in `data/output/2026-08-08/` (21 EU + 75 UK).
+**Recommendation: leave the gap.** Backfilling a 96-row day into a 358-row
+series would make 262 quotas look like they vanished for a day, which is worse
+than an honest absence — anything consuming the history should treat a missing
+date as missing, not as zero.
+
+> **Follow-up worth taking: the retry policy did not visibly fire.** The task is
+> configured `RestartCount=2`, `RestartInterval=PT20M`, and
+> `SERVER_DEPLOYMENT.md` describes it as "retries twice, twenty minutes apart" —
+> existing precisely to absorb a transient network failure like this one. The
+> 2026-08-08 log contains **one** run start, not three. Either the restarts did
+> not happen or they left no trace. Worth understanding, because had they fired,
+> this day would probably have been saved.
+
+### Incident, 2026-08-09 — push rejected for workflow scope (self-inflicted)
+
+The scrape was clean; the push was rejected outright:
+
+```
+! [remote rejected] main -> main (refusing to allow a Personal Access Token to
+  create or update workflow `.github/workflows/daily-quota-update.yml`
+  without `workflow` scope)
+```
+
+**Cause: the sanitisation commit edited two files under `.github/workflows/`.**
+The task's PAT is deliberately `Contents: Read and write` and nothing else, so
+GitHub refused the whole push — including the data commit behind it. Colleagues
+served 2026-08-07 data for two days.
+
+**Resolved.** The workflow sanitisation was re-applied and pushed over SSH from
+the Administrator account, so the remote and working copy now match; the task's
+own pushes only ever stage `data/published/`, so the PAT is sufficient again.
+Verified: `git diff origin/main -- .github/` is empty, and `data_date
+2026-08-09` is live at origin.
+
+Two lessons, both now in §6:
+
+- **`git push --dry-run` cannot prove a push will be accepted.** It exercises
+  connectivity and authentication; the workflow-scope rule is enforced
+  server-side during the real ref update. A dry-run returned exit 0 before this
+  failure.
+- **Pushing by hand proves nothing about the task.** See the rule below.
 
 ## 6. Server rules — non-negotiable
 
@@ -212,9 +278,27 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
   changes — verified, exit 128, `cannot pull with rebase: You have unstaged
   changes` — and the retry that follows is not fault-tolerant. The run would
   commit and then fail before pushing. Commit or stash before you stop.
-- **`origin` must stay HTTPS.** *(New, see §5.)* The credential path is
-  `GIT_ASKPASS` + the token file, which is HTTPS-only, and SYSTEM has no SSH
-  key. `assert-inert.ps1` guards this — run it after touching git config.
+- **`origin` must stay HTTPS.** *(See §5.)* The credential path is `GIT_ASKPASS`
+  + the token file, which is HTTPS-only, and SYSTEM has no SSH key.
+  `assert-inert.ps1` guards this — run it after touching git config.
+- **Never commit a change under `.github/workflows/` from this machine's
+  automation path.** *(New, 2026-08-09.)* The task's PAT has `Contents` only, by
+  design, and GitHub rejects an entire push that modifies a workflow file
+  without `workflow` scope — taking the day's data commit down with it. If a
+  workflow genuinely must change, push it separately from the Administrator
+  account (which goes over SSH, see below) and confirm the remote matches the
+  working copy afterwards.
+- **A successful manual push proves nothing about the scheduled task.**
+  *(New, 2026-08-09.)* `C:\Users\Administrator\.gitconfig` carries
+  `url."git@github.com:".insteadOf = https://github.com/`, so interactive
+  pushes from that account are silently rewritten to **SSH** and authenticate
+  with `id_ed25519`, bypassing the PAT and its scope limits entirely. SYSTEM has
+  no such config and uses HTTPS + PAT. **Two accounts, two protocols, two
+  credentials, same remote.** Verify the task's path by reading its log the next
+  morning, not by pushing by hand.
+- **`git push --dry-run` is not proof.** *(New, 2026-08-09.)* It validates
+  connectivity and auth, not server-side policy such as the workflow-scope rule.
+  It returned 0 immediately before the push that was rejected.
 - **The server's clock is authoritative** for anything date-gated. Do not reason
   from another machine's clock.
 - **Three Python installs coexist here and bare `python` is not ours.** Always
