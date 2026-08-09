@@ -88,8 +88,31 @@ if ($PostCutover) {
 }
 
 # --- the repository -------------------------------------------------------
-$origin = & git -C $ProjectRoot remote get-url origin
-Check "origin points at GitHub" ($origin -eq "https://github.com/salt0401/EU-Quota.git") "(is: $origin)"
+# Read the STORED url, not the effective one. `git remote get-url` applies
+# url.<base>.insteadOf rewriting from the *calling account's* global config,
+# and the Administrator profile on this host rewrites https://github.com/ to
+# git@github.com:. The scheduled task runs as SYSTEM, which has no such rule
+# and no SSH key, so what matters is the raw value in .git/config -- that is
+# the url SYSTEM will use with GIT_ASKPASS and the token.
+#
+# Checking the effective url here made this guard FAIL for an Administrator
+# running it by hand while the task's own path was perfectly fine. A guard that
+# cries wolf gets ignored, which is worse than no guard.
+$origin = & git -C $ProjectRoot config --get remote.origin.url
+Check "origin points at GitHub over https" ($origin -eq "https://github.com/salt0401/EU-Quota.git") "(stored: $origin)"
+
+# Not a failure -- but if a rewrite is active for whoever is running this, say
+# so, because it means THIS account pushes over a different transport with a
+# different credential than the task does. A manual push succeeding proves
+# nothing about the task in that case.
+$rewrite = & git -C $ProjectRoot config --get-regexp "^url\..*\.insteadof$" 2>$null
+if ($rewrite) {
+    "NOTE  a url.insteadOf rewrite is active for this account:"
+    $rewrite | ForEach-Object { "        $_" }
+    $effective = & git -C $ProjectRoot remote get-url origin
+    "        origin resolves to: $effective"
+    "        SYSTEM has no such rule, so the task still uses the stored https url."
+}
 
 $dirty = & git -C $ProjectRoot status --porcelain
 Check "working tree is clean" ([string]::IsNullOrWhiteSpace($dirty -join "")) "($(($dirty | Measure-Object).Count) changed)"
