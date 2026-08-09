@@ -50,18 +50,38 @@ in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
 - [ ] **Migrate to SQL Server** once researchers confirm the site is useful —
       deferred, **not cancelled**
 
-## 3. Questions out with the research colleague
+## 3. Content questions — ANSWERED 2026-08-08
 
-Answers pending; each changes what gets built.
+All three are closed. Two removed work; the third added a requirement.
 
-- [ ] **Search by steel grade** (EN3B, 304, S355) — needs a grade→category map
-      that is not in the source data. Domain knowledge held by a person, and
-      the one genuinely new capability the reference site has
-- [ ] **Status thresholds** — the reference site uses 70/90, we use 75/90/100.
-      Arbitrary either way, so match his mental model
-- [ ] **Import-history charts** (12-month, YoY, 3-month weighted average) —
-      HMRC/Eurostat trade data, a different source entirely. A project rather
-      than a feature
+- [x] **Search by steel grade** — **not wanted.** The research team thinks in
+      the broader categories. No grade→category map needed
+- [x] **Import-history charts** — **not wanted.** The team already receives
+      historical trade data by another route. Trade-flow ingestion is off the
+      roadmap
+- [x] **Status thresholds** — **keep 75 / 90 / 100**, confirmed
+
+### New work this created
+
+**90% is an operational threshold, not a colour.** Past it, imports against that
+quota go through a different customs process — so it is a state change in
+someone's job, not a shade in a legend. None of this is built yet:
+
+- [ ] **Count of quotas at or above 90%** as a masthead tile, alongside the
+      exhausted count
+- [ ] **"Crossed 90% on `<date>`"** per quota — computable exactly from the
+      daily history, and something the reference site cannot do at all
+- [ ] **Filter for ≥90%**, which is more useful than `?pressure=1` filtering
+      whole categories
+- [ ] Any Power BI port must land the 90% boundary **identically**, rounding
+      rule included — otherwise the two systems disagree about whether a
+      customs process applies
+
+### Sizing
+
+**~15 users** (research + analysis teams). A single shared password is thin for
+that many — no per-person revocation — but adequate for the evaluation. Also the
+number to check Power BI licence coverage against.
 
 ## 4. Prophet forecasting (`beta/`) — DEFERRED
 

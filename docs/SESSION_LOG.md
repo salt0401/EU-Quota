@@ -72,25 +72,34 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
    session; prompts, no BOM, ACLs to SYSTEM/Administrators). **The site runs
    unauthenticated until this is done** — acceptable only while it is bound to
    `127.0.0.1`. This must happen *before* the IIS proxy exists, not after.
-2. **Ask the box owner for the IIS reverse proxy.** The complete ask is in
-   `INTERNAL_SITE.md` → *What to ask the box owner for*: URL Rewrite + ARR
-   (machine-wide, **restarts IIS**, so confirm no reboot is required and
-   schedule it), a DNS record, a certificate, and a new site on 443 via SNI
-   proxying to `127.0.0.1:8081`. **This is the only thing blocking researcher
-   access.** Everything on our side is ready.
-3. **Keep `waitress` running across a reboot.** A scheduled task with an
+2. **Reply to the instance owner** — he asked a direct question and is waiting.
+   Two things in one message: (a) what the Power BI complications actually are
+   (feasible; needs the SQL Server database first, licence coverage for ~15
+   users, one modelling trap around the 90% boundary, and slower iteration
+   during the exploratory phase — which is the argument for site-first);
+   (b) **the end-of-life question in §4.** Do not commission the IIS work
+   before (b) is answered.
+3. **Then ask for the IIS reverse proxy**, if (b) says the host has a future.
+   The complete ask is in `INTERNAL_SITE.md` → *What to ask the box owner for*:
+   URL Rewrite + ARR (machine-wide, **restarts IIS**, so confirm no reboot is
+   required and schedule it), a DNS record, a certificate, and a new site on 443
+   via SNI proxying to `127.0.0.1:8081`. **This is the only thing blocking
+   researcher access.** Everything on our side is ready.
+4. **Build the 90% work** (`TODO.md` §3): a masthead count of quotas at or above
+   90%, a "crossed 90% on `<date>`" per quota, and a ≥90% filter. This is now
+   the highest-value *content* work, because 90% turns out to trigger a
+   different customs process — and the crossing date is something the reference
+   site cannot produce at all, since it keeps no history.
+5. **Keep `waitress` running across a reboot.** A scheduled task with an
    `At startup` trigger needs no new software. Not built yet.
-4. **Chase the research colleague's three questions** (§4) — they change what
-   gets built, and one of them (grade search) is the only genuinely new
-   capability the reference site has.
-5. **Migrate to SQL Server** when §2's trigger fires. Staged and cheap: the ODBC
+6. **Migrate to SQL Server** when §2's trigger fires. Staged and cheap: the ODBC
    driver is **already installed** (verified — no machine-wide install, no
    notice needed), so it is `pip install pyodbc`, set `QUOTA_DB_URL`, `--rebuild`.
-6. **Power BI report**, built in Power BI Desktop (not on this server) against
+7. **Power BI report**, built in Power BI Desktop (not on this server) against
    the SQL Server database through the existing gateway; scheduled refresh
    ~06:30, after the publish. Offer the instance owner either a finished report
    or the table/measure definitions, his choice.
-7. **Process documentation for the company SharePoint**: problem statement,
+8. **Process documentation for the company SharePoint**: problem statement,
    plain-English solution, architecture outline, where each piece runs. Distil
    from `ARCHITECTURE.md`, `INTERNAL_SITE.md`, `SERVER_DEPLOYMENT.md` — do not
    duplicate them.
@@ -102,12 +111,28 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
   a login for the task account; is building the SharePoint site; has generally
   approved software installs. **Now also the blocker on the IIS proxy** (queue
   item 2). He is setting up the user's VPN access via an IT ticket.
-- **The research colleague** (owns dashboard content): three questions still
-  unanswered — (a) is search by *steel grade* wanted, and can he supply the
-  grade→category mapping, which is not in the source data; (b) status thresholds
-  70/90 (the reference site's) vs our 75/90/100; (c) are the reference site's
-  import-history charts wanted eventually — different data source, a project not
-  a feature.
+  **2026-08-08:** accepted the site-first plan — *"Happy to go with your
+  solution"* — while restating a preference for Power BI to avoid parallel
+  systems, and asking directly what the complications of Power BI would be.
+  **Two things are owed to him:** that answer, and a resolution of the
+  end-of-life question below.
+
+- **OPEN QUESTION — is this host being replaced?** The research colleague wrote,
+  of hosting the site, *"this is reaching end of life soon so will be replaced
+  in the next few months."* **Which machine he means is not established** — this
+  host, or a separate on-premises internal server. He is not IT, so ask the
+  instance owner, who owns the hardware. **Resolve before commissioning the IIS
+  work**: if it is this host, that work buys a few months and the deployment
+  inherits a migration, whereas Power BI Service would survive a server
+  replacement with only the gateway and database to re-home.
+- **The research colleague** (owns dashboard content): **all three questions
+  answered 2026-08-08.** Grade search — not wanted, the team thinks in the
+  broader categories. Import-history charts — not wanted, they receive trade
+  data by another route (a fourth colleague is arranging that access).
+  Thresholds — keep 75/90/100, **and 90% turns out to trigger a different
+  customs process**, so it is an operational threshold rather than a colour. He
+  also gave the audience size, ~15 people, and said Power BI *"would be good ...
+  not critical"*. See `INTERNAL_SITE.md` for what this changes.
 - **The user's VPN / SSH from the laptop**: an IT ticket, expected to progress
   after a call the week of 2026-08-10. Its egress address is what gets
   allowlisted for port 22. **This is the user's thread, not the agent's** — the

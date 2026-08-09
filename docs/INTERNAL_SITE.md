@@ -63,21 +63,58 @@ Whichever comes first. Migration is a connection-string change plus
 
 `SESSION_LOG.md` carries this in its work queue so it stays visible.
 
-### The objection, recorded honestly
+### Both stakeholders have now agreed to this (2026-08-08)
 
-The instance owner asked for Power BI **specifically to avoid parallel
-systems**, and standing this site up builds the thing he asked to avoid. That
-concern is legitimate and is not dismissed — it is *deferred*, on the
-understanding that this site is an evaluation step with a defined end, not a
-second permanent system. Two consequences follow, and both are load-bearing:
+It began as a unilateral reversal. It is not one any more — both people whose
+opinion it depends on replied the same day, and both accepted, from opposite
+directions:
+
+- **The research colleague** (owns the content): Power BI *"would be good to
+  have ... however this is not critical. If it is difficult or costly to
+  implement then the website would be sufficient."*
+- **The instance owner** (owns the box and the reporting estate): *"No problem
+  about your proposed solution ... Happy to go with your solution, but to avoid
+  having different systems it would be convenient to add this dashboard to
+  Power BI."*
+
+So: build the site, use it to find out which views matter, then port those to
+Power BI. Nobody is being overruled — but the instance owner's preference is
+explicit, and the second half of the plan is what honours it.
+
+### The objection, still live
+
+He asked for Power BI **specifically to avoid parallel systems**, and standing
+this site up builds the thing he would rather not have. He has agreed to it;
+that is not the same as the concern going away. It is *deferred*, on the
+understanding that this site is an evaluation with a defined end, not a second
+permanent system. Two consequences, both load-bearing:
 
 1. **Do not let this site accumulate features that only exist here.** Anything
-   researchers depend on has to be reproducible as a Power BI measure. The
-   pace/banding logic in `webapp/queries.py` is already written to be portable
-   for exactly this reason.
-2. **The IIS work needs him anyway** — see *How researchers reach it*. It is a
-   larger favour than creating a database was, so it is worth being straight
-   about what it is for.
+   researchers depend on has to be reproducible as a Power BI measure — now
+   including the 90% threshold, which has an operational meaning and must land
+   on the same boundary in both systems.
+2. **The IIS work needs him anyway** — see *How researchers reach it* — and it
+   is a larger favour than creating a database was.
+
+> ### ⚠️ Open risk: the host may be short-lived
+>
+> The research colleague also wrote, of hosting the site: *"this is reaching end
+> of life soon so will be replaced in the next few months."* **It is not
+> established which machine he means** — this host, or a separate on-premises
+> internal server he associates with internal tools. He is not IT, and this
+> project's own site is called "the internal quota tracker", so either reading
+> is plausible.
+>
+> **Resolve this with the instance owner before commissioning the IIS work.** If
+> it is this host, then URL Rewrite + ARR + a DNS record + a certificate buy
+> infrastructure with a few months of life, and the whole deployment inherits a
+> migration. It does not invalidate the site — the site is how we learn what to
+> build — but it argues for time-boxing the hosting investment and for treating
+> the Power BI port as the durable destination rather than a later nicety.
+>
+> Note the asymmetry: **Power BI Service is cloud-hosted and would survive a
+> server replacement**; only the gateway and the database would need re-homing.
+> A Flask site behind IIS moves in full.
 
 ---
 
@@ -443,9 +480,48 @@ daily drill-down.
 | Count of categories tracked | ✅ built — counted per `(region, category)`, so it equals the sections on the page |
 | One-click "under pressure" filter | ✅ built — `?pressure=1`, filters whole categories |
 | Sort toggle: most-used vs category order | ✅ built — `?sort=pressure\|name` |
-| Bands at 70 / 90 | ⏳ **ask** — we use 75 / 90 / 100; arbitrary either way, so match his mental model |
-| **Search by steel grade** (EN3B, 304, S355) | ⏳ **ask** — needs a grade→category map that is not in the source data |
-| 12-month import history, YoY, 3-month weighted average | ⏳ **ask** — HMRC/Eurostat trade data, a different source entirely |
+| Bands at 70 / 90 | ✅ **answered 2026-08-08 — keep 75 / 90 / 100.** See the note below: 90 is not cosmetic |
+| **Search by steel grade** (EN3B, 304, S355) | ❌ **answered 2026-08-08 — not wanted.** "Please disregard the grades. The research team will mainly think in these broader categories." No grade→category map is needed, and the one capability the reference site had over us is deliberately declined |
+| 12-month import history, YoY, 3-month weighted average | ❌ **answered 2026-08-08 — not wanted.** The research team already receives historical trade data through another route. Trade-flow ingestion is off the roadmap entirely |
+
+### The three open questions are now closed (2026-08-08)
+
+All three were answered by the research colleague in one reply. Two removed
+work; the third added a requirement that was not previously visible.
+
+> ### ⚠️ 90% is an operational threshold, not a colour
+>
+> *"75% and 90% work for me. **The 90% is the key indicator as it triggers a
+> slightly different customs process.**"*
+>
+> This changes what the number is **for**. 75% is advisory — a quota worth
+> watching. **90% is a state change in someone's actual job**: past it, imports
+> against that quota go through a different customs process. It should not be
+> merely one of three colours in a legend.
+>
+> Consequences worth building toward, none of them yet built:
+>
+> - A **count of quotas at or above 90%** deserves masthead prominence, next to
+>   the exhausted tile — it is the number with an operational consequence.
+> - **"Crossed 90% on <date>"** is computable exactly, because the daily history
+>   is per-quota per-day. The reference site cannot do this; it has no history.
+>   This is a stronger differentiator than grade search would have been.
+> - A filter for "at or above 90%" is more useful than the current
+>   `?pressure=1`, which filters whole categories.
+> - **Any Power BI port must reproduce the 90% boundary exactly**, including the
+>   displayed-value rounding rule below. A quota printing "90.0%" must be on the
+>   same side of the line in both systems, or the two disagree about whether a
+>   customs process applies.
+
+### Audience size: ~15 people
+
+The research and analysis teams, per the same reply. Two things follow:
+
+- **A single shared password is thin for 15 people** — no revocation for one
+  person, and it spreads. It is fine for an evaluation, and it is what is built.
+  If the site outlives the evaluation, revisit the mTLS/SSO options above.
+- 15 users is also the number to check Power BI licence coverage against before
+  committing to that route.
 
 ### "Burning fastest" is ranked by pace, not tonnage
 
