@@ -42,11 +42,16 @@ in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
 
 - [x] Webapp extras installed on the server, database built (2026-08-08)
 - [x] `waitress` installed and verified serving the real data
-- [ ] **Set the site password** — `tools\set-site-password.ps1`. Must happen
-      before the site is reachable from anything but loopback
-- [ ] **IIS reverse proxy** — needs the box owner; see *What to ask the box
-      owner for* in `docs/INTERNAL_SITE.md`. **This is the blocker**
+- [x] **IIS modules** — URL Rewrite 2.1 + ARR 3.0 installed and proxy enabled
+      (2026-08-22), live API verified unaffected. Re-runnable via
+      `tools\install-iis-reverse-proxy.ps1`
+- [ ] **DNS record + certificate for `quota.meps.co.uk`** — the box owner is
+      arranging both. **This is now the only external blocker**; then
+      `install-iis-reverse-proxy.ps1 -ConfigureSite`
 - [ ] Keep `waitress` running across a reboot (scheduled task, `At startup`)
+- [ ] **LAST STEP: set the site password** — `tools\set-site-password.ps1`.
+      Deliberately deferred to the end by owner instruction. **The site is
+      UNAUTHENTICATED until then**, so it must not be reachable from outside
 - [ ] **Migrate to SQL Server** once researchers confirm the site is useful —
       deferred, **not cancelled**
 
@@ -80,8 +85,10 @@ someone's job, not a shade in a legend. None of this is built yet:
 ### Sizing
 
 **~15 users** (research + analysis teams). A single shared password is thin for
-that many — no per-person revocation — but adequate for the evaluation. Also the
-number to check Power BI licence coverage against.
+that many — no per-person revocation — but adequate for the evaluation.
+**Power BI licensing is a non-issue** (2026-08-22): every staff member already
+holds a licence through their Data Hub dashboard, so there is no per-seat cost
+and no procurement step.
 
 ## 4. Prophet forecasting (`beta/`) — DEFERRED
 
@@ -119,4 +126,4 @@ venv\Scripts\python.exe -c "from beta.forecasting import load_history, get_snaps
   `meps_customer_template.xlsx`
 - **Forecasting:** experimental, completely independent of the main pipeline
 
-*Last updated: 08-Aug-2026*
+*Last updated: 22-Aug-2026*

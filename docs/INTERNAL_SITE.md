@@ -17,8 +17,9 @@ usage, grouped by product category, with per-quota daily history.
 | **Built and tested** | ✅ 105 tests, verified against the real published history |
 | **Code on the server** | ✅ Arrives by itself — the daily task runs `git pull --rebase` before it pushes |
 | **One-off setup done** | ✅ **2026-08-08** — extras installed in the venv, database built (11,814 rows), ETL verified. Password file still outstanding |
-| **Database** | SQLite, on the server, loaded. SQL Server remains the **eventual** target — see *The database plan* |
-| **Reachable by researchers** | ⏳ Not yet — needs the IIS reverse proxy, which needs the box owner. This is the current blocker |
+| **Database** | SQLite, on the server, loaded and refreshed by the daily task. SQL Server remains the **eventual** target — see *The database plan* |
+| **IIS modules** | ✅ **2026-08-22** — URL Rewrite 2.1 and ARR 3.0 installed, proxy enabled, live API verified unaffected |
+| **Reachable by researchers** | ⏳ Not yet — blocked on the DNS record and certificate for `quota.meps.co.uk`, and on the site password |
 
 > **SSH being down does not block this.** `tools/server-daily-task.ps1` runs
 > `git pull --rebase origin main` before pushing, so anything merged to `main`
@@ -27,6 +28,18 @@ usage, grouped by product category, with per-quota daily history.
 **Verified on the server, 2026-08-08:** `python -m webapp.app` serves `/` (195 KB
 of real HTML) and `/healthz` on `127.0.0.1:8081`, against 33 days of published
 history. What is missing is not the application — it is the route to it.
+
+> ### ⚠️ The site is UNAUTHENTICATED until the password file exists
+>
+> `tools\set-site-password.ps1` has deliberately **not** been run yet — it is
+> the last step, so the password is set once everything else works rather than
+> being set and forgotten mid-build. Until then the app starts without auth and
+> says so on stdout.
+>
+> **Therefore: nothing may make this reachable from outside before that.** The
+> IIS modules are installed but no proxy site exists, `waitress` is not running,
+> and `quota.meps.co.uk` does not resolve. Any one of those changing without the
+> password in place would expose an unauthenticated site.
 
 ---
 
@@ -96,25 +109,26 @@ permanent system. Two consequences, both load-bearing:
 2. **The IIS work needs him anyway** — see *How researchers reach it* — and it
    is a larger favour than creating a database was.
 
-> ### ⚠️ Open risk: the host may be short-lived
+> ### ✅ Resolved: the host is NOT the machine being retired
 >
-> The research colleague also wrote, of hosting the site: *"this is reaching end
-> of life soon so will be replaced in the next few months."* **It is not
-> established which machine he means** — this host, or a separate on-premises
-> internal server he associates with internal tools. He is not IT, and this
-> project's own site is called "the internal quota tracker", so either reading
-> is plausible.
+> The research colleague wrote, of hosting the site, *"this is reaching end of
+> life soon so will be replaced in the next few months."* We could not tell
+> which machine he meant and flagged it as a risk to the whole IIS plan.
 >
-> **Resolve this with the instance owner before commissioning the IIS work.** If
-> it is this host, then URL Rewrite + ARR + a DNS record + a certificate buy
-> infrastructure with a few months of life, and the whole deployment inherits a
-> migration. It does not invalidate the site — the site is how we learn what to
-> build — but it argues for time-boxing the hosting investment and for treating
-> the Power BI port as the durable destination rather than a later nicety.
+> **Answered 2026-08-22: he meant the physical server in the MEPS office.** This
+> project runs on a hosted VPS, which is unaffected. The IIS work is therefore
+> not being spent on a machine about to disappear, and it went ahead.
 >
-> Note the asymmetry: **Power BI Service is cloud-hosted and would survive a
-> server replacement**; only the gateway and the database would need re-homing.
-> A Flask site behind IIS moves in full.
+> Worth keeping the episode: the concern was legitimate and correctly stopped us
+> committing the box owner's time, but the answer was different from either
+> reading we considered. Neither guess was right, and asking cost one sentence.
+>
+> **Separately, and genuinely: a replacement VPS is being provisioned** through
+> MEPS's IT company. Migration will be needed eventually. It is not urgent and
+> the box owner will give notice — but it is why
+> `tools\install-iis-reverse-proxy.ps1` exists as a re-runnable, idempotent
+> script with pinned payload hashes rather than a list of commands someone
+> types twice.
 
 ---
 
@@ -235,8 +249,27 @@ QUOTA_DB_URL=mssql+pyodbc://@localhost/MEPSQuota?driver=ODBC+Driver+17+for+SQL+S
 | Backed up by the existing job | not needed — see below | yes |
 
 **Update 2026-08-07: SQL Server, at the instance owner's own request.** He asked
-for the dashboard in Power BI and offered a database — which also settles the
-ask-first constraint, since he is the person to ask.
+for the dashboard to be delivered in Power BI. That is the whole of what he
+said — see the correction below.
+
+> ### ⚠️ Correction 2026-08-22: he was never asked for a database
+>
+> Earlier revisions of this file and of `SESSION_LOG.md` stated that the
+> instance owner "offered a database" and "is creating the database and a login
+> for the task account", and that we were waiting on him for it. **No message
+> from him says any of that.** The claim appears to have been produced by an
+> earlier session turning "he agreed to Power BI" into "he agreed to build the
+> database", after which it was repeated as established fact.
+>
+> **The true position: the database does not exist, he has probably never been
+> asked for it, and he may not know we need one.** We are not blocked by him;
+> we simply have not asked. Nothing here is his fault or his omission.
+>
+> Recorded rather than quietly deleted, because a fabricated commitment
+> attributed to a colleague is a specific kind of error worth being able to
+> recognise again: it was plausible, it was never verified, and it survived
+> because every later session inherited it from the file rather than the
+> source.
 
 **Update 2026-08-08: running on SQLite for now, SQL Server still the target.**
 The sequencing decision above puts the Flask site in front of researchers first,
@@ -248,11 +281,61 @@ blocked:
 |---|---|
 | ODBC Driver 17 for SQL Server | ✅ **already installed** (64-bit) — verified 2026-08-08, so no machine-wide install and no notice needed |
 | `pyodbc` in the venv | ⏳ one `pip install`, venv-local |
-| Database + login for the task account | ⏳ the instance owner is creating these |
+| The database itself | ⏳ **not created, and not requested.** We hold sysadmin on the instance so we *could* create it; the standing rule is to ask first. See *Do we need to ask?* below |
+| Login for the task account | ✅ **already exists** — `NT AUTHORITY\SYSTEM` has had a login on this instance since 2024-12-11. Only database-level permissions would be needed, not a new login |
 | `QUOTA_DB_URL` → SQL Server | ⏳ one environment variable |
 | `--rebuild` against it | ⏳ under a minute |
 
 That is the whole migration. It stays one action whenever it is wanted.
+
+### Do we need to ask? Reconnaissance of 2026-08-22
+
+Read-only investigation of the local instance, run because the answer decides
+how the request to the box owner is worded. **Nothing was created, altered or
+restarted** — every statement was a `SELECT`, issued through
+`System.Data.SqlClient` with Integrated Security so nothing had to be installed.
+
+| Question | Answer |
+|---|---|
+| Can we connect? | **Yes**, as the local Administrator account |
+| Are we sysadmin? | **Yes** — and `dbcreator`, `securityadmin`, `serveradmin`, and `CREATE ANY DATABASE` |
+| Version / edition | SQL Server 2022 **Express Edition**, 16.0.1170.5 RTM |
+| Databases present | 9 (4 system + 5 application). Ours would be the 10th |
+| `model` recovery model | **SIMPLE**, so a new database inherits SIMPLE — no log-backup chain to maintain, which is exactly right for a rebuildable projection |
+| Default data path | `C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\DATA\` |
+| Free space on that volume | **150.2 GB free of 239.5 GB** — our database would be tens of MB |
+| Login for `NT AUTHORITY\SYSTEM`? | **Already exists**, enabled, created 2024-12-11 |
+| Power BI gateway | `PBIEgwService`, **Running**, automatic start, as `NT SERVICE\PBIEgwService` |
+
+**So the technical answer is: we could create it ourselves, today, and it is a
+smaller job than assumed** — the login the daily task would use already exists,
+so only database-level permissions would be needed, not a new login.
+
+**The governance answer is: ask anyway.** The standing rule quoted above —
+*"Do not touch the existing `MSSQLSERVER` instance. It backs a live public API.
+Ask before creating anything on it"* — is a permission question, and having
+sysadmin is precisely why it is worth honouring rather than a reason to skip it.
+
+The useful consequence is that the request is small and specific: *may I create
+one small database on the instance*, not *please build us a database and a
+login*.
+
+Three things found on the way that are worth knowing:
+
+- **Express Edition** caps a database at 10 GB and provides no SQL Server Agent.
+  Neither binds us — the history is ~131k rows/year, and the ETL is driven by
+  the Windows scheduled task, not an Agent job. Express is a supported gateway
+  source. But Express also caps the buffer pool at roughly 1.4 GB, and the
+  existing databases already total about 1.1 GB of data files. Our working set
+  is small, so the added memory pressure is marginal — not zero, and worth a
+  sentence when asking, because the instance backs a live API.
+- **The gateway's service account has no SQL login.** `NT SERVICE\PBIEgwService`
+  is not among the instance's logins, so when a Power BI data source is
+  configured it will need explicit credentials rather than passing through as
+  its service account.
+- **The live API's certificate expires 2026-10-01.** Unrelated to this project
+  and not ours to renew, but noticed while checking the certificate store, and
+  it would take the public API down.
 
 The original reasoning, kept for the record:
 
@@ -316,14 +399,18 @@ has been done — IIS is untouched, per the read-only rule.**
 
 | # | Ask | Why it needs him | Risk |
 |---|---|---|---|
-| 1 | Install **URL Rewrite 2.1** and **Application Request Routing 3.0** | Machine-wide installs, and the install **restarts IIS** | Seconds of downtime on the live public API. Schedule it. **Confirm neither needs a reboot before starting** |
+| 1 | ~~Install **URL Rewrite 2.1** and **Application Request Routing 3.0**~~ | — | ✅ **DONE 2026-08-22.** He approved it (*"You are free to install the IIS add-ons"*). Installed in a measured quiet window; both returned exit 0, not 3010; the live API was serving again immediately afterwards |
 | 2 | A **DNS record** for an internal hostname pointing at this host | He runs DNS | None |
 | 3 | A **TLS certificate** for that hostname, bound via SNI on 443 | Certificate issuance | None — SNI means the existing site keeps its own binding |
 | 4 | A **new IIS site** bound to that hostname, reverse-proxying to `127.0.0.1:8081` | IIS administration | Low — a *new* site, not an edit to the live one |
 
 Everything on our side of that boundary is ready: the app runs, the database is
-loaded, and `waitress` is installed to serve it properly rather than through
-Flask's development server.
+loaded, `waitress` is installed to serve it properly rather than through Flask's
+development server, and the IIS modules are in place with the proxy enabled.
+
+`tools\install-iis-reverse-proxy.ps1 -ConfigureSite` will create the site, bind
+the certificate and write the rewrite rule in one step — it **refuses** while no
+certificate for the host name exists, which is where it stops today.
 
 **Before it is exposed, the password file must exist** (see *Authentication*).
 The app runs unauthenticated without it and says so on startup — harmless on
@@ -520,8 +607,9 @@ The research and analysis teams, per the same reply. Two things follow:
 - **A single shared password is thin for 15 people** — no revocation for one
   person, and it spreads. It is fine for an evaluation, and it is what is built.
   If the site outlives the evaluation, revisit the mTLS/SSO options above.
-- 15 users is also the number to check Power BI licence coverage against before
-  committing to that route.
+- **Power BI licensing is a non-issue** (confirmed 2026-08-22): every staff
+  member already holds a licence through their existing Data Hub dashboard, so
+  the ~15 users cost nothing extra and no procurement step stands in the way.
 
 ### "Burning fastest" is ranked by pace, not tonnage
 

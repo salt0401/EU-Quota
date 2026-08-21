@@ -1,4 +1,4 @@
-# Session log — server session (2026-08-08)
+# Session log — server session (updated 2026-08-22)
 
 **Convention: this file is the *only* session log.** Each handover overwrites
 it; older logs are deleted, not archived — history lives in git. It exists
@@ -13,25 +13,28 @@ commit — see *Conventions*.
 
 ---
 
-## 1. State at handover — all verified on the server
+## 1. State at handover — all verified on the server 2026-08-22
 
 | | |
 |---|---|
-| Daily task | ⚠️ **Two consecutive runs failed (08-08, 08-09), both now resolved or understood — see §5.** Publishing is current again as of 2026-08-09 |
-| Published data | ✅ `data_date 2026-08-09`, 12,172 rows, 283 EU / 75 UK, live at origin |
-| History integrity | ⚠️ **One permanent gap: 2026-08-08.** 34 days present, 2026-07-06 → 2026-08-09. Not recoverable — the sources publish *current* balances only |
+| Daily task | ✅ **Healthy.** 12 consecutive clean runs, 2026-08-10 → 08-21. `LastTaskResult 0`, 0 missed runs, next 06:40 local |
+| Published data | ✅ `data_date 2026-08-21` — 16,468 rows, 46 days, 283 EU / 75 UK, 0 failed every day |
+| History integrity | ⚠️ **One permanent gap, 2026-08-08**, unchanged. Every other day is complete at 358 rows |
+| ETL step | ✅ Running inside the daily task and succeeding — the WARN that ran for weeks is gone |
+| Tracker database | ✅ SQLite, refreshed daily by the task, 16,468 rows as of 08-21 |
 | Interpreter | ✅ `venv\Scripts\python.exe` = Python 3.12.10. Bare `python` is 3.13.1 — not ours |
-| Test suites | ✅ **327** (222 `tests/` + 105 `webapp/tests/`) + **45** in `beta/`, all passing on the server |
-| Webapp | ✅ **Installed and running on the server.** Extras in the venv, database built, `waitress` serving `/` and `/healthz` on `127.0.0.1:8081` |
-| Database | SQLite at `data/quota_tracker.db` (gitignored), 11,814 rows / 33 days, matching `metadata.json` exactly |
-| Deployment guards | ✅ `tools\assert-inert.ps1 -PostCutover` → **exit 0, all 12 guards pass** |
-| GitHub Actions | The freshness watchdog still runs there as the external heartbeat. Leave it |
+| Test suites | ✅ **327** (222 `tests/` + 105 `webapp/tests/`) + **45** in `beta/` |
+| Deployment guards | ✅ `toolsssert-inert.ps1 -PostCutover` → exit 0 |
+| IIS modules | ✅ **NEW 2026-08-22** — URL Rewrite 2.1 + ARR 3.0 installed, proxy enabled, live API verified unaffected |
+| `waitress` | ⚠️ Installed but **not running** and has no startup task. Deliberate — see the password warning below |
+| Site password | ⚠️ **NOT SET.** The app runs unauthenticated. This is the final step, by owner instruction |
 
 **On the two clocks.** The trigger is **06:40 local**; the server runs
-`GMT Standard Time`, currently BST (UTC+1), and the logs stamp UTC — so a run
-starts `05:40:02Z` and commits `05:43:45Z`. Earlier notes calling this "the
-05:43 task" were quoting the UTC commit time. Same event, two clocks. Anything
-date-gated reasons from **the server's** clock, never another machine's.
+`GMT Standard Time`, currently BST (UTC+1), and logs stamp UTC — so a run starts
+`05:40:02Z` and commits `05:43:45Z`. Anything date-gated reasons from **the
+server's** clock, never another machine's. Note the corollary: between 00:00 and
+01:00 local in summer the local and UTC dates disagree and a `-Push` run is
+refused by design.
 
 ---
 
@@ -70,70 +73,87 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
 
 ## 3. Work queue, in order
 
-0. **Find out why the retry policy did not fire on 2026-08-08** (§5). The task
-   is configured to restart twice at 20-minute intervals specifically to absorb
-   the transient source failure that cost a day of history, and the log shows a
-   single run start. Until this is understood, every transient network blip is
-   a permanent one-day hole. Cheapest check: watch `Get-ScheduledTaskInfo`
-   after the next failure, and confirm what Task Scheduler treats as a
-   restartable "failure" for an action that exits non-zero.
-1. **Set the site password.** `tools\set-site-password.ps1` (written this
-   session; prompts, no BOM, ACLs to SYSTEM/Administrators). **The site runs
-   unauthenticated until this is done** — acceptable only while it is bound to
-   `127.0.0.1`. This must happen *before* the IIS proxy exists, not after.
-2. **Reply to the instance owner** — he asked a direct question and is waiting.
-   Two things in one message: (a) what the Power BI complications actually are
-   (feasible; needs the SQL Server database first, licence coverage for ~15
-   users, one modelling trap around the 90% boundary, and slower iteration
-   during the exploratory phase — which is the argument for site-first);
-   (b) **the end-of-life question in §4.** Do not commission the IIS work
-   before (b) is answered.
-3. **Then ask for the IIS reverse proxy**, if (b) says the host has a future.
-   The complete ask is in `INTERNAL_SITE.md` → *What to ask the box owner for*:
-   URL Rewrite + ARR (machine-wide, **restarts IIS**, so confirm no reboot is
-   required and schedule it), a DNS record, a certificate, and a new site on 443
-   via SNI proxying to `127.0.0.1:8081`. **This is the only thing blocking
-   researcher access.** Everything on our side is ready.
-4. **Build the 90% work** (`TODO.md` §3): a masthead count of quotas at or above
-   90%, a "crossed 90% on `<date>`" per quota, and a ≥90% filter. This is now
-   the highest-value *content* work, because 90% turns out to trigger a
-   different customs process — and the crossing date is something the reference
-   site cannot produce at all, since it keeps no history.
-5. **Keep `waitress` running across a reboot.** A scheduled task with an
-   `At startup` trigger needs no new software. Not built yet.
-6. **Migrate to SQL Server** when §2's trigger fires. Staged and cheap: the ODBC
-   driver is **already installed** (verified — no machine-wide install, no
-   notice needed), so it is `pip install pyodbc`, set `QUOTA_DB_URL`, `--rebuild`.
+> ### 🔑 THE LAST STEP, BY OWNER INSTRUCTION
+> **`tools\set-site-password.ps1` is run LAST**, once everything else works, so
+> that a password is not set and then forgotten while other work is in flight.
+> **Until it is run the site is UNAUTHENTICATED**, so nothing may make it
+> reachable from outside first — no proxy site, no `waitress` listening on
+> anything but loopback, no DNS. Remind the owner when the rest is finished.
+
+1. **Reply to the instance owner.** Two things: (a) the Power BI complications
+   — feasible, needs the database, one modelling trap at the 90% boundary,
+   slower iteration while exploring. **Licensing is NOT a complication**: every
+   staff member already holds a licence via their Data Hub dashboard. (b) **ask
+   for the database** — see §4. He also wants to test the app himself and has
+   floated dropping Power BI if the app's interactivity is better, so an early
+   look is worth offering.
+2. **Chase the DNS record and certificate for `quota.meps.co.uk`.** He is
+   arranging both through a colleague. **This is now the only external blocker**
+   on researcher access. When they land:
+   `tools\install-iis-reverse-proxy.ps1 -ConfigureSite`.
+3. **Keep `waitress` running.** A scheduled task with an `At startup` trigger,
+   no new software. Do this *with* or *after* step 2, not before — see the
+   password warning above.
+4. **Build the 90% work** (`TODO.md` §3): masthead count of quotas at or above
+   90%, "crossed 90% on `<date>`" per quota, and a ≥90% filter. The highest-value
+   content work, because 90% triggers a different customs process, and the
+   crossing date is something the reference site cannot produce at all.
+5. **Find out why the retry policy did not fire on 2026-08-08.** The task is set
+   to restart twice at 20-minute intervals to absorb exactly the transient
+   failure that cost a day, and that day's log shows one run start, not three.
+   Until this is understood, every network blip risks a permanent one-day hole.
+   Nothing has failed since, so there has been no chance to observe it.
+6. **Migrate to SQL Server** once the database exists. ODBC Driver 17 is already
+   installed and the `NT AUTHORITY\SYSTEM` login already exists, so it is
+   `pip install pyodbc`, set `QUOTA_DB_URL`, `--rebuild`.
 7. **Power BI report**, built in Power BI Desktop (not on this server) against
-   the SQL Server database through the existing gateway; scheduled refresh
-   ~06:30, after the publish. Offer the instance owner either a finished report
-   or the table/measure definitions, his choice.
-8. **Process documentation for the company SharePoint**: problem statement,
-   plain-English solution, architecture outline, where each piece runs. Distil
-   from `ARCHITECTURE.md`, `INTERNAL_SITE.md`, `SERVER_DEPLOYMENT.md` — do not
-   duplicate them.
+   the SQL Server database through the existing gateway; refresh ~06:30, after
+   the publish.
+8. **Process documentation for the company SharePoint.** Distil from
+   `ARCHITECTURE.md`, `INTERNAL_SITE.md`, `SERVER_DEPLOYMENT.md` — summarise,
+   do not duplicate.
+99. **LAST: set the site password** (see the box above).
 
 ## 4. In-flight threads with people
 
 - **The IT colleague / instance owner** (runs the SQL Server, the hosting
-  provider's firewall panel, the backup tooling): owes the Power BI database and
-  a login for the task account; is building the SharePoint site; has generally
-  approved software installs. **Now also the blocker on the IIS proxy** (queue
-  item 2). He is setting up the user's VPN access via an IT ticket.
+  provider's firewall panel, the backup tooling): is building the SharePoint
+  site, and is setting up the user's VPN access via an IT ticket.
   **2026-08-08:** accepted the site-first plan — *"Happy to go with your
   solution"* — while restating a preference for Power BI to avoid parallel
-  systems, and asking directly what the complications of Power BI would be.
-  **Two things are owed to him:** that answer, and a resolution of the
-  end-of-life question below.
+  systems. **2026-08-22:** approved the IIS installs outright — *"You are free
+  to install the IIS add-ons"* — which unblocked and completed that work. He
+  wants to **test the app himself**, and has raised the possibility of
+  **dropping Power BI long term** if the app's interactivity turns out better.
+  **He is arranging the DNS record and certificate** for `quota.meps.co.uk`
+  through a colleague; that is now the only external blocker.
 
-- **OPEN QUESTION — is this host being replaced?** The research colleague wrote,
-  of hosting the site, *"this is reaching end of life soon so will be replaced
-  in the next few months."* **Which machine he means is not established** — this
-  host, or a separate on-premises internal server. He is not IT, so ask the
-  instance owner, who owns the hardware. **Resolve before commissioning the IIS
-  work**: if it is this host, that work buys a few months and the deployment
-  inherits a migration, whereas Power BI Service would survive a server
-  replacement with only the gateway and database to re-home.
+> ### ⚠️ CORRECTION 2026-08-22 — a commitment was attributed to him that he never made
+>
+> Earlier revisions of this file said he "owes the Power BI database and a login
+> for the task account", and `INTERNAL_SITE.md` said he "offered a database" and
+> "is creating these". **No message from him says any of that.** An earlier
+> session appears to have turned *"he agreed to Power BI"* into *"he agreed to
+> build the database"*, and every later session inherited it from this file
+> rather than from the source.
+>
+> **True position: the database does not exist, he has probably never been asked
+> for it, and he may not know one is needed. We are not blocked by him — we have
+> simply not asked.**
+>
+> Kept rather than quietly deleted, because the failure mode is worth
+> recognising: it was plausible, it was never checked against a primary source,
+> and repetition made it look established. When this file states that someone
+> has agreed to something, it should be traceable to something they wrote.
+
+- **RESOLVED 2026-08-22 — the host is not the machine being retired.** The
+  research colleague's *"reaching end of life ... replaced in the next few
+  months"* referred to the **physical server in the MEPS office**. This project
+  runs on a hosted VPS and is unaffected, so the IIS work was safe to do.
+  Neither of the two readings we had considered was correct. **Separately, a
+  replacement VPS is being provisioned** through MEPS's IT company — migration
+  will be needed eventually, it is not urgent, and the box owner will give
+  notice. That is why the IIS work is a re-runnable script.
 - **The research colleague** (owns dashboard content): **all three questions
   answered 2026-08-08.** Grade search — not wanted, the team thinks in the
   broader categories. Import-history charts — not wanted, they receive trade
@@ -147,7 +167,41 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
   allowlisted for port 22. **This is the user's thread, not the agent's** — the
   session runs on the server and is not blocked by it.
 
-## 5. Done this session (2026-08-08, all committed)
+## 5. Session history
+
+### 2026-08-22 — IIS front end installed; a fabricated commitment corrected
+
+- **Verified two weeks of unattended running** before touching anything: 12
+  clean runs 08-10 → 08-21, 46 days of history, one known gap, all suites green,
+  all deployment guards passing. Nothing had drifted.
+- **URL Rewrite 2.1 + ARR 3.0 installed** after the box owner approved it. The
+  method matters more than the outcome and is preserved in
+  `tools\install-iis-reverse-proxy.ps1`:
+  - **The window was measured, not assumed.** IIS logs showed genuine API
+    traffic confined to 02:00-15:00 UTC; 16:00-02:00 has had **3 successful
+    requests in 14 days**. Installed at 23:28 UTC with 0 connections and
+    0 requests/sec, no MEPS task due for 3.6 hours.
+  - **The reboot question was answered before running an installer**, by reading
+    each MSI's `InstallExecuteSequence` and `LaunchCondition` tables through the
+    Windows Installer COM API. Neither schedules a reboot. Both then installed
+    with `/norestart` and returned **exit 0, not 3010**, and the pending-file-
+    rename queue was **3232 entries before and 3232 after** — we added nothing.
+  - **The live API was proved healthy afterwards**, not merely "the site says
+    Started": `/` returned 404 and `/v1/PriceAssessments` returned 401, matching
+    its normal logged behaviour.
+- **`-ConfigureSite` correctly refused** — no certificate for the host name, so
+  it created nothing and exited non-zero. That is the boundary, working.
+- **Read-only SQL Server reconnaissance** (see `INTERNAL_SITE.md`). We hold
+  sysadmin, the `NT AUTHORITY\SYSTEM` login already exists, 150 GB free, `model`
+  is SIMPLE. Nothing was created, altered or restarted.
+- **Corrected a fabricated commitment** attributed to the instance owner — see
+  the correction box in §4.
+
+> **Noticed in passing, not ours:** the live API's certificate
+> (`CN=api.mepsinternational.com`) **expires 2026-10-01**. It would take the
+> public API down. Worth mentioning to the box owner.
+
+### 2026-08-08 (all committed)
 
 - **Environment verified** before anything changed (queue item 1 of the previous
   handover): git clean, correct interpreter, suites green, daily log clean.
@@ -299,6 +353,19 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
 - **`git push --dry-run` is not proof.** *(New, 2026-08-09.)* It validates
   connectivity and auth, not server-side policy such as the workflow-scope rule.
   It returned 0 immediately before the push that was rejected.
+- **Measure the quiet window before touching IIS; do not assume one.**
+  *(New, 2026-08-22.)* The API's real traffic is confined to roughly 02:00-15:00
+  UTC and is invisible in raw request counts, because scanner noise dwarfs it —
+  2,210 requests in a day of which **zero** were successful. Count **2xx
+  responses**, not requests, and confirm with live counters immediately before
+  acting.
+- **This box already has a pending reboot, and has for a long time.**
+  *(New, 2026-08-22.)* 163 days of uptime, `CBS RebootPending` set, and ~3,232
+  queued file-rename operations — mostly printer-spooler cleanup, not a pending
+  Windows Update. It is benign, but it means: pass `/norestart` to every
+  installer, treat exit **3010** as a failure, and compare the pending-rename
+  count before and after so you can prove you added nothing. It also means that
+  if this box is ever rebooted, several thousand queued operations will run.
 - **The server's clock is authoritative** for anything date-gated. Do not reason
   from another machine's clock.
 - **Three Python installs coexist here and bare `python` is not ours.** Always
