@@ -19,7 +19,8 @@ usage, grouped by product category, with per-quota daily history.
 | **One-off setup done** | ✅ **2026-08-08** — extras installed in the venv, database built (11,814 rows), ETL verified. Password file still outstanding |
 | **Database** | SQLite, on the server, loaded and refreshed by the daily task. SQL Server remains the **eventual** target — see *The database plan* |
 | **IIS modules** | ✅ **2026-08-22** — URL Rewrite 2.1 and ARR 3.0 installed, proxy enabled, live API verified unaffected |
-| **Reachable by researchers** | ⏳ Not yet — blocked on the DNS record and certificate for `quota.meps.co.uk`, and on the site password |
+| **Startup mechanism** | ✅ **2026-08-23** — `tools\quota-site-task.ps1` written and tested. Deliberately **not registered**: it refuses while the site would run unauthenticated |
+| **Reachable by researchers** | ⏳ Not yet — blocked on the DNS record and certificate, and on the site password |
 
 > **SSH being down does not block this.** `tools/server-daily-task.ps1` runs
 > `git pull --rebase origin main` before pushing, so anything merged to `main`
@@ -569,14 +570,74 @@ Set the password before exposing it beyond loopback:
 powershell -ExecutionPolicy Bypass -File tools\set-site-password.ps1
 ```
 
+### Keeping it running across a reboot
+
+`tools\quota-site-task.ps1` registers a Task Scheduler task that starts
+`waitress` at boot on `127.0.0.1:8081`.
+
+```bash
+powershell -ExecutionPolicy Bypass -File tools\quota-site-task.ps1 -Register     # refuses without the password file
+powershell -ExecutionPolicy Bypass -File tools\quota-site-task.ps1 -Verify
+powershell -ExecutionPolicy Bypass -File tools\quota-site-task.ps1 -Unregister   # clean rollback
+```
+
+**Task Scheduler, not a service wrapper.** NSSM or WinSW would be new
+third-party software on a production host, and this deployment's standing claim
+is that it added none. Task Scheduler already runs the daily task, so there is
+one mechanism to understand rather than two; it survives a reboot, restarts a
+crashed process, and ports to the replacement VPS unchanged. The honest cost is
+that Task Scheduler is not a service manager -- it cannot tell a wedged process
+from a healthy one, which is why `-Verify` probes `/healthz` over HTTP instead
+of trusting the task state.
+
+**It runs as `SYSTEM`, matching the daily task.** Least privilege would prefer
+`LOCAL SERVICE`, and that was considered and rejected *for now* with a concrete
+reason: `LOCAL SERVICE` has no grant of any kind on the project tree, the
+tracker database is owned by `Administrators` with only `ReadAndExecute` for
+`Users` — and `create_all()` issues DDL, so the serving identity needs
+**write** — and the password file is ACL'd `SYSTEM:R` + `Administrators:F`. So
+`LOCAL SERVICE` would need three ACL changes on a live box, one of them to a
+secrets file, for an app that binds loopback only and sits behind IIS. `SYSTEM`
+needs none.
+
+> **Deferred improvement, recorded rather than pretended away:** move the site
+> to a dedicated low-privilege account. The cost is the three ACL grants above;
+> the benefit is that a web-facing process stops running as `SYSTEM`. Worth
+> doing when the site stops being an evaluation, and worth doing *on the
+> replacement VPS* where the ACLs can be set up correctly from the start
+> instead of retrofitted.
+
+> ### The tool enforces the ordering, so nobody has to remember it
+>
+> **`-Register` and `-Serve` refuse outright unless the site password file
+> exists.** Loopback-only binding means an unauthenticated instance is not
+> reachable from outside today — but the IIS proxy site is one command away,
+> and a defence that depends on two facts staying true is weaker than one that
+> depends on one. `-TestRun -AllowUnauthenticated` exists for local smoke tests,
+> refuses any non-loopback bind address, and tears itself down.
+
+**Status 2026-08-23: written, tested, and deliberately NOT registered.** The
+guard was confirmed to refuse (exit 2), the serve path was confirmed to work
+(`/healthz` 200, `/` 195 KB) and then torn down; nothing is listening on 8081
+and no task is registered.
+
 The daily task refreshes the database automatically after each publish. Pass
 `-SkipEtl` to `server-daily-task.ps1` to suppress that.
 
-> **Still to do before researchers can reach it:** the password file, the IIS
-> reverse proxy (see *What to ask the box owner for*), and something that keeps
-> `waitress` running across a reboot — a scheduled task with an `At startup`
-> trigger is the low-ceremony option and needs no new software, but it has not
-> been created yet.
+> **Still to do before researchers can reach it**, in order:
+>
+> 1. **DNS record + TLS certificate** for the host name — the box owner is
+>    arranging both. The only item that depends on someone else.
+> 2. **Create the proxy site**: `install-iis-reverse-proxy.ps1 -ConfigureSite`
+>    (refuses until the certificate exists).
+> 3. **Register the startup task**: `quota-site-task.ps1 -Register`
+>    (refuses until the password file exists).
+> 4. **Set the password**: `set-site-password.ps1` — deliberately LAST, by
+>    owner instruction.
+>
+> Steps 3 and 4 are mutually ordered by the tool itself: the task will not
+> register while the site would serve unauthenticated. So in practice the
+> password is set, then the task registered, then the site started.
 
 ### Tests
 

@@ -26,7 +26,7 @@ commit — see *Conventions*.
 | Test suites | ✅ **327** (222 `tests/` + 105 `webapp/tests/`) + **45** in `beta/` |
 | Deployment guards | ✅ `tools\assert-inert.ps1 -PostCutover` → exit 0 |
 | IIS modules | ✅ **NEW 2026-08-22** — URL Rewrite 2.1 + ARR 3.0 installed, proxy enabled, live API verified unaffected |
-| `waitress` | ⚠️ Installed but **not running** and has no startup task. Deliberate — see the password warning below |
+| `waitress` | ⚠️ Installed, **not running**, and the startup task is **written but deliberately not registered** (`tools\quota-site-task.ps1`). It refuses to register while the site would serve unauthenticated |
 | Site password | ⚠️ **NOT SET.** The app runs unauthenticated. This is the final step, by owner instruction |
 
 **On the two clocks.** The trigger is **06:40 local**; the server runs
@@ -91,9 +91,13 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
    arranging both through a colleague. **This is now the only external blocker**
    on researcher access. When they land:
    `tools\install-iis-reverse-proxy.ps1 -ConfigureSite`.
-3. **Keep `waitress` running.** A scheduled task with an `At startup` trigger,
-   no new software. Do this *with* or *after* step 2, not before — see the
-   password warning above.
+3. **Register the startup task.** `tools\quota-site-task.ps1 -Register`.
+   **Written and tested 2026-08-23; deliberately not registered.** It runs
+   `waitress` at boot on loopback via Task Scheduler as `SYSTEM` (no new
+   software, same mechanism as the daily task, ports to the replacement VPS
+   unchanged). **The tool refuses to register while the password file is
+   absent**, so the ordering no longer depends on anyone remembering it —
+   password first, then task, then start.
 4. **Build the 90% work** (`TODO.md` §3): masthead count of quotas at or above
    90%, "crossed 90% on `<date>`" per quota, and a ≥90% filter. The highest-value
    content work, because 90% triggers a different customs process, and the
@@ -202,6 +206,14 @@ asks for nothing unusual.
 **What has actually been agreed, for contrast:** the IIS add-on installs
 (*"You are free to install the IIS add-ons"*), and the site-first sequencing
 (*"Happy to go with your solution"*). That is the complete list.
+
+> **A company VPN may already exist** (requested via an IT ticket some weeks
+> ago). Worth stating plainly, because it is easy to assume it solves more than
+> it does: **a VPN existing does not by itself route anything through it.** The
+> remote database sessions observed arrive directly from residential ISP
+> addresses, so they currently bypass any VPN entirely. Making them use it is a
+> client-configuration and policy change, not a consequence of the VPN being
+> available. Not acted on — it is the owner's call and it is in the letter.
 
 ## 5. Session history
 
