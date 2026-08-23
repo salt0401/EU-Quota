@@ -570,6 +570,86 @@ Set the password before exposing it beyond loopback:
 powershell -ExecutionPolicy Bypass -File tools\set-site-password.ps1
 ```
 
+## The display-vs-logic defect class, and the 2026-08-23 audit
+
+**The class: a value is rounded for display, but logic runs on the raw value, so
+what a person sees contradicts what the system decided.** This project hit it
+twice -- the 99.99% banding bug, then the "Exhausted only" filter -- so the
+whole system was swept rather than waiting for a third to surface in front of a
+researcher.
+
+### One rule, in one place
+
+`queries.displayed_pct()` is now the only place a percentage is rounded for
+comparison, and every threshold goes through it. The row also carries
+`pct_display`, so the offline bundle's client filter compares a figure **Python**
+computed rather than rounding for itself -- JavaScript still owns no
+classification rule.
+
+### Fixed
+
+| Fix | Was | Now |
+|---|---|---|
+| **`min_pct` filter** | compared the raw value, so a quota printing "100.0%" was excluded from "Exhausted only" | compares the displayed figure at every threshold (50/75/90/100) |
+| **Row sorting** | sorted on the raw value while printing a rounded one -- seven rows all printing "100.0%" appeared in an order driven by invisible digits, one of them last for no visible reason | sorts on the displayed figure, ties broken on **country**, a column that is on the page |
+| **Unknown percentage bar** | `width: 100%` when the figure was missing -- a **full** bar beside a "—" label, reading as "depleted" where the truth was "we do not know" | `width: 0%`; empty is the honest picture |
+| **`0.0 or -1` in the sort key** | 0.0 is falsy, so a genuine 0.0% quota sorted as though its figure were unknown | explicit `is not None` test |
+
+Live effect: "Exhausted only" now returns **83** rows, exactly matching the
+masthead's exhausted tile. It returned 81 before, while the tile said 83.
+
+### Found and deliberately NOT fixed -- these are judgement calls
+
+1. **The band itself carries two rules.** `exhausted` classifies on the
+   *displayed* figure; `critical` (90) and `high` (75) still classify on the
+   *raw* one. Moving 90 and 75 onto the displayed figure would give one rule
+   everywhere -- but it would band a quota at 89.96% as critical when the
+   authoritative figure is below 90, and **90 triggers a different customs
+   process**. That is an operational decision, not a tidy-up. No live rows sit
+   in the affected range today.
+2. **The console summary disagrees with the website.**
+   `data_processor.get_quota_summary()` counts `pct > 75` (strictly greater,
+   where the site uses `>=`) and `pct >= 100` on the raw value. So the figure
+   printed after a scrape can differ from the site's. It is operator-facing
+   only, not in the CSV or the workbook, and aligning it is a small behaviour
+   change to a separate audience.
+3. **`critical_count` is always 0.** It sums a `critical` column that nothing
+   ever creates, so the scrape prints "EU critical quotas: 0" unconditionally --
+   a metric reporting zero where the truth is "not computed".
+4. **`est_days_to_exhaustion` and `daily_burn_rate` are computed and never
+   consumed.** Not in the CSV, the workbook or the site. `round(remaining /
+   burn_rate, 0)` would print "0 days" for a quota with most of a day left, so
+   **the rule needs choosing before either is ever surfaced**, not after.
+5. **Null-as-zero is latent in the EU percentage path.** `pct_allocated` is
+   initialised to `0.0` and only overwritten where `quota_limit > 0`, so a quota
+   with a missing or zero limit would publish "0.0% used" rather than unknown.
+   The UK path preserves `None`. **No live rows are affected today** -- every
+   row has a limit -- so this is a trap rather than a current defect.
+6. **`excel_generator` would compute a percentage from already-rounded tonnes**
+   if `pct_allocated` were ever absent, and falls back to `0` for a missing
+   limit. The guard means it never fires in the current pipeline.
+
+### Checked and found sound
+
+- **Percentage provenance**: `pct` is computed from raw kilograms *before* any
+  rounding, not from rounded tonnes. No compounding.
+- **Headline tiles**: `summary_counts` counts on `band`, so the tiles and the
+  table cannot disagree.
+- **Fastest-burning**: already reuses `band` rather than re-testing a threshold.
+- **The detail chart**: tests `!= null` explicitly; a gap is drawn as a gap.
+- **The test suite**: no existing test asserted the wrong answer. One test *did*
+  encode the defect deliberately -- the offline-bundle parity test asserted the
+  exclusion in order to stay equivalent to a live site that still had the bug.
+  It has been inverted, and the comment says why.
+
+### For the planned "crossed 90% on `<date>`"
+
+**Decide the rule before writing it.** It must compare `pct_display`, or reuse
+`band`, exactly as everything else now does. Comparing the raw value would put
+the crossing date one day out from the badge beside it on day one.
+
+---
+
 ## Offline copy, shipped with the downloader
 
 Colleagues can read the dashboard with no server, no Python and no network:

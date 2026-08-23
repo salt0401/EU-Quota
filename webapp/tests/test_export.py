@@ -96,7 +96,9 @@ def _client_filter(rows, region="", needle="", min_pct=None, pressure_only=False
             if not (n in r["cat"].lower() or n in r["country"].lower() or n in r["order"]):
                 continue
         if min_pct is not None:
-            if r["pct"] == "" or float(r["pct"]) < min_pct:
+            # mirrors the client: compares the DISPLAYED figure the server
+            # computed, never one rounded here
+            if r["pctdisp"] == "" or float(r["pctdisp"]) < min_pct:
                 continue
         kept.append(r)
 
@@ -231,9 +233,15 @@ def test_ninety_percent_boundary_is_identical_on_both_sides(built):
     assert ("UK", "058600") not in at90
     assert at90 == _server_filter(built["db"], min_pct=90.0)
 
-    # and the documented quirk, preserved deliberately
+    # "Exhausted only" now INCLUDES it, because it prints 100.0% and is banded
+    # exhausted. This assertion was inverted on 2026-08-23: it previously
+    # asserted the exclusion, deliberately, to keep the bundle equivalent to a
+    # live site that still had the bug. That made it a test encoding a defect as
+    # expected behaviour -- kept here as a note, because such a test is worse
+    # than no test and this one was written knowingly.
     at100 = _client_filter(list(rows.values()), min_pct=100.0)
-    assert ("EU", "099716") not in at100
+    assert ("EU", "099716") in at100
+    assert ("UK", "058600") not in at100          # 80%: still correctly excluded
     assert at100 == _server_filter(built["db"], min_pct=100.0)
 
 
@@ -253,7 +261,12 @@ def test_band_is_carried_not_recomputed(built):
     assert "data-band" in script, "the client filter must read the server's band"
     assert "getAttribute('data-band')" in script
     # it must not recompute the classification from the percentage
-    assert not re.search(r"data-pct[^\n]*>=\s*(90|75|100)\b", script)
+    # It may compare data-pctdisp (the server's displayed figure). It must NOT
+    # compare the raw data-pct against a threshold, which would put a
+    # classification rule back into JavaScript.
+    assert not re.search(r'data-pct"[^\n]*>=\s*(90|75|100)\b', script)
+    assert "getAttribute('data-pctdisp')" in script, \
+        "the min_pct filter must compare the server's displayed figure"
     assert "Math.round" not in script.split("cPct")[0], \
         "no rounding before the band is used -- classification stays in Python"
 

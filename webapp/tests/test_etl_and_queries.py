@@ -416,3 +416,78 @@ class TestOverviewFilteringAndSort:
             junk = queries.categories_overview(c, LATEST, sort="nonsense")
             default = queries.categories_overview(c, LATEST)
         assert [g["category"] for g in junk] == [g["category"] for g in default]
+
+
+# --------------------------------------------- display-vs-logic regressions --
+#
+# The defect class: a value is ROUNDED FOR DISPLAY but logic runs on the RAW
+# value, so what a person sees contradicts what the system decided. Hit twice
+# already -- the 99.99% banding bug, and the "Exhausted only" filter. These pin
+# the live cases so a third cannot land unnoticed.
+
+def _one(tmp_path, pct, order="099716", region="EU"):
+    body = ""
+    for d in ("2026-07-06", "2026-07-07"):
+        body += row(d, region=region, order=order, cat="Hot Rolled - 1",
+                    country="India", limit="1000",
+                    alloc=str(round(10.0 * float(pct), 3)), pct=str(pct))
+    pub = write_history(tmp_path, body)
+    db = "sqlite:///" + str(tmp_path / ("f%s.db" % order)).replace("\\", "/")
+    etl.main(["--published-dir", pub, "--db-url", db, "--rebuild"])
+    return get_engine(db)
+
+
+def test_exhausted_filter_includes_a_quota_that_displays_as_100(tmp_path):
+    """EU 099716, live at 99.98%: prints "100.0%", banded exhausted.
+
+    Before the fix the "Exhausted only" filter (min_pct=100) excluded it, so the
+    reader saw 100.0% in an exhausted-looking row that the filter denied.
+    """
+    eng = _one(tmp_path, "99.98", order="099716")
+    with eng.connect() as conn:
+        latest = queries.latest_snapshot_date(conn)
+        rows = [q for g in queries.categories_overview(conn, latest) for q in g["quotas"]]
+        assert rows[0]["band"] == "exhausted"
+        filtered = [q for g in queries.categories_overview(conn, latest, min_pct=100.0)
+                    for q in g["quotas"]]
+    assert [q["order_number"] for q in filtered] == ["099716"]
+
+
+def test_exhausted_filter_includes_the_uk_case_too(tmp_path):
+    """UK 058627, live at 99.99%."""
+    eng = _one(tmp_path, "99.99", order="058627", region="UK")
+    with eng.connect() as conn:
+        latest = queries.latest_snapshot_date(conn)
+        filtered = [q for g in queries.categories_overview(conn, latest, min_pct=100.0)
+                    for q in g["quotas"]]
+    assert [q["order_number"] for q in filtered] == ["058627"]
+
+
+def test_a_quota_below_the_rounding_boundary_is_still_excluded(tmp_path):
+    """The fix must not swallow everything: 99.94% prints 99.9% and stays out."""
+    eng = _one(tmp_path, "99.94", order="099717")
+    with eng.connect() as conn:
+        latest = queries.latest_snapshot_date(conn)
+        rows = [q for g in queries.categories_overview(conn, latest) for q in g["quotas"]]
+        assert rows[0]["band"] == "critical"
+        filtered = [q for g in queries.categories_overview(conn, latest, min_pct=100.0)
+                    for q in g["quotas"]]
+    assert filtered == []
+
+
+def test_every_min_pct_threshold_agrees_with_the_displayed_figure(tmp_path):
+    """The filter's promise is about the figure the reader can see."""
+    for pct, threshold in (("49.96", 50.0), ("74.96", 75.0), ("89.96", 90.0)):
+        eng = _one(tmp_path, pct, order="0997" + pct[:2])
+        with eng.connect() as conn:
+            latest = queries.latest_snapshot_date(conn)
+            got = [q for g in queries.categories_overview(conn, latest, min_pct=threshold)
+                   for q in g["quotas"]]
+        assert len(got) == 1, "%s displays as %s and must satisfy >=%s" % (
+            pct, queries.displayed_pct(float(pct)), threshold)
+
+
+def test_displayed_pct_is_the_single_rule():
+    assert queries.displayed_pct(99.98) == 100.0
+    assert queries.displayed_pct(99.94) == 99.9
+    assert queries.displayed_pct(None) is None

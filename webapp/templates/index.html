@@ -87,6 +87,7 @@
       <tr data-region="{{ q.region }}" data-cat="{{ q.category }}"
           data-country="{{ q.country }}" data-order="{{ q.order_number }}"
           data-pct="{{ '' if q.pct_used is none else q.pct_used }}"
+          data-pctdisp="{{ '' if q.pct_display is none else q.pct_display }}"
           data-band="{{ q.band }}"
           data-limit="{{ '' if q.limit_t is none else q.limit_t }}"
           data-alloc="{{ '' if q.allocated_t is none else q.allocated_t }}">
@@ -98,7 +99,11 @@
         <td class="num">{{ q.awaiting_t | tonnes }}</td>
         <td>
           <span class="bar {{ q.band }}">
-            <i style="width:{{ 100 if q.pct_used is none else (q.pct_used if q.pct_used < 100 else 100) }}%"></i>
+            {# An UNKNOWN percentage must not draw a FULL bar. It used to, so a
+               quota whose figure we do not have rendered as a completely filled
+               bar beside a "—" label: the reader saw "depleted" where the truth
+               was "we do not know". Empty is the honest picture. #}
+            <i style="width:{{ 0 if q.pct_used is none else (q.pct_used if q.pct_used < 100 else 100) }}%"></i>
             <b>{{ q.pct_used | pct }}</b>
           </span>
         </td>
@@ -170,7 +175,11 @@
           ok = (c.indexOf(needle) >= 0) || (co.indexOf(needle) >= 0) || (on.indexOf(needle) >= 0);
         }
         if (ok && minPct !== null) {
-          var p = num(tr.getAttribute('data-pct'));
+          // data-pctdisp is the figure Python already rounded for display.
+          // Comparing it here keeps ONE rule -- "classify on the figure as
+          // displayed" -- and keeps JavaScript out of the classification
+          // business entirely. Do not switch this to data-pct.
+          var p = num(tr.getAttribute('data-pctdisp'));
           ok = (p !== null && p >= minPct);
         }
         tr.style.display = ok ? '' : 'none';
