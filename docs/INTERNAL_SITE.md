@@ -337,6 +337,68 @@ Three things found on the way that are worth knowing:
   and not ours to renew, but noticed while checking the certificate store, and
   it would take the public API down.
 
+### Does the existing Power BI dashboard actually use this gateway? (2026-08-23)
+
+Asked because an earlier briefing asserted, as an inference, that the
+researchers' existing dashboard "almost certainly" reads through the same
+gateway we would use. Investigated read-only. The inference was **half right,
+and the half that is wrong matters.**
+
+**Confirmed — the gateway does serve data from this box's SQL Server.** The
+gateway caches the Power Query (M) expressions it executes in its own logs;
+decoding them shows `Sql.Databases(...)` against this host, resolving to a
+specific database on the local instance, reading named tables from it. This is
+not inference — it is the gateway's own record of the queries it ran, and it is
+running them daily.
+
+**Corrected — it is not the price data.** The entities it serves are
+research-reporting content: report records, researcher references and contact
+details, shaped into fact and dimension queries. The **price-assessment data is
+a different system entirely**, reached through the public API's own application
+logins rather than through the gateway. So "the gateway already serves the
+existing dashboard" is true of *a* live Power BI dataset, but that dataset is
+research-activity reporting, not prices.
+
+**Why the distinction matters for us:** it confirms the gateway is live,
+configured and successfully reaching this instance every day — which is the part
+that de-risks putting quota data behind it. It does **not** establish that the
+particular dashboard the owner has in mind is gateway-fed. If that matters,
+ask him which dashboard he means.
+
+#### Confidence, stated plainly
+
+| Claim | Confidence |
+|---|---|
+| The gateway connects to this box's SQL Server | **Confirmed** — decoded from its own executed queries |
+| It serves research-reporting data, not prices | **Confirmed** — from the same source |
+| It is standalone, not clustered | **Confirmed** — no cluster references in its logs |
+| In service since mid-2025, starts with the machine | **Confirmed** — install date and process start |
+| **Which login it authenticates as** | **NOT established.** Successful logins are not audited on this instance, so there is no record. Candidates are the existing read-only and read-write application logins |
+| **The authoritative list of registered data sources** | **NOT established locally, and cannot be.** That list lives in the Power BI service in the cloud |
+
+**What would settle the two open rows:** open the gateway's entry in the Power BI
+service and read its data sources — definitive, and a two-minute job for whoever
+administers the tenant. Locally it would need either successful-login auditing
+turned on, or catching a live session during a refresh; neither is worth a
+change to a production instance to answer a question the cloud answers directly.
+
+#### Consequence for our own gateway access
+
+**Plan: a dedicated read-only login on the new database, scoped to
+`db_datareader` and nothing else.** Two reasons this is the right shape rather
+than a convenience:
+
+1. **Pass-through is not available.** The gateway's service account has no login
+   on the instance at all, so "let the gateway in as itself" is not an option
+   that exists.
+2. **It matches what the instance already does.** There are existing logins
+   scoped to read-only on other databases, so this asks for nothing novel.
+
+**This is part of what is being requested, not something to do unilaterally** —
+see the *Asked, but NOT agreed* table in `SESSION_LOG.md`. We hold sysadmin and
+could create both the database and the login ourselves; the standing rule is to
+ask first, and having the privilege is why the rule is worth keeping.
+
 The original reasoning, kept for the record:
 
 The usual objections do not survive contact with this project:

@@ -24,7 +24,7 @@ commit — see *Conventions*.
 | Tracker database | ✅ SQLite, refreshed daily by the task, 16,468 rows as of 08-21 |
 | Interpreter | ✅ `venv\Scripts\python.exe` = Python 3.12.10. Bare `python` is 3.13.1 — not ours |
 | Test suites | ✅ **327** (222 `tests/` + 105 `webapp/tests/`) + **45** in `beta/` |
-| Deployment guards | ✅ `toolsssert-inert.ps1 -PostCutover` → exit 0 |
+| Deployment guards | ✅ `tools\assert-inert.ps1 -PostCutover` → exit 0 |
 | IIS modules | ✅ **NEW 2026-08-22** — URL Rewrite 2.1 + ARR 3.0 installed, proxy enabled, live API verified unaffected |
 | `waitress` | ⚠️ Installed but **not running** and has no startup task. Deliberate — see the password warning below |
 | Site password | ⚠️ **NOT SET.** The app runs unauthenticated. This is the final step, by owner instruction |
@@ -98,11 +98,20 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
    90%, "crossed 90% on `<date>`" per quota, and a ≥90% filter. The highest-value
    content work, because 90% triggers a different customs process, and the
    crossing date is something the reference site cannot produce at all.
-5. **Find out why the retry policy did not fire on 2026-08-08.** The task is set
-   to restart twice at 20-minute intervals to absorb exactly the transient
-   failure that cost a day, and that day's log shows one run start, not three.
-   Until this is understood, every network blip risks a permanent one-day hole.
-   Nothing has failed since, so there has been no chance to observe it.
+5. **The 2026-08-08 retry question — investigated 2026-08-23, and it cannot be
+   answered retrospectively.** The reason the evidence is missing is not log
+   rotation: the **`Microsoft-Windows-TaskScheduler/Operational` log is
+   disabled** (`IsEnabled: False`, zero records retained). So Task Scheduler has
+   never recorded whether it attempted the restarts. The absence of extra run
+   starts in that day's script log only shows the *script* did not start again;
+   it says nothing about whether the *scheduler* tried.
+   **Task settings are unchanged and correct on paper** — `RestartCount = 2`,
+   `RestartInterval = PT20M`, `ExecutionTimeLimit = PT1H` (that run took 21
+   minutes, so it did not hit the limit).
+   **Next step: enable that operational log**, which would make the next failure
+   diagnosable. It is a system-level change, so it is **being asked for, not
+   done** — see §4a. Until then, every transient source failure still risks a
+   permanent one-day hole.
 6. **Migrate to SQL Server** once the database exists. ODBC Driver 17 is already
    installed and the `NT AUTHORITY\SYSTEM` login already exists, so it is
    `pip install pyodbc`, set `QUOTA_DB_URL`, `--rebuild`.
@@ -166,6 +175,33 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
   after a call the week of 2026-08-10. Its egress address is what gets
   allowlisted for port 22. **This is the user's thread, not the agent's** — the
   session runs on the server and is not blocked by it.
+
+## 4a. Asked, but NOT agreed — open requests to the instance owner
+
+> **Read this heading literally.** Yesterday we found a commitment in these
+> files that the instance owner had never made, produced by an earlier session
+> turning "he agreed to X" into "he agreed to build X". This section exists so
+> that never happens silently again. **Everything below is a request that has
+> been drafted or sent. None of it has been agreed. Nothing here may be
+> restated as approval without a message from him saying so.**
+
+| # | What is being asked | Status |
+|---|---|---|
+| 1 | Permission to **create one small database** on the existing instance — SIMPLE recovery (inherited from `model`), with a size cap | **ASKED, not agreed** |
+| 2 | Permission to create a **dedicated read-only login** for the Power BI gateway on that database — `db_datareader` only | **ASKED, not agreed** |
+| 3 | Permission to **enable the Task Scheduler operational log** (a system-level setting) so run failures become diagnosable — see queue item 5 | **ASKED, not agreed** |
+| 4 | The **DNS record and TLS certificate** for the tracker host name | **ASKED, he indicated he would arrange it; not yet delivered** |
+
+**Why a dedicated read-only login rather than reusing something.** The
+gateway's own service account has **no login on the instance at all**, so
+"just let the gateway in as itself" is not available. A named, read-only,
+single-database login is also the pattern the instance already uses elsewhere —
+there are existing logins scoped to `db_datareader` on other databases — so this
+asks for nothing unusual.
+
+**What has actually been agreed, for contrast:** the IIS add-on installs
+(*"You are free to install the IIS add-ons"*), and the site-first sequencing
+(*"Happy to go with your solution"*). That is the complete list.
 
 ## 5. Session history
 
