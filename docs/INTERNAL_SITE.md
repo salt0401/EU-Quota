@@ -579,6 +579,55 @@ alongside them. Open `quota-site/index.html` in any browser.
 
 Built by `webapp/export.py`; regenerated every morning by the daily task.
 
+### Two delivery paths, one renderer
+
+| Path | How it works | When it is used |
+|---|---|---|
+| **C -- prebuilt bundle** | the server renders daily, publishes `MEPS_Quota_Site.zip` to the release, the downloader extracts it | the default and the fast path |
+| **A -- local rendering** | the downloader loads the CSV it just fetched into a temporary SQLite via `webapp/etl.py`, then calls `webapp/export.py` | fallback when the bundle is missing, stale or the release is unreachable; forced with `--render-local` |
+
+They are **the same renderer invoked from two places**, not two implementations.
+Path A loads the CSV with the exact loader the server uses and then calls the
+exact exporter the server calls. A test asserts the two outputs are
+**byte-identical** for the same data, README aside (it carries the page count).
+
+`--no-site` skips the dashboard entirely if someone wants data files only.
+
+### The cost of local rendering, measured
+
+`download.py` was deliberately standard-library only, which is why the exe was a
+small single file. **Local rendering ends that**, and the number was measured
+before it shipped rather than estimated:
+
+| | Size |
+|---|---|
+| Baseline, stdlib-only | 7,852,785 bytes = **7.49 MB** |
+| With local rendering | 14,869,625 bytes = **14.18 MB** |
+| Delta | **+6.69 MB, 1.89x** |
+
+The weight is SQLAlchemy (~19 MB of source on disk, compressing to about
+6.5 MB in the bundle); Jinja2 and MarkupSafe are about 0.2 MB together. **No
+pandas, no numpy** -- the rendering chain is Jinja2 + SQLAlchemy + stdlib, so
+the 60 MB outcome that would have made this a bad trade does not arise.
+
+**Flask is excluded on purpose.** The exporter used to borrow the Flask app
+purely for its Jinja environment; `webapp/render.py` now builds that environment
+directly, so no web framework is bundled -- and the live site, the server export
+and the downloader all share one set of display filters.
+
+`download.py`'s own imports are still standard library: the webapp imports are
+inside the rendering function, so `python download.py` still works where the
+package is absent, and a test enforces that.
+
+### Rendering a past date: considered and skipped
+
+The CSV holds the whole history, so this looked nearly free. It is not, and the
+reason is worth recording: `queries.freshness()` reports the **latest** snapshot,
+so a page rendered for an older date would carry a header describing a different
+day. That is the same shape as the pace bug this project already hit -- a view
+computing the wrong date -- and fixing it properly means threading a date through
+`freshness()` as well. Deferred rather than half-done.
+
 ### Single source of truth, deliberately
 
 The obvious way to build this -- a second renderer with its own queries and its

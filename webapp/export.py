@@ -57,17 +57,26 @@ def _render(env, name, **ctx) -> str:
     return env.get_template(name).render(**ctx)
 
 
-def build(out_dir: str, db_url: Optional[str] = None, quiet: bool = False) -> dict:
-    """Render the whole bundle into ``out_dir``. Returns a small stats dict."""
+def build(out_dir: str, db_url: Optional[str] = None, quiet: bool = False,
+          bundle_dirname: Optional[str] = None) -> dict:
+    """Render the whole bundle into ``out_dir``. Returns a small stats dict.
+
+    ``bundle_dirname`` lets the downloader write its locally-rendered copy to a
+    different folder name, so a local render and a downloaded bundle can sit
+    side by side without one silently overwriting the other.
+    """
     # Imported here so a missing webapp extra cannot break module import for
     # callers that only want the constants above.
-    from webapp import queries, views
-    from webapp.app import create_app
+    from webapp import queries, render, views
+    from webapp.db import create_all, get_engine
 
     t0 = time.time()
-    app = create_app(db_url=db_url, require_auth=False)
-    env = app.jinja_env
-    engine = app.config["ENGINE"]
+    # Deliberately NOT create_app(): borrowing the Flask app purely for its
+    # Jinja environment would drag Flask and Werkzeug into the downloader exe
+    # for no benefit. Same environment, same filters, no web framework.
+    env = render.build_jinja_env()
+    engine = get_engine(db_url)
+    create_all(engine)
 
     staging = tempfile.mkdtemp(prefix="quota-site-")
     pages = 0
@@ -112,7 +121,7 @@ def build(out_dir: str, db_url: Optional[str] = None, quiet: bool = False) -> di
 
         # Only now, with every page written, put the bundle where the caller
         # expects it. A failure above leaves the destination untouched.
-        dest = os.path.join(out_dir, BUNDLE_DIRNAME)
+        dest = os.path.join(out_dir, bundle_dirname or BUNDLE_DIRNAME)
         os.makedirs(out_dir, exist_ok=True)
         if os.path.exists(dest):
             shutil.rmtree(dest)
@@ -121,6 +130,10 @@ def build(out_dir: str, db_url: Optional[str] = None, quiet: bool = False) -> di
     finally:
         if staging and os.path.isdir(staging):
             shutil.rmtree(staging, ignore_errors=True)
+        # This function created the engine, so it closes it. Leaving a SQLite
+        # pool open holds the file handle on Windows and blocks the caller from
+        # cleaning up a temporary database.
+        engine.dispose()
 
     elapsed = time.time() - t0
     if not quiet:

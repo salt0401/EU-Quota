@@ -2,9 +2,20 @@
 """
 Build script for the MEPS Quota Data Downloader EXE.
 
-The downloader (download.py) is standard-library only, so this produces a
-small SINGLE-FILE console exe — much easier to hand to colleagues than the
-old scraper bundle. Output: dist/MEPS_Quota_Downloader.exe
+Output: dist/MEPS_Quota_Downloader.exe, a single-file console exe.
+
+NOT STDLIB-ONLY ANY MORE, and that was a deliberate trade. download.py's own
+imports are still standard library, but it can now render the dashboard locally
+from the CSV it downloads, and that path imports webapp (Jinja2 + SQLAlchemy).
+The templates are bundled as data so the exe can render without the repository.
+
+Measured cost: 7.49 MB -> 14.16 MB, +6.67 MB, 1.89x. Accepted because it is
+still one small file to hand someone, and because it makes the downloader
+self-sufficient when the prebuilt bundle is missing or the release is
+unreachable. Flask is excluded on purpose -- the renderer builds its Jinja
+environment directly (webapp/render.py), so no web framework is bundled.
+
+The reasoning is recorded in docs/INTERNAL_SITE.md.
 
 Usage:
     python build/build_downloader_exe.py
@@ -20,11 +31,14 @@ PROJECT_DIR = os.path.dirname(BUILD_SCRIPT_DIR)
 DIST_FOLDER = os.path.join(PROJECT_DIR, "dist")
 PYINSTALLER_BUILD = os.path.join(BUILD_SCRIPT_DIR, "_dl_build_temp")
 
-# Everything heavy is excluded — the downloader must stay stdlib-only
+# Everything heavy stays out. Jinja2 and SQLAlchemy now come in deliberately
+# (local rendering); flask and werkzeug do NOT -- webapp/render.py builds the
+# Jinja environment directly so the exe carries no web framework.
 EXCLUDE_MODULES = [
     "pandas", "numpy", "openpyxl", "bs4", "lxml", "requests", "selenium",
     "pytest", "scipy", "matplotlib", "PIL", "tkinter", "_tkinter",
     "IPython", "notebook", "jupyter", "pydantic",
+    "flask", "werkzeug", "click", "itsdangerous", "blinker",
 ]
 
 
@@ -57,6 +71,10 @@ def main():
         "--distpath", DIST_FOLDER,
         "--workpath", PYINSTALLER_BUILD,
         "--specpath", BUILD_SCRIPT_DIR,
+        # so `from webapp import ...` resolves during analysis
+        "--paths", PROJECT_DIR,
+        # the templates must travel with the exe: local rendering has no repo
+        "--add-data", os.path.join(PROJECT_DIR, "webapp", "templates") + os.pathsep + os.path.join("webapp", "templates"),
         entry,
     ]
     for mod in EXCLUDE_MODULES:

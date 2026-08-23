@@ -30,6 +30,7 @@ from flask import Flask, Response, abort, g, redirect, render_template, request,
 
 from webapp import quota_period as qp
 from webapp import queries
+from webapp import render
 from webapp import views
 from webapp.db import create_all, get_engine
 
@@ -135,18 +136,11 @@ def create_app(db_url: str | None = None, require_auth: bool | None = None) -> F
         }
 
     # ------------------------------------------------------------- filters --
-
-    @app.template_filter("tonnes")
-    def _tonnes(v):
-        return "—" if v is None else f"{v:,.0f}"
-
-    @app.template_filter("pct")
-    def _pct(v):
-        return "—" if v is None else f"{v:,.1f}%"
-
-    @app.template_filter("d")
-    def _d(v):
-        return "—" if not v else (v.isoformat() if isinstance(v, date) else str(v))
+    #
+    # Defined in webapp.render and shared with the static exporter and the
+    # downloader's local renderer, so a change to a display filter reaches all
+    # three rather than two of them.
+    app.jinja_env.filters.update(render.FILTERS)
 
     return app
 

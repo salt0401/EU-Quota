@@ -209,6 +209,11 @@ def main(argv=None) -> int:
         with engine.connect() as conn:
             total = conn.execute(select(func.count()).select_from(quota_daily)).scalar()
         print(f"  Table now holds {total:,} rows.")
+
+    # Release the pool. On Windows an undisposed SQLite engine keeps the file
+    # handle open, which stops a caller deleting or replacing the database --
+    # the downloader renders into a temporary one and then removes it.
+    engine.dispose()
     return 0
 
 

@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
-__version__ = "2.10.0"
+__version__ = "2.11.0"
 
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"
@@ -48,6 +48,10 @@ REPORT_FILE = "MEPS_Quota_Update_latest.xlsx"
 # download look broken.
 SITE_ZIP = "MEPS_Quota_Site.zip"
 SITE_DIRNAME = "quota-site"
+# Rendered here on this machine when the release bundle is unavailable.
+# A separate folder so a local render and a downloaded bundle can coexist
+# without either silently overwriting the other.
+SITE_LOCAL_DIRNAME = "quota-site-local"
 
 
 def build_download_plan(metadata: dict) -> list:
@@ -107,6 +111,56 @@ def fetch_site_bundle(dest: str) -> bool:
         print("skipped (bundle has no index.html)")
         return False
     print(f"OK ({len(payload):,} bytes, extracted)")
+    return True
+
+
+def render_site_locally(dest: str) -> bool:
+    """Render the dashboard here, from the CSV that was just downloaded.
+
+    The fallback for when the release bundle is missing, stale or unreachable:
+    the program is then self-sufficient and renders from whatever history this
+    machine actually has.
+
+    THE SAME RENDERER. This does not reimplement anything -- it loads the CSV
+    with webapp.etl (the exact loader the server uses) and then calls
+    webapp.export.build(), which renders the same templates through the same
+    contexts as both the live site and the daily server-side export. There is
+    one renderer, invoked from three places.
+
+    Never fatal. Every failure path returns False after saying why; the data
+    download is the point of this program and must report success without it.
+    """
+    tmp_db = os.path.join(dest, "_quota_render.db")
+    try:
+        from webapp import etl, export
+    except Exception as e:
+        print(f"  local rendering unavailable ({e})")
+        return False
+
+    try:
+        url = "sqlite:///" + tmp_db.replace("\\", "/")
+        rc = etl.main(["--published-dir", dest, "--db-url", url, "--rebuild"])
+        if rc != 0:
+            print(f"  local rendering skipped (loading the CSV returned {rc})")
+            return False
+        export.build(dest, db_url=url, quiet=True,
+                     bundle_dirname=SITE_LOCAL_DIRNAME)
+    except Exception as e:
+        print(f"  local rendering skipped ({type(e).__name__}: {e})")
+        return False
+    finally:
+        # The database is an intermediate, not something to hand a colleague.
+        try:
+            if os.path.exists(tmp_db):
+                os.remove(tmp_db)
+        except OSError:
+            pass
+
+    index = os.path.join(dest, SITE_LOCAL_DIRNAME, "index.html")
+    if not os.path.exists(index):
+        print("  local rendering produced no index.html")
+        return False
+    print(f"  rendered the dashboard locally -> {SITE_LOCAL_DIRNAME}/index.html")
     return True
 
 
@@ -230,7 +284,8 @@ def check_freshness(metadata: dict) -> None:
               f"they are missing from the latest report.")
 
 
-def run(dest: str = None, skip_update: bool = False) -> int:
+def run(dest: str = None, skip_update: bool = False,
+        skip_site: bool = False, render_local: bool = False) -> int:
     print("=" * 64)
     print(f"  MEPS Quota Data Downloader  v{__version__}")
     print(f"  Source: github.com/{REPO} (updated daily by the MEPS server)")
@@ -258,6 +313,16 @@ def run(dest: str = None, skip_update: bool = False) -> int:
     os.makedirs(dest, exist_ok=True)
     print(f"\nDownloading to: {dest}")
 
+    # Keep the manifest beside the data. It is what stamps "Last update ..." on
+    # a locally-rendered page, so without it a local render is subtly poorer
+    # than the downloaded bundle for no reason -- and it is provenance a
+    # colleague may want anyway.
+    try:
+        with open(os.path.join(dest, METADATA_FILE), "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2)
+    except OSError:
+        pass
+
     plan = build_download_plan(metadata)
     current_csv = current_history_csv(metadata)
 
@@ -279,7 +344,17 @@ def run(dest: str = None, skip_update: bool = False) -> int:
 
     # 2b. the offline dashboard - deliberately after the data, and deliberately
     # not counted as a failure if it is missing.
-    site_ok = fetch_site_bundle(dest)
+    #
+    # Two delivery paths, one renderer. The release bundle is the fast path and
+    # stays the default; local rendering is the fallback that makes this program
+    # self-sufficient when the bundle is missing or the release is unreachable.
+    site_ok = False
+    site_local = False
+    if not skip_site:
+        if not render_local:
+            site_ok = fetch_site_bundle(dest)
+        if render_local or not site_ok:
+            site_local = render_site_locally(dest)
 
     # Consistency check: the raw CDN caches for a few minutes, so metadata and
     # the current year's CSV can briefly come from different daily commits.
@@ -313,6 +388,9 @@ def run(dest: str = None, skip_update: bool = False) -> int:
         if site_ok:
             print(f"For the dashboard offline, open "
                   f"{os.path.join(dest, SITE_DIRNAME, 'index.html')} in a browser.")
+        elif site_local:
+            print(f"For the dashboard offline, open "
+                  f"{os.path.join(dest, SITE_LOCAL_DIRNAME, 'index.html')} in a browser.")
     return 0 if failed == 0 else 1
 
 
@@ -321,11 +399,17 @@ def main():
     parser.add_argument("--dest", help="Destination folder (default: data/output/YYYY-MM-DD next to the program)")
     parser.add_argument("--no-pause", action="store_true", help="Do not wait for Enter before exiting")
     parser.add_argument("--skip-update", action="store_true", help="Do not self-update even if a newer version exists")
+    parser.add_argument("--no-site", action="store_true",
+                        help="Skip the offline dashboard entirely (data files only)")
+    parser.add_argument("--render-local", action="store_true",
+                        help="Render the dashboard on this machine from the downloaded "
+                             "CSV instead of fetching the prebuilt bundle")
     parser.add_argument("--version", action="version", version=f"MEPS Quota Data Downloader {__version__}")
     args = parser.parse_args()
 
     try:
-        code = run(dest=args.dest, skip_update=args.skip_update)
+        code = run(dest=args.dest, skip_update=args.skip_update,
+                   skip_site=args.no_site, render_local=args.render_local)
     except KeyboardInterrupt:
         code = 130
     except Exception as e:

@@ -279,3 +279,109 @@ def test_failed_build_leaves_no_partial_bundle(tmp_path):
     with pytest.raises(Exception):
         export.build(str(out), db_url=db, quiet=True)
     assert not os.path.exists(os.path.join(str(out), export.BUNDLE_DIRNAME))
+
+
+# ------------------------------------------- local rendering in the exe -----
+#
+# Delivery path A: the downloader renders the site itself from the CSV it just
+# fetched, instead of downloading the prebuilt bundle. The whole point is that
+# it is the SAME renderer, so these tests assert equivalence rather than
+# re-testing the renderer.
+
+def _download_module():
+    import importlib
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    return importlib.import_module("download")
+
+
+def test_download_module_is_still_stdlib_only_at_import_time():
+    """The exe must remain usable where webapp is absent.
+
+    Local rendering imports webapp lazily, inside the function. If those imports
+    ever move to module scope, `python download.py` breaks for anyone who has
+    only the single file.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    src = io.open(os.path.join(root, "download.py"), encoding="utf-8").read()
+    top = [l for l in src.splitlines()
+           if l.startswith("import ") or l.startswith("from ")]
+    for line in top:
+        assert "webapp" not in line, "webapp imported at module scope: " + line
+        assert "jinja2" not in line and "sqlalchemy" not in line, line
+
+
+def test_local_render_equals_the_release_bundle(tmp_path):
+    """Path A and path C must produce the same site from the same data."""
+    dl = _download_module()
+
+    body = ""
+    for d in ("2026-07-06", "2026-07-07"):
+        body += row(d, region="EU", order="099491", limit="1000", alloc="250", pct="25.0")
+        body += row(d, region="EU", order="099716", cat="Hot Rolled - 1",
+                    country="India", limit="1000", alloc="999.8", pct="99.98")
+        body += row(d, region="UK", order="058627", cat="Rebar - 13",
+                    country="Egypt", limit="1000", alloc="920", pct="92.0")
+    pub = write_history(tmp_path, body)
+
+    # path C: the server-side export, from its own database
+    server_db = "sqlite:///" + str(tmp_path / "server.db").replace("\\", "/")
+    etl.main(["--published-dir", pub, "--db-url", server_db, "--rebuild"])
+    server_out = tmp_path / "server_out"
+    export.build(str(server_out), db_url=server_db, quiet=True)
+
+    # path A: the downloader rendering locally, from the published folder
+    assert dl.render_site_locally(pub) is True
+
+    a = os.path.join(pub, dl.SITE_LOCAL_DIRNAME)
+    c = os.path.join(str(server_out), export.BUNDLE_DIRNAME)
+
+    names_a = sorted(os.path.relpath(os.path.join(r, f), a)
+                     for r, _d, fs in os.walk(a) for f in fs)
+    names_c = sorted(os.path.relpath(os.path.join(r, f), c)
+                     for r, _d, fs in os.walk(c) for f in fs)
+    assert names_a == names_c
+
+    for rel in names_a:
+        if rel == "README.txt":
+            continue                      # carries the page count and date only
+        assert _read(os.path.join(a, rel)) == _read(os.path.join(c, rel)), rel
+
+
+def test_local_render_matches_on_the_ninety_percent_boundary(tmp_path):
+    """The rule with an operational consequence, across both delivery paths."""
+    dl = _download_module()
+    body = ""
+    for d in ("2026-07-06", "2026-07-07"):
+        body += row(d, region="EU", order="099716", cat="Hot Rolled - 1",
+                    country="India", limit="1000", alloc="999.8", pct="99.98")
+        body += row(d, region="UK", order="058600", cat="Wire Rod - 16",
+                    country="Norway", limit="1000", alloc="800", pct="80.0")
+    pub = write_history(tmp_path, body)
+    assert dl.render_site_locally(pub) is True
+
+    html = _read(os.path.join(pub, dl.SITE_LOCAL_DIRNAME, "index.html"))
+    rows = {r["order"]: r for r in _rows_from_index(html)}
+    edge = rows["099716"]
+    assert float(edge["pct"]) < 100.0
+    assert round(float(edge["pct"]), 1) >= 100.0
+    assert edge["band"] == "exhausted"          # same classification as the server
+    assert rows["058600"]["band"] == "high"
+
+
+def test_local_render_cleans_up_its_temporary_database(tmp_path):
+    dl = _download_module()
+    pub = write_history(tmp_path, row("2026-07-06"))
+    assert dl.render_site_locally(pub) is True
+    leftovers = [n for n in os.listdir(pub) if n.endswith(".db")]
+    assert leftovers == [], "temporary database left behind: {}".format(leftovers)
+
+
+def test_local_render_is_never_fatal(tmp_path):
+    """A folder with no CSV must produce False, not an exception."""
+    dl = _download_module()
+    empty = tmp_path / "nothing"
+    empty.mkdir()
+    assert dl.render_site_locally(str(empty)) is False
+    assert not os.path.exists(os.path.join(str(empty), dl.SITE_LOCAL_DIRNAME))
