@@ -16,7 +16,7 @@
 {% if summary.fastest %}
 <div class="note">
   <b>Burning fastest:</b>
-  <a href="{{ url_for('quota', region=summary.fastest.region, order_number=summary.fastest.order_number) }}">{{ summary.fastest.order_number }}</a>
+  <a href="{{ link_quota(summary.fastest.region, summary.fastest.order_number) }}">{{ summary.fastest.order_number }}</a>
   &mdash; {{ summary.fastest.category }}{% if summary.fastest.country %} ({{ summary.fastest.country }}){% endif %},
   at {{ summary.fastest.pct_used | pct }} used with only
   {{ freshness.period.pct_elapsed }}% of the quarter gone &mdash;
@@ -25,7 +25,7 @@
 </div>
 {% endif %}
 
-<form class="filters" method="get" action="{{ url_for('index') }}">
+<form class="filters" method="get" action="{{ link_index() }}" id="filters"{% if static_mode %} onsubmit="return false"{% endif %}>
   <input type="search" name="q" value="{{ search }}"
          placeholder="Search category, country or order number&hellip;">
   <select name="region">
@@ -50,23 +50,22 @@
   </label>
   <button type="submit">Apply</button>
   <span class="sep"></span>
-  <a class="plain" href="{{ url_for('index') }}"><button type="button" class="ghost">Reset</button></a>
+  <a class="plain" href="{{ link_index() }}"><button type="button" class="ghost" id="reset">Reset</button></a>
 </form>
 
-{% if not groups %}
-  <div class="empty">No quotas match those filters.</div>
-{% endif %}
+<div class="empty" id="no-match"{% if groups %} hidden{% endif %}>No quotas match those filters.</div>
 
 {% for g in groups %}
-<details class="cat" {% if loop.index <= 3 %}open{% endif %}>
+<details class="cat" {% if loop.index <= 3 %}open{% endif %}
+         data-region="{{ g.region }}" data-cat="{{ g.category }}">
   <summary>
     <span class="reg">{{ g.region }}</span>
     <span class="cat-name">{{ g.category }}</span>
     <span class="chips">
-      <span class="chip">{{ g.count }} quota{{ '' if g.count == 1 else 's' }}</span>
-      {% if g.exhausted %}<span class="chip bad">{{ g.exhausted }} exhausted</span>{% endif %}
-      {% if g.at_risk %}<span class="chip warn">{{ g.at_risk }} nearing limit</span>{% endif %}
-      {% if g.pct_used is not none %}<span class="chip">{{ g.pct_used }}% of category used</span>{% endif %}
+      <span class="chip js-count">{{ g.count }} quota{{ '' if g.count == 1 else 's' }}</span>
+      <span class="chip bad js-exhausted"{% if not g.exhausted %} hidden{% endif %}>{{ g.exhausted }} exhausted</span>
+      <span class="chip warn js-atrisk"{% if not g.at_risk %} hidden{% endif %}>{{ g.at_risk }} nearing limit</span>
+      <span class="chip js-catpct"{% if g.pct_used is none %} hidden{% endif %}>{{ g.pct_used }}% of category used</span>
     </span>
   </summary>
 
@@ -85,8 +84,13 @@
     </thead>
     <tbody>
       {% for q in g.quotas %}
-      <tr>
-        <td><a href="{{ url_for('quota', region=q.region, order_number=q.order_number) }}">{{ q.order_number }}</a></td>
+      <tr data-region="{{ q.region }}" data-cat="{{ q.category }}"
+          data-country="{{ q.country }}" data-order="{{ q.order_number }}"
+          data-pct="{{ '' if q.pct_used is none else q.pct_used }}"
+          data-band="{{ q.band }}"
+          data-limit="{{ '' if q.limit_t is none else q.limit_t }}"
+          data-alloc="{{ '' if q.allocated_t is none else q.allocated_t }}">
+        <td><a href="{{ link_quota(q.region, q.order_number) }}">{{ q.order_number }}</a></td>
         <td>{{ q.country }}</td>
         <td class="num">{{ q.limit_t | tonnes }}</td>
         <td class="num">{{ q.allocated_t | tonnes }}</td>
@@ -105,5 +109,141 @@
   </table>
 </details>
 {% endfor %}
+
+{% if static_mode %}
+{# ---------------------------------------------------------------------------
+   Client-side filtering, for the offline bundle only.
+
+   The live site filters in SQL/Python and re-renders. A file:// page cannot,
+   so the static index renders EVERY row and hides what does not match.
+
+   THE RULE THAT MUST NOT DRIFT: the band ("exhausted" / "critical" / "high")
+   is NEVER recomputed here. It is read from data-band, which the server
+   computed from the value AS DISPLAYED to one decimal. That is the bug this
+   project already fixed once, and 90% now has an operational consequence, so
+   the classification stays in exactly one place -- Python -- and JavaScript
+   only ever compares strings.
+
+   The numeric "min_pct" filter DOES compare a raw percentage, because that is
+   what the server does (pct_used >= min_pct on the unrounded value). The two
+   are deliberately different and the difference is preserved rather than
+   tidied away.
+   --------------------------------------------------------------------------- #}
+<script>
+(function () {
+  var form = document.getElementById('filters');
+  if (!form) { return; }
+  var qEl    = form.querySelector('[name=q]');
+  var regEl  = form.querySelector('[name=region]');
+  var pctEl  = form.querySelector('[name=min_pct]');
+  var sortEl = form.querySelector('[name=sort]');
+  var presEl = form.querySelector('[name=pressure]');
+  var reset  = document.getElementById('reset');
+  var empty  = document.getElementById('no-match');
+
+  var cats = [].slice.call(document.querySelectorAll('details.cat'));
+  if (!cats.length) { return; }
+  var host = cats[0].parentNode;
+
+  function num(v) { return (v === null || v === '') ? null : parseFloat(v); }
+
+  function apply() {
+    var needle  = (qEl.value || '').trim().toLowerCase();
+    var region  = regEl.value || '';
+    var minPct  = pctEl.value === '' ? null : parseFloat(pctEl.value);
+    var pressOn = presEl.checked;
+    var byName  = (sortEl.value === 'name');
+    var anyRow  = false;
+
+    cats.forEach(function (cat) {
+      var rows = [].slice.call(cat.querySelectorAll('tbody tr'));
+      var shown = 0, exhausted = 0, atRisk = 0;
+      var limitSum = 0, allocSum = 0, haveLimit = false;
+
+      rows.forEach(function (tr) {
+        var ok = true;
+        if (region && tr.getAttribute('data-region') !== region) { ok = false; }
+        if (ok && needle) {
+          var c  = (tr.getAttribute('data-cat')     || '').toLowerCase();
+          var co = (tr.getAttribute('data-country') || '').toLowerCase();
+          var on = (tr.getAttribute('data-order')   || '');
+          ok = (c.indexOf(needle) >= 0) || (co.indexOf(needle) >= 0) || (on.indexOf(needle) >= 0);
+        }
+        if (ok && minPct !== null) {
+          var p = num(tr.getAttribute('data-pct'));
+          ok = (p !== null && p >= minPct);
+        }
+        tr.style.display = ok ? '' : 'none';
+        if (!ok) { return; }
+
+        shown++;
+        var band = tr.getAttribute('data-band');
+        if (band === 'exhausted') { exhausted++; }
+        if (band === 'critical' || band === 'high') { atRisk++; }
+        var L = num(tr.getAttribute('data-limit'));
+        var A = num(tr.getAttribute('data-alloc'));
+        if (L !== null) { limitSum += L; haveLimit = true; }
+        if (A !== null) { allocSum += A; }
+      });
+
+      var visible = shown > 0 && !(pressOn && exhausted === 0 && atRisk === 0);
+      cat.hidden = !visible;
+      if (visible) { anyRow = true; }
+
+      cat._exhausted = exhausted;
+      cat._atRisk    = atRisk;
+
+      var cCount = cat.querySelector('.js-count');
+      var cExh   = cat.querySelector('.js-exhausted');
+      var cRisk  = cat.querySelector('.js-atrisk');
+      var cPct   = cat.querySelector('.js-catpct');
+      if (cCount) { cCount.textContent = shown + ' quota' + (shown === 1 ? '' : 's'); }
+      if (cExh)   { cExh.hidden = (exhausted === 0); cExh.textContent = exhausted + ' exhausted'; }
+      if (cRisk)  { cRisk.hidden = (atRisk === 0);   cRisk.textContent = atRisk + ' nearing limit'; }
+      if (cPct) {
+        if (haveLimit && limitSum > 0) {
+          cPct.hidden = false;
+          cPct.textContent = (Math.round(1000 * allocSum / limitSum) / 10) + '% of category used';
+        } else {
+          cPct.hidden = true;
+        }
+      }
+    });
+
+    // Category ordering mirrors categories_overview(): most pressed first by
+    // default, alphabetical when asked.
+    var order = cats.slice().sort(function (a, b) {
+      if (byName) {
+        var an = (a.getAttribute('data-cat') || '').toLowerCase();
+        var bn = (b.getAttribute('data-cat') || '').toLowerCase();
+        if (an !== bn) { return an < bn ? -1 : 1; }
+        return (a.getAttribute('data-region') || '') < (b.getAttribute('data-region') || '') ? -1 : 1;
+      }
+      if (a._exhausted !== b._exhausted) { return b._exhausted - a._exhausted; }
+      if (a._atRisk    !== b._atRisk)    { return b._atRisk - a._atRisk; }
+      var ar = a.getAttribute('data-region') || '', br = b.getAttribute('data-region') || '';
+      if (ar !== br) { return ar < br ? -1 : 1; }
+      var ac = a.getAttribute('data-cat') || '', bc = b.getAttribute('data-cat') || '';
+      return ac < bc ? -1 : (ac > bc ? 1 : 0);
+    });
+    order.forEach(function (c) { host.appendChild(c); });
+
+    if (empty) { empty.hidden = anyRow; }
+  }
+
+  form.addEventListener('input', apply);
+  form.addEventListener('change', apply);
+  if (reset) {
+    reset.addEventListener('click', function (e) {
+      e.preventDefault();
+      qEl.value = ''; regEl.value = ''; pctEl.value = '';
+      sortEl.value = 'pressure'; presEl.checked = false;
+      apply();
+    });
+  }
+  apply();
+})();
+</script>
+{% endif %}
 
 {% endblock %}

@@ -570,6 +570,86 @@ Set the password before exposing it beyond loopback:
 powershell -ExecutionPolicy Bypass -File tools\set-site-password.ps1
 ```
 
+## Offline copy, shipped with the downloader
+
+Colleagues can read the dashboard with no server, no Python and no network:
+`MEPS_Quota_Site.zip` is published to the same rolling `latest-data` release as
+the workbooks, and `download.py` extracts it into the dated output folder
+alongside them. Open `quota-site/index.html` in any browser.
+
+Built by `webapp/export.py`; regenerated every morning by the daily task.
+
+### Single source of truth, deliberately
+
+The obvious way to build this -- a second renderer with its own queries and its
+own copy of the templates -- drifts the moment either side is touched, and the
+drift is silent. So the exporter renders the **same Jinja templates** through
+the **same Jinja environment**, from the **same contexts** in `webapp/views.py`,
+that the live site uses. It is a different output target, not a second
+implementation.
+
+That required one refactor, done rather than worked around: the templates no
+longer call `url_for` directly. They call `link_index()` / `link_quota()`, which
+the live app resolves through `url_for` and the exporter resolves to relative
+file paths. Six call sites, one seam.
+
+### The rule that must not drift
+
+The live index filters server-side and re-renders; a `file://` page cannot. So
+the static index renders **every** row and hides what does not match.
+
+**The band is never recomputed in JavaScript.** It is emitted as `data-band`
+from the value Python already computed on the figure *as displayed*, and the
+client filter only ever compares strings. This is the bug this project already
+fixed once, and 90% now has an operational consequence -- it triggers a
+different customs process -- so the classification stays in exactly one place.
+
+The numeric `min_pct` filter *does* compare a raw percentage, because that is
+what the server does. The asymmetry is real and is preserved rather than tidied.
+
+> ### Found while building this: the "Exhausted only" filter disagrees with the badge
+>
+> On the **live site**, a quota at 99.98% is banded `exhausted` and displays
+> "100.0%" -- but the "Exhausted only" filter (`min_pct=100`, raw comparison)
+> **excludes it**. Two quotas are in that state today.
+>
+> This is the same class of bug as the banding fix, in a place that fix did not
+> reach. The static bundle **reproduces the live behaviour exactly**, because
+> the instruction was equivalence and a one-sided "fix" would be precisely the
+> drift this design exists to prevent. **Fixing it is a live-site decision**:
+> make the filter compare `round(pct, 1) >= 100`, or drop `min_pct=100` in
+> favour of filtering on the band.
+
+### Failure isolation
+
+A failure here cannot fail, block or delay the data publish:
+
+- The task step runs **last**, after the data is scraped, gated, committed,
+  pushed and already uploaded, and runs `-AllowFailure` -- a WARN, not a failed
+  run, so the watchdog stays quiet.
+- The bundle renders into a **temporary directory** and is moved into place only
+  once every page has succeeded, so a partial bundle never exists.
+- The zip is written to a `.part` file and renamed, so a half-written archive is
+  never visible to the uploader.
+- The upload is attempted **only if generation returned 0**, so a failed render
+  leaves yesterday's bundle on the release -- stale, but whole.
+- `download.py` treats the bundle as optional: any failure prints a reason and
+  the data download still reports success.
+
+### Cost
+
+**3.2 seconds** for 359 pages (index + 358 quotas), producing a **2.1 MB** zip.
+Negligible against a ~200 s scrape, and it runs after everything time-critical.
+If it ever does need bounding, the cheapest lever is that `quota_context()`
+recomputes `freshness()` per page; caching it would remove most of the work.
+
+> **The release is public.** This makes MEPS's *presentation* of the data
+> publicly downloadable. The underlying numbers are already public on the same
+> release (the CSV and both workbooks), so the marginal exposure is the
+> presentation, not the data. Owner decision, taken knowingly. The bundle is
+> checked by tests for absolute URLs, external references and anything
+> secret-shaped.
+
 ### Keeping it running across a reboot
 
 `tools\quota-site-task.ps1` registers a Task Scheduler task that starts

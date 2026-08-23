@@ -98,11 +98,20 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
    unchanged). **The tool refuses to register while the password file is
    absent**, so the ordering no longer depends on anyone remembering it —
    password first, then task, then start.
-4. **Build the 90% work** (`TODO.md` §3): masthead count of quotas at or above
+4. **NEW 2026-08-23: offline dashboard bundle** -- built and committed.
+   `webapp/export.py` renders the site to static HTML (359 pages, 3.2 s, 2.1 MB
+   zip), published to the `latest-data` release and extracted by the downloader.
+   Renders the same templates through the same contexts as the live site, so it
+   cannot drift; the >=90% band is carried as data rather than recomputed in
+   JavaScript. Runs last in the daily task and is non-fatal. `download.py` is at
+   2.10.0, so installed copies self-update. **Note: the release is public, so
+   the presentation is now publicly downloadable -- owner decision, taken
+   knowingly; the underlying numbers were already public on the same release.**
+5. **Build the 90% work** (`TODO.md` §3): masthead count of quotas at or above
    90%, "crossed 90% on `<date>`" per quota, and a ≥90% filter. The highest-value
    content work, because 90% triggers a different customs process, and the
    crossing date is something the reference site cannot produce at all.
-5. **The 2026-08-08 retry question — investigated 2026-08-23, and it cannot be
+6. **The 2026-08-08 retry question — investigated 2026-08-23, and it cannot be
    answered retrospectively.** The reason the evidence is missing is not log
    rotation: the **`Microsoft-Windows-TaskScheduler/Operational` log is
    disabled** (`IsEnabled: False`, zero records retained). So Task Scheduler has
@@ -116,13 +125,13 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
    diagnosable. It is a system-level change, so it is **being asked for, not
    done** — see §4a. Until then, every transient source failure still risks a
    permanent one-day hole.
-6. **Migrate to SQL Server** once the database exists. ODBC Driver 17 is already
+7. **Migrate to SQL Server** once the database exists. ODBC Driver 17 is already
    installed and the `NT AUTHORITY\SYSTEM` login already exists, so it is
    `pip install pyodbc`, set `QUOTA_DB_URL`, `--rebuild`.
-7. **Power BI report**, built in Power BI Desktop (not on this server) against
+8. **Power BI report**, built in Power BI Desktop (not on this server) against
    the SQL Server database through the existing gateway; refresh ~06:30, after
    the publish.
-8. **Process documentation for the company SharePoint.** Distil from
+9. **Process documentation for the company SharePoint.** Distil from
    `ARCHITECTURE.md`, `INTERNAL_SITE.md`, `SERVER_DEPLOYMENT.md` — summarise,
    do not duplicate.
 99. **LAST: set the site password** (see the box above).

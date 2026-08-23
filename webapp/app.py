@@ -30,6 +30,7 @@ from flask import Flask, Response, abort, g, redirect, render_template, request,
 
 from webapp import quota_period as qp
 from webapp import queries
+from webapp import views
 from webapp.db import create_all, get_engine
 
 # A password here makes the site useless to a casual passer-by; it is not a
@@ -99,69 +100,39 @@ def create_app(db_url: str | None = None, require_auth: bool | None = None) -> F
 
     @app.route("/")
     def index():
-        latest = queries.latest_snapshot_date(g.conn)
-        if latest is None:
-            return render_template("empty.html", db=engine.dialect.name)
-
-        region = (request.args.get("region") or "").upper() or None
-        if region not in (None, "EU", "UK"):
-            region = None
-        search = request.args.get("q") or None
-        try:
-            min_pct = float(request.args["min_pct"]) if request.args.get("min_pct") else None
-        except ValueError:
-            min_pct = None
-        pressure_only = request.args.get("pressure") == "1"
-        # Anything unrecognised falls back to the default rather than 500ing:
-        # these arrive from a URL and a bad value is a bad request, not a crash.
-        sort = request.args.get("sort") if request.args.get("sort") in ("pressure", "name") else "pressure"
-
-        return render_template(
-            "index.html",
-            groups=queries.categories_overview(g.conn, latest, region=region,
-                                               search=search, min_pct=min_pct,
-                                               pressure_only=pressure_only,
-                                               sort=sort),
-            summary=queries.summary_counts(g.conn, latest),
-            freshness=queries.freshness(g.conn),
-            region=region, search=search or "", min_pct=min_pct,
-            pressure_only=pressure_only, sort=sort,
+        # Context is built by webapp.views so the static export renders the
+        # identical page from the identical data. See webapp/export.py.
+        ctx = views.index_context(
+            g.conn,
+            region=request.args.get("region"),
+            search=request.args.get("q"),
+            min_pct=request.args.get("min_pct"),
+            pressure_only=request.args.get("pressure") == "1",
+            sort=request.args.get("sort"),
         )
+        if ctx is None:
+            return render_template("empty.html", db=engine.dialect.name)
+        return render_template("index.html", **ctx)
 
     @app.route("/quota/<region>/<order_number>")
     def quota(region: str, order_number: str):
-        region = region.upper()
-        if region not in ("EU", "UK"):
+        ctx = views.quota_context(g.conn, region, order_number,
+                                  period_key=request.args.get("period"))
+        if ctx is None:
             abort(404)
+        return render_template("quota.html", **ctx)
 
-        detail = queries.quota_detail(g.conn, region, order_number)
-        if detail is None:
-            abort(404)
-
-        quarters = queries.available_quarters(g.conn, region, order_number)
-        requested = request.args.get("period")
-        start = qp.parse_period_key(requested) if requested else None
-        if start is None and quarters:
-            start = quarters[0]["start"]
-
-        series = queries.quota_series(g.conn, region, order_number, quarter_start=start)
-
-        # Describe the LATEST DAY WE HAVE DATA FOR, not the quarter's first day.
-        # describe(quarter_start) always reports "day 1 of 92, 1.1% elapsed",
-        # which silently breaks the ahead/behind-the-calendar verdict below it:
-        # every quota would be compared against 1.1% and so read as "ahead".
-        period = None
-        if series:
-            period = qp.describe(date.fromisoformat(series[-1]["date"]))
-        elif start:
-            period = qp.describe(start)
-
-        return render_template(
-            "quota.html",
-            quota=detail, series=series, quarters=quarters,
-            period=period, selected=period.key if period else None,
-            freshness=queries.freshness(g.conn),
-        )
+    # The templates reach links through these rather than url_for, so the very
+    # same template file also renders into the offline bundle. Live mode simply
+    # forwards to url_for; static mode substitutes relative paths.
+    @app.context_processor
+    def _links():
+        return {
+            "link_index": lambda **kw: url_for("index", **kw),
+            "link_quota": lambda region, order_number: url_for(
+                "quota", region=region, order_number=order_number),
+            "static_mode": False,
+        }
 
     # ------------------------------------------------------------- filters --
 

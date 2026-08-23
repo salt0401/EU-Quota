@@ -21,6 +21,7 @@ param(
     [switch]$Push,
     [switch]$SkipScrape,
     [switch]$SkipEtl,
+    [switch]$SkipSite,
     [string]$ProjectRoot      = "C:\DataScienceProject\EUQuota",
     [string]$TokenFile        = "C:\DataScienceProject\_secrets\euquota-github.token",
     [string]$Branch           = "main",
@@ -231,6 +232,46 @@ if (-not $SkipEtl) {
                    "unaffected and this run still counts as a success. If this " +
                    "persists, check that requirements-webapp.txt is installed in " +
                    "the venv and that QUOTA_DB_URL is reachable.") "WARN"
+    }
+}
+
+# --------------------------------------------- offline dashboard bundle ---
+
+# Render the tracker as a static bundle and publish it as a release asset, so
+# colleagues can read the dashboard offline beside the workbooks.
+#
+# DELIBERATELY NON-FATAL, AND DELIBERATELY LAST. By this point the day's data is
+# scraped, gated, committed, pushed and already uploaded to the release. Nothing
+# below can change any of that. Both steps run -AllowFailure, so a broken
+# template, a missing extra or a GitHub hiccup produces a WARN and a successful
+# task rather than a failed one that sets off the watchdog.
+#
+# Two further guarantees, in webapp/export.py rather than here:
+#   * the bundle is rendered into a temp directory and only moved into place
+#     once every page has succeeded, so a partial bundle never exists;
+#   * the zip is written to a .part file and renamed, so a half-written archive
+#     is never visible to the uploader.
+# The upload is attempted ONLY if generation returned 0, so a failed render
+# leaves yesterday's bundle on the release -- stale, but whole.
+if (-not $SkipSite) {
+    Write-Log "Rendering the offline dashboard bundle..."
+    $siteZip  = Join-Path $ProjectRoot "data\published\MEPS_Quota_Site.zip"
+    $siteOut  = Join-Path $ProjectRoot "data\published"
+    $siteCode = Invoke-Native $venvPython @("-m", "webapp.export", "--out", $siteOut, "--zip", $siteZip, "--quiet") "static site render" -AllowFailure
+
+    if ($siteCode -ne 0) {
+        Write-Log ("Offline dashboard generation did not complete (exit {0}). " -f $siteCode +
+                   "The published data is unaffected and this run still counts as " +
+                   "a success. The previous bundle, if any, remains on the release.") "WARN"
+    }
+    elseif ($Push) {
+        $siteUp = Invoke-Native $venvPython @("tools\publish_release_assets.py", "--token-file", $TokenFile, "--assets", $siteZip) "offline dashboard upload" -AllowFailure
+        if ($siteUp -ne 0) {
+            Write-Log ("Offline dashboard upload failed (exit {0}). The data upload " -f $siteUp +
+                       "earlier in this run already succeeded and is unaffected.") "WARN"
+        } else {
+            Write-Log "Offline dashboard published to the 'latest-data' release."
+        }
     }
 }
 

@@ -261,11 +261,23 @@ def main(argv=None):
                         help="file containing the GitHub token (never pass the "
                              "token itself: arguments are visible in the "
                              "process list)")
+    parser.add_argument("--assets", nargs="+", default=None,
+                        help="upload exactly these files instead of the published "
+                             "workbooks. Used by the daily task to publish the "
+                             "offline dashboard bundle as a separate, non-fatal "
+                             "step, so a failure there cannot disturb the data "
+                             "upload that already succeeded.")
     parser.add_argument("--dry-run", action="store_true",
                         help="report what would be uploaded, change nothing")
     args = parser.parse_args(argv)
 
-    paths = collect_assets(args.publish_dir)
+    if args.assets:
+        missing = [a for a in args.assets if not os.path.exists(a)]
+        if missing:
+            raise RuntimeError("asset(s) not found: " + ", ".join(missing))
+        paths = list(args.assets)
+    else:
+        paths = collect_assets(args.publish_dir)
     token = read_token(args.token_file)
     result = publish_assets(args.repo, args.tag, token, paths,
                             dry_run=args.dry_run)

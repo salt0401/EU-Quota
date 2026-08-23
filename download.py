@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
-__version__ = "2.9.1"
+__version__ = "2.10.0"
 
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"
@@ -43,6 +43,11 @@ MIN_PLAUSIBLE_EXE_BYTES = 1_000_000  # a real PyInstaller exe is several MB
 
 METADATA_FILE = "metadata.json"
 REPORT_FILE = "MEPS_Quota_Update_latest.xlsx"
+# Offline copy of the internal dashboard. Optional on purpose: it is a
+# convenience, and a missing or failed bundle must never make the data
+# download look broken.
+SITE_ZIP = "MEPS_Quota_Site.zip"
+SITE_DIRNAME = "quota-site"
 
 
 def build_download_plan(metadata: dict) -> list:
@@ -60,6 +65,49 @@ def build_download_plan(metadata: dict) -> list:
         REPORT_FILE, f"Quota_History_{year}.xlsx"]
     return [(name, BASE_URL) for name in csvs] + \
            [(name, RELEASE_BASE) for name in workbooks]
+
+
+def fetch_site_bundle(dest: str) -> bool:
+    """Fetch and unpack the offline dashboard. Never fatal.
+
+    Returns True when a readable bundle ends up on disk. Every failure path
+    returns False after printing why: the workbooks and the CSV are the point
+    of this program, and a missing extra must not make a successful data
+    download read as a failure.
+    """
+    import zipfile
+
+    try:
+        print(f"  {SITE_ZIP} ...", end=" ", flush=True)
+        payload = fetch(f"{RELEASE_BASE}/{SITE_ZIP}")
+    except Exception as e:
+        print(f"skipped ({e})")
+        return False
+
+    zip_path = os.path.join(dest, SITE_ZIP)
+    try:
+        with open(zip_path, "wb") as f:
+            f.write(payload)
+        target = os.path.join(dest, SITE_DIRNAME)
+        with zipfile.ZipFile(zip_path) as z:
+            # Refuse absolute paths and parent traversal rather than trusting
+            # the archive: this is unpacked on colleagues' machines.
+            for member in z.namelist():
+                if os.path.isabs(member) or ".." in member.replace("\\", "/").split("/"):
+                    print(f"skipped (unsafe path in archive: {member})")
+                    return False
+            z.extractall(target)
+        os.remove(zip_path)
+    except Exception as e:
+        print(f"skipped ({e})")
+        return False
+
+    index = os.path.join(target, "index.html")
+    if not os.path.exists(index):
+        print("skipped (bundle has no index.html)")
+        return False
+    print(f"OK ({len(payload):,} bytes, extracted)")
+    return True
 
 
 def current_history_csv(metadata: dict) -> str:
@@ -229,6 +277,10 @@ def run(dest: str = None, skip_update: bool = False) -> int:
             print(f"FAILED ({e})")
             failed += 1
 
+    # 2b. the offline dashboard - deliberately after the data, and deliberately
+    # not counted as a failure if it is missing.
+    site_ok = fetch_site_bundle(dest)
+
     # Consistency check: the raw CDN caches for a few minutes, so metadata and
     # the current year's CSV can briefly come from different daily commits.
     if csv_payload is not None and metadata.get("history_rows"):
@@ -258,6 +310,9 @@ def run(dest: str = None, skip_update: bool = False) -> int:
         history_wb = plan[-1][0] if plan else "Quota_History_<year>.xlsx"
         print(f"Open {os.path.join(dest, REPORT_FILE)} for the latest report,")
         print(f"and {history_wb} for the day-by-day history (one file per year).")
+        if site_ok:
+            print(f"For the dashboard offline, open "
+                  f"{os.path.join(dest, SITE_DIRNAME, 'index.html')} in a browser.")
     return 0 if failed == 0 else 1
 
 

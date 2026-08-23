@@ -10,7 +10,7 @@
 
 {% block content %}
 
-<p style="margin-bottom:18px"><a href="{{ url_for('index') }}">&larr; All quotas</a></p>
+<p style="margin-bottom:18px"><a href="{{ link_index() }}">&larr; All quotas</a></p>
 
 <div class="stats">
   <div class="stat"><b>{{ quota.limit_t | tonnes }}</b><span>quota limit (t)</span></div>
