@@ -237,6 +237,27 @@ from PowerShell: an empty-string element is dropped when an array is splatted to
 a native command, which silently turns the write into a *read* and leaves the
 manager active. That was caught during deployment.
 
+### `origin` must stay HTTPS — the task has no SSH key
+
+**The daily task runs as `SYSTEM`, and `SYSTEM` has no private key** — only a
+`known_hosts` file. `ssh-agent` is Stopped and Disabled. So the moment `origin`
+becomes `git@github.com:...`, the run gets
+`Permission denied (publickey)`, exit 128.
+
+It fails in the worst possible place: the release upload uses the REST API with
+the token and succeeds, the commit succeeds, and the run then dies at
+`git pull --rebase` — **after committing and before pushing**, stranding the
+day's data locally until the watchdog fires.
+
+This has happened once, on 2026-08-08. If a session works on the server as
+Administrator, check `git remote -v` before leaving; a manual push proves
+nothing about the task, because Administrator's gitconfig rewrites HTTPS to SSH
+and the task's environment does not.
+
+```powershell
+git remote set-url origin https://github.com/salt0401/EU-Quota.git
+```
+
 ---
 
 ## Browsing the folder without a terminal

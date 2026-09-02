@@ -109,23 +109,16 @@ python build/build_downloader_exe.py
 
 `download.py` is standard-library only, so PyInstaller is the *only* extra install.
 
-### Full scraper exe — optional local fallback
+### The full scraper exe is gone
 
-```bash
-pip install -r requirements.txt pyinstaller
-python build/build_exe.py
-# -> dist/EU_Quota_Scraper/EU_Quota_Scraper.exe  (folder bundle)
-```
+`build/build_exe.py` and `EU_Quota_Scraper.exe` were removed on 2026-09-02.
+Nobody ran the scraper by hand once the daily server run existed, and the build
+script had been sitting in `docs/archive/` while README and this file still told
+you to run it. It is in git history if a local-scrape fallback is ever wanted.
 
-**Gotchas already baked into `build/build_exe.py`** (don't remove): it force-removes
-OneDrive-locked temp dirs, and passes `--collect-submodules numpy` because
-numpy >= 2.4 splits C-extension helpers into submodules PyInstaller's hook misses
-(without it the frozen exe crashes at startup with `No module named
-'numpy._core._exceptions'`).
-
-**Check:** run the built exe once. `dist/MEPS_Quota_Downloader.exe --dest /tmp/x --no-pause`
-should print the published data date and download 3 files. The scraper exe should
-finish a live run with 0 failed quotas.
+**Check:** run the built downloader once.
+`dist/MEPS_Quota_Downloader.exe --dest /tmp/x --no-pause` should print the
+published data date and download 3 files.
 
 ---
 
@@ -195,15 +188,22 @@ Reference extractions from the regulations are in `data/reference/regime-2026-07
 
 ## 8. Open questions & future improvements
 
-They do NOT live in this file — this file is onboarding only. See
-`FUTURE_IMPROVEMENTS.md` (repo root) for the tracked list with status and
-decisions, and `docs/SESSION_LOG.md` for the current session handover (what is
-in flight, who is waiting on what, and the server rules). That log is
-**overwritten each handover** — the narrative of how the system was built lives
-in git history, not in a file. Colleague-facing material is in
-`PROJECT_STATUS.html`; operational procedures (quarter turn, January-2027
-regulation renewal) are in `docs/DAILY_UPDATE_RUNBOOK.md`; superseded decisions
-that still explain something are in `docs/archive/`.
+They do NOT live in this file — this file is onboarding only.
+
+- `docs/TODO.md` — **the** open-items list. Only open work lives there; finished
+  work is in `CHANGELOG.md` and git history.
+- `docs/SESSION_LOG.md` — the current session handover: what is in flight, who is
+  waiting on what, and the server rules. **Overwritten each handover**; the
+  narrative of how the system was built lives in git history, not in a file.
+- `docs/DAILY_UPDATE_RUNBOOK.md` — operational procedures (quarter turn,
+  January-2027 regulation renewal, what the input workbooks must contain).
+
+Nothing else. As of 2026-09-02 the roadmap does not also exist in
+`FUTURE_IMPROVEMENTS.md`, a status page and an archive folder — those said
+overlapping and drifting things about the same work, and are deleted. Parked
+investigations, incident write-ups and anything about the server's security
+posture are deliberately **outside** this repository, on the server under
+`_notes\` and `_secrets\`.
 
 ---
 

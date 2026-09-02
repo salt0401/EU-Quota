@@ -282,123 +282,53 @@ blocked:
 |---|---|
 | ODBC Driver 17 for SQL Server | ✅ **already installed** (64-bit) — verified 2026-08-08, so no machine-wide install and no notice needed |
 | `pyodbc` in the venv | ⏳ one `pip install`, venv-local |
-| The database itself | ⏳ **not created, and not requested.** We hold sysadmin on the instance so we *could* create it; the standing rule is to ask first. See *Do we need to ask?* below |
+| The database itself | ⏳ **not created, and not requested.** Our account has sufficient rights to create it, so this is a permission question rather than a technical one; the standing rule is to ask first. See *Do we need to ask?* below |
 | Login for the task account | ✅ **already exists** — `NT AUTHORITY\SYSTEM` has had a login on this instance since 2024-12-11. Only database-level permissions would be needed, not a new login |
 | `QUOTA_DB_URL` → SQL Server | ⏳ one environment variable |
 | `--rebuild` against it | ⏳ under a minute |
 
 That is the whole migration. It stays one action whenever it is wanted.
 
-### Do we need to ask? Reconnaissance of 2026-08-22
+### Do we need to ask? Yes — and the answer makes the request small
 
-Read-only investigation of the local instance, run because the answer decides
-how the request to the box owner is worded. **Nothing was created, altered or
-restarted** — every statement was a `SELECT`, issued through
-`System.Data.SqlClient` with Integrated Security so nothing had to be installed.
+Read-only reconnaissance of the local instance on 2026-08-22 settled it. Nothing
+was created, altered or restarted; every statement was a `SELECT`.
 
-| Question | Answer |
-|---|---|
-| Can we connect? | **Yes**, as the local Administrator account |
-| Are we sysadmin? | **Yes** — and `dbcreator`, `securityadmin`, `serveradmin`, and `CREATE ANY DATABASE` |
-| Version / edition | SQL Server 2022 **Express Edition**, 16.0.1170.5 RTM |
-| Databases present | 9 (4 system + 5 application). Ours would be the 10th |
-| `model` recovery model | **SIMPLE**, so a new database inherits SIMPLE — no log-backup chain to maintain, which is exactly right for a rebuildable projection |
-| Default data path | `C:\Program Files\Microsoft SQL Server\MSSQL16.MSSQLSERVER\MSSQL\DATA\` |
-| Free space on that volume | **150.2 GB free of 239.5 GB** — our database would be tens of MB |
-| Login for `NT AUTHORITY\SYSTEM`? | **Already exists**, enabled, created 2024-12-11 |
-| Power BI gateway | `PBIEgwService`, **Running**, automatic start, as `NT SERVICE\PBIEgwService` |
+**The technical answer: nothing is blocked.** Our account has sufficient rights
+to create the database, the login the daily task would use already exists, there
+is ample free space, and `model` is SIMPLE — so a new database inherits SIMPLE
+and there is no log-backup chain to maintain, which is exactly right for a
+rebuildable projection.
 
-**So the technical answer is: we could create it ourselves, today, and it is a
-smaller job than assumed** — the login the daily task would use already exists,
-so only database-level permissions would be needed, not a new login.
-
-**The governance answer is: ask anyway.** The standing rule quoted above —
-*"Do not touch the existing `MSSQLSERVER` instance. It backs a live public API.
-Ask before creating anything on it"* — is a permission question, and having
-sysadmin is precisely why it is worth honouring rather than a reason to skip it.
+**The governance answer: ask anyway.** The standing rule — *"Do not touch the
+existing `MSSQLSERVER` instance. It backs a live public API. Ask before creating
+anything on it"* — is a permission question, and being technically able to
+proceed is precisely why it is worth honouring rather than a reason to skip it.
 
 The useful consequence is that the request is small and specific: *may I create
 one small database on the instance*, not *please build us a database and a
 login*.
 
-Three things found on the way that are worth knowing:
+**Two constraints worth stating when asking.** The instance is Express Edition,
+which caps the buffer pool at roughly 1.4 GB while the existing databases
+already total about 1.1 GB of data files — our working set is small, so the
+added pressure is marginal, but not zero, and the instance backs a live API.
+And the Power BI gateway's service account has no login on the instance, so a
+data source cannot pass through as itself: it needs a **dedicated read-only
+login scoped to `db_datareader` on the new database and nothing else**. That
+matches what the instance already does — read-only logins on other databases
+already exist — so it asks for nothing novel.
 
-- **Express Edition** caps a database at 10 GB and provides no SQL Server Agent.
-  Neither binds us — the history is ~131k rows/year, and the ETL is driven by
-  the Windows scheduled task, not an Agent job. Express is a supported gateway
-  source. But Express also caps the buffer pool at roughly 1.4 GB, and the
-  existing databases already total about 1.1 GB of data files. Our working set
-  is small, so the added memory pressure is marginal — not zero, and worth a
-  sentence when asking, because the instance backs a live API.
-- **The gateway's service account has no SQL login.** `NT SERVICE\PBIEgwService`
-  is not among the instance's logins, so when a Power BI data source is
-  configured it will need explicit credentials rather than passing through as
-  its service account.
-- **The live API's certificate expires 2026-10-01.** Unrelated to this project
-  and not ours to renew, but noticed while checking the certificate store, and
-  it would take the public API down.
-
-### Does the existing Power BI dashboard actually use this gateway? (2026-08-23)
-
-Asked because an earlier briefing asserted, as an inference, that the
-researchers' existing dashboard "almost certainly" reads through the same
-gateway we would use. Investigated read-only. The inference was **half right,
-and the half that is wrong matters.**
-
-**Confirmed — the gateway does serve data from this box's SQL Server.** The
-gateway caches the Power Query (M) expressions it executes in its own logs;
-decoding them shows `Sql.Databases(...)` against this host, resolving to a
-specific database on the local instance, reading named tables from it. This is
-not inference — it is the gateway's own record of the queries it ran, and it is
-running them daily.
-
-**Corrected — it is not the price data.** The entities it serves are
-research-reporting content: report records, researcher references and contact
-details, shaped into fact and dimension queries. The **price-assessment data is
-a different system entirely**, reached through the public API's own application
-logins rather than through the gateway. So "the gateway already serves the
-existing dashboard" is true of *a* live Power BI dataset, but that dataset is
-research-activity reporting, not prices.
-
-**Why the distinction matters for us:** it confirms the gateway is live,
-configured and successfully reaching this instance every day — which is the part
-that de-risks putting quota data behind it. It does **not** establish that the
-particular dashboard the owner has in mind is gateway-fed. If that matters,
-ask him which dashboard he means.
-
-#### Confidence, stated plainly
-
-| Claim | Confidence |
-|---|---|
-| The gateway connects to this box's SQL Server | **Confirmed** — decoded from its own executed queries |
-| It serves research-reporting data, not prices | **Confirmed** — from the same source |
-| It is standalone, not clustered | **Confirmed** — no cluster references in its logs |
-| In service since mid-2025, starts with the machine | **Confirmed** — install date and process start |
-| **Which login it authenticates as** | **NOT established.** Successful logins are not audited on this instance, so there is no record. Candidates are the existing read-only and read-write application logins |
-| **The authoritative list of registered data sources** | **NOT established locally, and cannot be.** That list lives in the Power BI service in the cloud |
-
-**What would settle the two open rows:** open the gateway's entry in the Power BI
-service and read its data sources — definitive, and a two-minute job for whoever
-administers the tenant. Locally it would need either successful-login auditing
-turned on, or catching a live session during a refresh; neither is worth a
-change to a production instance to answer a question the cloud answers directly.
-
-#### Consequence for our own gateway access
-
-**Plan: a dedicated read-only login on the new database, scoped to
-`db_datareader` and nothing else.** Two reasons this is the right shape rather
-than a convenience:
-
-1. **Pass-through is not available.** The gateway's service account has no login
-   on the instance at all, so "let the gateway in as itself" is not an option
-   that exists.
-2. **It matches what the instance already does.** There are existing logins
-   scoped to read-only on other databases, so this asks for nothing novel.
+> The full reconnaissance — instance version and edition, the rights actually
+> held, the existing logins, the gateway's identity and what it serves, free
+> space — is deliberately **not** in this public repository. It is on the server
+> at `_secrets\sql-server-recon-2026-08-22.md`.
 
 **This is part of what is being requested, not something to do unilaterally** —
-see the *Asked, but NOT agreed* table in `SESSION_LOG.md`. We hold sysadmin and
-could create both the database and the login ourselves; the standing rule is to
-ask first, and having the privilege is why the rule is worth keeping.
+see the *Asked, but NOT agreed* table in `SESSION_LOG.md`. We have sufficient
+rights to create both the database and the login ourselves; the standing rule is
+to ask first, and being able to proceed is exactly why the rule is worth
+keeping.
 
 The original reasoning, kept for the record:
 
@@ -570,83 +500,47 @@ Set the password before exposing it beyond loopback:
 powershell -ExecutionPolicy Bypass -File tools\set-site-password.ps1
 ```
 
-## The display-vs-logic defect class, and the 2026-08-23 audit
+## The display-vs-logic rule
 
-**The class: a value is rounded for display, but logic runs on the raw value, so
-what a person sees contradicts what the system decided.** This project hit it
-twice -- the 99.99% banding bug, then the "Exhausted only" filter -- so the
-whole system was swept rather than waiting for a third to surface in front of a
-researcher.
+**The defect class: a value is rounded for display, but logic runs on the raw
+value, so what a person sees contradicts what the system decided.** This project
+hit it twice — the 99.99% banding bug, then the "Exhausted only" filter — so the
+whole system was swept on 2026-08-23 rather than waiting for a third to surface
+in front of a researcher.
 
-### One rule, in one place
+**The rule, decided 2026-09-02: one figure, truncated, and everything classifies
+on it.**
 
-`queries.displayed_pct()` is now the only place a percentage is rounded for
-comparison, and every threshold goes through it. The row also carries
-`pct_display`, so the offline bundle's client filter compares a figure **Python**
-computed rather than rounding for itself -- JavaScript still owns no
-classification rule.
+`render.displayed_pct()` is the only place a percentage becomes a display
+figure, and it **truncates** — `math.floor` to one decimal, via `Decimal` so
+binary floats cannot bite. `fmt_pct` prints exactly what it returns, and every
+band, filter and sort in `queries` compares it. The row also carries
+`pct_display`, so the offline bundle's client filter compares a figure *Python*
+computed rather than rounding for itself; JavaScript owns no classification
+rule.
 
-### Fixed
+**Why truncation rather than rounding, which was the first fix.** Because
+`displayed_pct(v) <= v` always holds, the displayed figure can never cross a
+threshold the raw value has not crossed. So "shown at or above 90%" implies
+"actually at or above 90%" — for that threshold, for the other three, and for
+any threshold added later, with nobody re-auditing them. Rounding gave the
+opposite guarantee exactly where it mattered: 89.96% displayed as 90.0% while
+the authoritative figure was below 90, and **90 is not a colour — it is where
+imports go through a different customs process**.
 
-| Fix | Was | Now |
-|---|---|---|
-| **`min_pct` filter** | compared the raw value, so a quota printing "100.0%" was excluded from "Exhausted only" | compares the displayed figure at every threshold (50/75/90/100) |
-| **Row sorting** | sorted on the raw value while printing a rounded one -- seven rows all printing "100.0%" appeared in an order driven by invisible digits, one of them last for no visible reason | sorts on the displayed figure, ties broken on **country**, a column that is on the page |
-| **Unknown percentage bar** | `width: 100%` when the figure was missing -- a **full** bar beside a "—" label, reading as "depleted" where the truth was "we do not know" | `width: 0%`; empty is the honest picture |
-| **`0.0 or -1` in the sort key** | 0.0 is falsy, so a genuine 0.0% quota sorted as though its figure were unknown | explicit `is not None` test |
+The accepted cost: a quota at 99.99% prints 99.9% and bands critical rather than
+exhausted. It is not exhausted, so that is defensible, but it is a real change
+in what the page says. On 2026-09-02 data, 110 of 358 rows print one tick lower
+and exactly two change band.
 
-Live effect: "Exhausted only" now returns **83** rows, exactly matching the
-masthead's exhausted tile. It returned 81 before, while the tile said 83.
+> **For the planned "crossed 90% on `<date>`":** decide the rule before writing
+> it. It must compare `pct_display`, or reuse `band`, exactly as everything else
+> does. Comparing the raw value would put the crossing date one day out from the
+> badge beside it on day one.
 
-### Found and deliberately NOT fixed -- these are judgement calls
-
-1. **The band itself carries two rules.** `exhausted` classifies on the
-   *displayed* figure; `critical` (90) and `high` (75) still classify on the
-   *raw* one. Moving 90 and 75 onto the displayed figure would give one rule
-   everywhere -- but it would band a quota at 89.96% as critical when the
-   authoritative figure is below 90, and **90 triggers a different customs
-   process**. That is an operational decision, not a tidy-up. No live rows sit
-   in the affected range today.
-2. **The console summary disagrees with the website.**
-   `data_processor.get_quota_summary()` counts `pct > 75` (strictly greater,
-   where the site uses `>=`) and `pct >= 100` on the raw value. So the figure
-   printed after a scrape can differ from the site's. It is operator-facing
-   only, not in the CSV or the workbook, and aligning it is a small behaviour
-   change to a separate audience.
-3. **`critical_count` is always 0.** It sums a `critical` column that nothing
-   ever creates, so the scrape prints "EU critical quotas: 0" unconditionally --
-   a metric reporting zero where the truth is "not computed".
-4. **`est_days_to_exhaustion` and `daily_burn_rate` are computed and never
-   consumed.** Not in the CSV, the workbook or the site. `round(remaining /
-   burn_rate, 0)` would print "0 days" for a quota with most of a day left, so
-   **the rule needs choosing before either is ever surfaced**, not after.
-5. **Null-as-zero is latent in the EU percentage path.** `pct_allocated` is
-   initialised to `0.0` and only overwritten where `quota_limit > 0`, so a quota
-   with a missing or zero limit would publish "0.0% used" rather than unknown.
-   The UK path preserves `None`. **No live rows are affected today** -- every
-   row has a limit -- so this is a trap rather than a current defect.
-6. **`excel_generator` would compute a percentage from already-rounded tonnes**
-   if `pct_allocated` were ever absent, and falls back to `0` for a missing
-   limit. The guard means it never fires in the current pipeline.
-
-### Checked and found sound
-
-- **Percentage provenance**: `pct` is computed from raw kilograms *before* any
-  rounding, not from rounded tonnes. No compounding.
-- **Headline tiles**: `summary_counts` counts on `band`, so the tiles and the
-  table cannot disagree.
-- **Fastest-burning**: already reuses `band` rather than re-testing a threshold.
-- **The detail chart**: tests `!= null` explicitly; a gap is drawn as a gap.
-- **The test suite**: no existing test asserted the wrong answer. One test *did*
-  encode the defect deliberately -- the offline-bundle parity test asserted the
-  exclusion in order to stay equivalent to a live site that still had the bug.
-  It has been inverted, and the comment says why.
-
-### For the planned "crossed 90% on `<date>`"
-
-**Decide the rule before writing it.** It must compare `pct_display`, or reuse
-`band`, exactly as everything else now does. Comparing the raw value would put
-the crossing date one day out from the badge beside it on day one.
+The audit's working record — what was fixed, what was checked and found sound,
+and the judgement calls left open — is at `_notes\rounding-audit-2026-08-23.md`
+on the server. The open items are in `docs/TODO.md`.
 
 ---
 

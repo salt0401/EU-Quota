@@ -133,7 +133,7 @@ EU Quota/
 │   └── git-askpass.cmd            # Feeds the push token to git without exposing it
 │
 ├── build/                         # BUILD EXE - Packaging scripts
-│   └── build_exe.py               # PyInstaller build script
+│   └── build_downloader_exe.py    # PyInstaller build script (downloader exe)
 │
 ├── dist/                          # Distribution output
 │   └── EU_Quota_Scraper/          # Ready-to-zip folder for distribution
@@ -156,7 +156,6 @@ EU Quota/
 │
 ├── docs/                          # DOCS - Documentation
 │   ├── ARCHITECTURE.md            # System architecture
-│   ├── INSTRUCTIONS.md            # English instructions
 │   └── TODO.md                    # Feature roadmap
 │
 ├── beta/                          # EXPERIMENTAL - Forecasting (isolated from src/)
@@ -174,11 +173,8 @@ EU Quota/
 
 ## Building EXE Distribution
 
-Two executables can be built:
-
 ```bash
 python build/build_downloader_exe.py   # MEPS_Quota_Downloader.exe (what colleagues use)
-python build/build_exe.py              # EU_Quota_Scraper.exe (full local scraper, optional)
 ```
 
 **To distribute the downloader (recommended):** colleagues grab the single
@@ -190,8 +186,10 @@ it checks `downloader_version.txt` on the release and replaces itself when CI
 has published a newer build (`.github/workflows/build-downloader.yml` rebuilds
 it on every `download.py` change), so distribution is one-time.
 
-**The full scraper bundle** (`dist/EU_Quota_Scraper/`) is only needed if
-someone must scrape locally, e.g. while GitHub is unreachable.
+> The full-scraper exe (`EU_Quota_Scraper.exe`) and its build script were
+> removed on 2026-09-02. Nobody ran the scraper by hand once the daily server
+> run existed, and colleagues get data through the downloader instead. The
+> script is in git history if a local-scrape fallback is ever wanted again.
 
 ## Technical Notes
 
@@ -205,7 +203,6 @@ someone must scrape locally, e.g. while GitHub is unreachable.
 
 - [Server deployment & runbook](docs/SERVER_DEPLOYMENT.md) — how the daily run works on the company server
 - [Daily update runbook](docs/DAILY_UPDATE_RUNBOOK.md) — triage when a run fails
-- [English Instructions](docs/INSTRUCTIONS.md)
 - [System Architecture](docs/ARCHITECTURE.md)
 
 > **Removed in v2.10.0:** the login-triggered auto-snapshot (`daily_snapshot.py`,

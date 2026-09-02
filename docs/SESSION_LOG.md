@@ -1,4 +1,4 @@
-# Session log — server session (updated 2026-08-22)
+# Session log — server session (updated 2026-09-02)
 
 **Convention: this file is the *only* session log.** Each handover overwrites
 it; older logs are deleted, not archived — history lives in git. It exists
@@ -10,6 +10,25 @@ anonymised: colleagues appear by role, and there are no addresses, hostnames,
 ticket numbers or security details here. The person-to-role mapping arrives via
 the session kickoff prompt, not this file. Keep it that way in everything you
 commit — see *Conventions*.
+
+### Where everything is, as of 2026-09-02
+
+Read these three and you have the whole picture. There is no fourth history.
+
+| To learn | Read |
+|---|---|
+| What is happening now, and what is waiting on whom | **this file** |
+| What is still to do | `docs/TODO.md` — the only open-items list |
+| How to run and operate it | `README.md`, then `docs/DAILY_UPDATE_RUNBOOK.md` |
+| How the code is shaped / what the data means | `docs/ARCHITECTURE.md` / `docs/DATA_FLOW_ANALYSIS.md` |
+| The daily server run | `docs/SERVER_DEPLOYMENT.md` |
+| The tracker site | `docs/INTERNAL_SITE.md` |
+| What already happened | `CHANGELOG.md` and git history |
+
+**Not in this repository, deliberately** — on the server, outside the working
+tree: `_notes\` holds parked investigations and incident write-ups;
+`_secrets\` holds credentials and anything describing the box's security
+posture. Both are referenced from here by name where they are relevant.
 
 ---
 
@@ -150,7 +169,7 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
   **He is arranging the DNS record and certificate** for `quota.mepsinternational.com`
   through a colleague; that is now the only external blocker.
 
-> ### ⚠️ CORRECTION 2026-08-24 — the host name was invented, not sourced
+> ### ⚠️ CORRECTION 2026-09-02 — the host name was invented, not sourced
 >
 > Every document and the IIS script carried **`quota.meps.co.uk`**. The real
 > name, from the request the instance owner actually sent, is
@@ -254,6 +273,38 @@ asks for nothing unusual.
 
 ## 5. Session history
 
+### 2026-09-02 — percentages truncate; the docs stop overlapping
+
+- **Displayed percentages are now TRUNCATED, not rounded** (owner decision).
+  `render.displayed_pct()` is the single definition, `fmt_pct` prints exactly
+  what it returns, and all four thresholds classify on it. Because
+  `displayed_pct(v) <= v` always holds, the display can no longer cross a
+  boundary the raw value has not — which closes the display-vs-logic class
+  structurally instead of one threshold at a time, and resolves the band
+  asymmetry that was previously flagged as an operational judgement call.
+  **Live effect on that day's data: 110 of 358 rows print one tick lower, and
+  exactly two change band** — EU 099716 and UK 058627, both 99.9x%, from
+  exhausted to critical. Neither is actually exhausted. The static bundle was
+  regenerated.
+- **Seven tests had their expectations inverted, none weakened.** They pinned
+  round-half-up behaviour; the invariant each defends is unchanged and each now
+  says in its own docstring why the expectation moved. Two new tests were added:
+  a property sweep proving `displayed <= raw` across every percentage the system
+  can carry, and one proving `fmt_pct` prints the classified figure rather than
+  re-deriving it.
+- **The privilege level was removed from committed docs.** The reasoning for the
+  database request is unchanged; "we hold sysadmin" now reads "sufficient
+  rights", and the role enumeration is gone.
+- **The documentation was reorganised.** Deleted: `FUTURE_IMPROVEMENTS.md`,
+  `docs/INSTRUCTIONS.md`, `PROJECT_STATUS.html`, `docs/archive/`. Moved out of
+  the repository: the SQL Server reconnaissance, the incident write-ups, the
+  rounding-audit log. Load-bearing content was folded into the files that stay
+  before anything was deleted — see the map at the top of this file.
+- **A wrong date was corrected.** Work done on 2026-09-02 had been stamped
+  `2026-08-24` in nine files, a date on which nothing was committed. All
+  occurrences now read 2026-09-02. The 08-22 and 08-23 stamps are genuine and
+  were left alone.
+
 ### 2026-08-22 — IIS front end installed; a fabricated commitment corrected
 
 - **Verified two weeks of unattended running** before touching anything: 12
@@ -276,9 +327,10 @@ asks for nothing unusual.
     its normal logged behaviour.
 - **`-ConfigureSite` correctly refused** — no certificate for the host name, so
   it created nothing and exited non-zero. That is the boundary, working.
-- **Read-only SQL Server reconnaissance** (see `INTERNAL_SITE.md`). We hold
-  sysadmin, the `NT AUTHORITY\SYSTEM` login already exists, 150 GB free, `model`
-  is SIMPLE. Nothing was created, altered or restarted.
+- **Read-only SQL Server reconnaissance** (see `INTERNAL_SITE.md`). We have
+  sufficient rights to create the database, the `NT AUTHORITY\SYSTEM` login
+  already exists, 150 GB free, `model` is SIMPLE. Nothing was created, altered
+  or restarted.
 - **Corrected a fabricated commitment** attributed to the instance owner — see
   the correction box in §4.
 
@@ -308,95 +360,12 @@ asks for nothing unusual.
 - **Repo reorganised**, stale docs pruned, dangling references fixed. See the
   commit message on `df4c7aa` for what moved and why.
 
-### ⚠️ The daily task was broken, and is fixed
-
-**`origin` had been changed to SSH** (`git@github.com:...`) at some point after
-yesterday's successful run — `.git/config` was modified at 00:24 local, and an
-SSH key appeared in the Administrator profile at 21:30 the evening before.
-
-The task runs as **`SYSTEM`, which has no private key** — only `known_hosts`.
-`ssh-agent` is Stopped and Disabled, and there is no `core.sshCommand` or
-`GIT_SSH_COMMAND` override. Simulating SYSTEM's environment reproduced it
-exactly:
-
-```
-git@github.com: Permission denied (publickey).
-EXIT CODE = 128
-```
-
-Tomorrow's 06:40 run would have scraped, uploaded the release assets (the REST
-API uses the token and is unaffected), committed — and then failed at
-`git pull --rebase`. The fallback on the next line has no `-AllowFailure`, so
-the script would have died **after committing and before pushing**, stranding
-the day's data locally and firing the watchdog at 09:00 UTC.
-
-**Fixed** by restoring the documented remote:
-
-```powershell
-git remote set-url origin https://github.com/salt0401/EU-Quota.git
-```
-
-That fix held and was confirmed in production: the 2026-08-09 run reached
-`https://github.com/...` with the PAT, which is exactly the path it was supposed
-to take.
-
-### Incident, 2026-08-08 — source timeouts, one permanent day lost
-
-262 of 283 EU quotas failed with `Read timed out` against `ec.europa.eu`; UK was
-fine at 75/75. The publish gate refused, correctly:
-
-```
-RuntimeError: Refusing to publish: 262/283 EU quotas failed to scrape
-```
-
-**This is the guard working**, not a bug — publishing 21 of 283 quotas would
-have filed a day that looks like mass quota expiry. The cause was transient; the
-next day scraped cleanly.
-
-**2026-08-08 is therefore a permanent hole in the history.** TARIC and the UK
-tariff publish *current* balances, so that day cannot be re-scraped. Partial
-output survives on disk in `data/output/2026-08-08/` (21 EU + 75 UK).
-**Recommendation: leave the gap.** Backfilling a 96-row day into a 358-row
-series would make 262 quotas look like they vanished for a day, which is worse
-than an honest absence — anything consuming the history should treat a missing
-date as missing, not as zero.
-
-> **Follow-up worth taking: the retry policy did not visibly fire.** The task is
-> configured `RestartCount=2`, `RestartInterval=PT20M`, and
-> `SERVER_DEPLOYMENT.md` describes it as "retries twice, twenty minutes apart" —
-> existing precisely to absorb a transient network failure like this one. The
-> 2026-08-08 log contains **one** run start, not three. Either the restarts did
-> not happen or they left no trace. Worth understanding, because had they fired,
-> this day would probably have been saved.
-
-### Incident, 2026-08-09 — push rejected for workflow scope (self-inflicted)
-
-The scrape was clean; the push was rejected outright:
-
-```
-! [remote rejected] main -> main (refusing to allow a Personal Access Token to
-  create or update workflow `.github/workflows/daily-quota-update.yml`
-  without `workflow` scope)
-```
-
-**Cause: the sanitisation commit edited two files under `.github/workflows/`.**
-The task's PAT is deliberately `Contents: Read and write` and nothing else, so
-GitHub refused the whole push — including the data commit behind it. Colleagues
-served 2026-08-07 data for two days.
-
-**Resolved.** The workflow sanitisation was re-applied and pushed over SSH from
-the Administrator account, so the remote and working copy now match; the task's
-own pushes only ever stage `data/published/`, so the PAT is sufficient again.
-Verified: `git diff origin/main -- .github/` is empty, and `data_date
-2026-08-09` is live at origin.
-
-Two lessons, both now in §6:
-
-- **`git push --dry-run` cannot prove a push will be accepted.** It exercises
-  connectivity and authentication; the workflow-scope rule is enforced
-  server-side during the real ref update. A dry-run returned exit 0 before this
-  failure.
-- **Pushing by hand proves nothing about the task.** See the rule below.
+> **Three incidents from this period are recorded outside the repository**, at
+> `_notes\incidents.md`: the 2026-08-08 source timeouts that lost one day of
+> data permanently, the 2026-08-08 `origin`-switched-to-SSH breakage, and the
+> 2026-08-09 push rejected for workflow scope. Every rule they produced is
+> already in `SERVER_DEPLOYMENT.md`, the runbook, or §6 and §7 below; the
+> narratives are not needed to work on the project.
 
 ## 6. Server rules — non-negotiable
 
@@ -469,7 +438,7 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
   server's security posture in committed files. If continuation context needs
   such details, they go in the session prompt or a local uncommitted note.
 
-  > **The public-DNS exception, decided 2026-08-24 rather than left implicit.**
+  > **The public-DNS exception, decided 2026-09-02 rather than left implicit.**
   > The rule is about **the host**: its machine name, its IP address, the SSH
   > key that reaches it, which ports are open, how the firewall and backups are
   > arranged. Those describe the box and how to get at it, and together they are
@@ -500,9 +469,12 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
   run is labelled UNVERIFIED, and failing tests are never weakened to pass.
   Note that `webapp/tests` reporting "53 passed, 2 skipped" means the extras are
   missing and half the suite did not run — it is not a smaller suite passing.
-- `docs/archive/` holds superseded material kept because it explains *why*
-  something is the way it is. Nothing there is maintained; if it contradicts a
-  document outside it, the outside document wins.
+- **The repository holds project material only.** Parked investigations,
+  incident write-ups and anything describing the server's security posture live
+  outside it, on the server under `_notes\` and `_secrets\`. A document that
+  has stopped being something a new session would act on is deleted or moved
+  out, not archived in place — a `docs/archive/` folder existed until
+  2026-09-02 and its contents were, by its own README, unmaintained.
 - No destructive git (`reset --hard`, `checkout --`, `clean -f`) to escape a
   confusing state — stash or WIP-commit first.
 

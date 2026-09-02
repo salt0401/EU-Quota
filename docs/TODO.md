@@ -55,6 +55,38 @@ in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
 - [ ] **Migrate to SQL Server** once researchers confirm the site is useful —
       deferred, **not cancelled**
 
+## 2b. Display-vs-logic: five open judgement calls
+
+Found by the 2026-08-23 sweep and **deliberately not fixed** — each is a
+behaviour decision, not a tidy-up. The sixth, the band carrying two rules, was
+closed on 2026-09-02 by the decision to truncate rather than round. Working
+record at `_notes\rounding-audit-2026-08-23.md` on the server.
+
+- [ ] **The console summary disagrees with the website.**
+      `data_processor.get_quota_summary()` counts `pct > 75` (strictly greater,
+      where the site uses `>=`) and `pct >= 100` on the raw value, so the figure
+      printed after a scrape can differ from the site's. Operator-facing only —
+      not in the CSV or the workbook — so aligning it is a small behaviour
+      change to a separate audience
+- [ ] **`critical_count` is always 0.** It sums a `critical` column nothing ever
+      creates, so every scrape prints "EU critical quotas: 0" unconditionally —
+      a metric reporting zero where the truth is "not computed"
+- [ ] **`est_days_to_exhaustion` and `daily_burn_rate` are computed and never
+      consumed.** Not in the CSV, the workbook or the site. `round(remaining /
+      burn_rate, 0)` would print "0 days" for a quota with most of a day left,
+      so **the rounding rule needs choosing before either is ever surfaced**
+- [ ] **Null-as-zero is latent in the EU percentage path.** `pct_allocated`
+      starts at `0.0` and is only overwritten where `quota_limit > 0`, so a
+      quota with a missing or zero limit would publish "0.0% used" rather than
+      unknown. The UK path preserves `None`. No live rows are affected — every
+      row has a limit — so this is a trap, not a current defect
+- [ ] **`excel_generator` would compute a percentage from already-rounded
+      tonnes** if `pct_allocated` were ever absent, and falls back to `0` for a
+      missing limit. The guard means it never fires in the current pipeline
+- [ ] **Not swept: the workbook as Excel opens it.** The audit covered Python
+      and the website. Excel's own cell formatting could round a value that a
+      formula then compares — the same class, one layer further out
+
 ## 3. Content questions — ANSWERED 2026-08-08
 
 All three are closed. Two removed work; the third added a requirement.
@@ -95,7 +127,7 @@ and no procurement step.
 Phase 1 (data loader) is done. Phase 2 became *technically* possible at 30
 new-regime days (~2026-08-04; 33 days as of 2026-08-07) — `MIN_PROPHET_DAYS` in
 the code. **Starting Phase 2 is an owner decision, not a date**, and more
-history still makes it better. Tracked in `FUTURE_IMPROVEMENTS.md` §4.
+history still makes it better.
 
 - [ ] `preprocessor.py` — rolling features, seasonality flags, outlier detection
 - [ ] `simple_models.py` — naive, moving average, linear trend baselines
@@ -126,4 +158,4 @@ venv\Scripts\python.exe -c "from beta.forecasting import load_history, get_snaps
   `meps_customer_template.xlsx`
 - **Forecasting:** experimental, completely independent of the main pipeline
 
-*Last updated: 22-Aug-2026*
+*Last updated: 02-Sep-2026*

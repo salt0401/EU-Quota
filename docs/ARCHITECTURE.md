@@ -161,7 +161,7 @@ EU Quota/
 │   └── tests/
 │       └── test_forecasting_data_loader.py
 │
-├── build/                         ◄── EXE build script (build_exe.py)
+├── build/                         ◄── EXE build script (build_downloader_exe.py)
 │
 ├── dist/                          ◄── Distribution output (EXE)
 │
@@ -188,7 +188,6 @@ EU Quota/
 ├── docs/                          ◄── Documentation
 │   ├── ARCHITECTURE.md                (this file)
 │   ├── TODO.md
-│   ├── INSTRUCTIONS.md
 │   └── DATA_FLOW_ANALYSIS.md
 │
 ├── tests/                         ◄── Main pipeline unit tests

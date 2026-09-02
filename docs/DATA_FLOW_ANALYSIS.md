@@ -2,7 +2,15 @@
 
 ## Overview
 
-This document describes how data flows from input sources through the scraping system to the final customer-facing MEPS Excel report.
+This document describes how data flows from input sources through the scraping
+system to the final customer-facing MEPS Excel report.
+
+> **Scope, so it does not overlap `ARCHITECTURE.md`.** That file owns the *code*:
+> modules, call graph, execution order. This one owns the *data*: which fields
+> are scraped, how each derived value is computed, and how the MEPS customer
+> workbook is put together — the template's sheets, tables, slicers and
+> protection. When the two disagree about code structure, `ARCHITECTURE.md`
+> wins; about field meanings, this one does.
 
 > **July 2026 regime migration:** The old EU/UK steel safeguard ended on 30 June 2026.
 > From 1 July 2026 the pipeline tracks the replacement measures — EU: Regulation (EU)
@@ -256,19 +264,14 @@ balance - awaiting_allocation = Balance Remaining
 
 ---
 
-## 9. KEY OBSERVATIONS FOR REBUILD
+## 9. TWO THINGS THAT ARE EASY TO GET WRONG
 
-1. **Calculation Mismatch** *(resolved)*: `data_processor.py` now uses `amount + transferred_amount` for Quota Limit
-
-2. **Missing Field** *(resolved)*: `balance - awaiting_allocation` is calculated for Balance Remaining (floored at 0)
-
-3. **UK Data Gap** *(resolved)*: `src/uk_scraper.py` scrapes UK quotas via the UK Trade Tariff JSON API
-
-4. **Manual Steps** *(mostly resolved)*: Dates are auto-filled at generation; analyst notes remain manual
-
-5. **Slicer Dependency**: Interactive features rely on Excel table structure
-
-6. **Units**: All values stored in kg but displayed as Tonnes (divide by 1000)
+1. **Units.** Every value is stored in **kg** and displayed in **tonnes**
+   (divide by 1000). The percentage is computed from raw kg *before* any
+   rounding, never from rounded tonnes.
+2. **Slicer dependency.** The customer workbook's interactive filters rely on
+   the Excel *table* structure. Writing values into the sheet without keeping
+   the table ranges intact silently breaks the slicers.
 
 ## 10. PUBLISHED DATA & DISTRIBUTION (July 2026)
 

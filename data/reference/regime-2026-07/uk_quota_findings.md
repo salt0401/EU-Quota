@@ -36,3 +36,16 @@ Status: FOUND_FULL. The colleague's lost hyperlink is the GOV.UK notice below; T
 
 ## Category names (from the notice)
 1 non-alloy and other alloy hot-rolled sheets and strips (authorised-use measure also in place); 4 metallic coated sheets; 5 organic coated sheets; 6 tin mill products; 7 non-alloy and other alloy quarto plates; 12A alloy merchant bars and light sections; 12B non-alloy merchant bars and light sections; 13 rebars; 14 stainless bars and light sections; 15 stainless wire rod; 16 non-alloy and other alloy wire rod; 17 angles, shapes and sections of iron or non-alloy steel; 19 railway material; 20 gas pipes; 21 hollow sections; 25A large welded tubes (1); 25B large welded tubes (2); 26 other welded tubes; 27 non-alloy and other alloy cold finished bars; 28 non-alloy wire.
+
+## Why the three Category 1 "authorised use" quotas are tracked
+
+Order numbers `058673`, `058674` and `058675` are ~5× the ordinary Category 1
+volume, which looks like an error until you know why. They are the separate
+Category 1 *authorised-use* global quota, not part of Tables 3 and 4.
+
+The original brief scoped the UK to Tables 3 and 4, so on 2026-07-06 this was
+raised as an open question: should they be tracked at all? **Resolved: yes.**
+They are in `data/input/uk_quota_urls.xlsx` and in `UK_QUOTA_ORDER_NUMBERS`, and
+the daily run has confirmed 75 UK quotas every morning since. Nothing in the code
+says why those three rows exist or why their volumes look wrong, which is why it
+is recorded here.
