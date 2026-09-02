@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
 
-__version__ = "2.11.0"
+__version__ = "2.11.1"
 
 REPO = "salt0401/EU-Quota"
 BRANCH = "main"

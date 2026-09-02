@@ -50,6 +50,11 @@ in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
 - [ ] **Migrate to SQL Server** once researchers confirm the site is useful —
       deferred, **not cancelled**
 
+> **Trap, if anyone builds a "view an earlier date" page:** `queries.freshness()`
+> reports the LATEST snapshot, so a page rendered for an older date would carry a
+> header describing a different day. Thread the date through `freshness()` as
+> well. This project has already shipped one view that computed the wrong date.
+
 ## 2b. Display-vs-logic: one item left
 
 The 2026-08-23 sweep found six judgement calls. All are now closed except the

@@ -20,7 +20,8 @@ Read these three and you have the whole picture. There is no fourth history.
 | What is happening now, and what is waiting on whom | **this file** |
 | What is still to do | `docs/TODO.md` — the only open-items list |
 | How to run and operate it | `README.md`, then `docs/DAILY_UPDATE_RUNBOOK.md` |
-| How the code is shaped / what the data means | `docs/ARCHITECTURE.md` / `docs/DATA_FLOW_ANALYSIS.md` |
+| How the code is shaped | `docs/ARCHITECTURE.md` |
+| What a field means | the code — `src/data_processor.py` for the formulas, `HISTORY_COLUMNS` in `src/publisher.py` for the dataset |
 | The daily server run | `docs/SERVER_DEPLOYMENT.md` |
 | The tracker site | `docs/INTERNAL_SITE.md` |
 | What already happened | `CHANGELOG.md` and git history |
@@ -118,7 +119,7 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
    absent**, so the ordering no longer depends on anyone remembering it —
    password first, then task, then start.
 4. **NEW 2026-08-23: offline dashboard bundle** -- built and committed.
-   `webapp/export.py` renders the site to static HTML (359 pages, 3.2 s, 2.1 MB
+   `webapp/export.py` renders the site to static HTML (359 pages, ~7 s, 2.1 MB
    zip), published to the `latest-data` release and extracted by the downloader.
    Renders the same templates through the same contexts as the live site, so it
    cannot drift; the >=90% band is carried as data rather than recomputed in

@@ -44,8 +44,6 @@ ALLOWED = {
     "downloader_version.txt": "release asset, written by CI",
     "eu_quota_raw_YYYYMMDD.xlsx": "dated output, generated per run",
     "uk_quota_raw_YYYYMMDD.xlsx": "dated output, generated per run",
-    "data/output/YYYY-MM-DD/eu_quota_raw_YYYYMMDD.xlsx": "dated output",
-    "data/output/YYYY-MM-DD/MEPS_Quota_Update_YYYYMMDD.xlsx": "dated output",
     "quota-site/index.html": "inside the generated offline bundle",
     "uk_measure.html": "working file for a one-off extraction, never committed",
     "uk_measure_text.txt": "working file for a one-off extraction, never committed",

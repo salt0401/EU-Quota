@@ -14,7 +14,7 @@ usage, grouped by product category, with per-quota daily history.
 
 | | |
 |---|---|
-| **Built and tested** | ✅ 105 tests, verified against the real published history |
+| **Built and tested** | ✅ `venv\Scripts\python.exe -m pytest webapp/tests -q` — verified against the real published history. No count here: it goes stale, and the command answers it |
 | **Code on the server** | ✅ Arrives by itself — the daily task runs `git pull --rebase` before it pushes |
 | **One-off setup done** | ✅ **2026-08-08** — extras installed in the venv, database built (11,814 rows), ETL verified. Password file still outstanding |
 | **Database** | SQLite, on the server, loaded and refreshed by the daily task. SQL Server remains the **eventual** target — see *The database plan* |
@@ -44,71 +44,28 @@ history. What is missing is not the application — it is the route to it.
 
 ---
 
-## Decision of record: ship this site first, move to SQL Server + Power BI after
+## Still to do: SQL Server and Power BI
 
-**2026-08-08, owner decision. This reverses the 2026-08-07 decision that made
-Power BI the delivery mechanism and marked this site superseded.**
+The site was built first, deliberately, and **the end state is still SQL Server
+as the store and Power BI as the researcher-facing dashboard.** If you are
+reading this later and wondering why the tracker is a Flask app: the migration is
+outstanding work, not an abandoned idea.
 
-### What changed
+**The trigger:** researchers confirm the site is useful, *or* the first request
+arrives for quota data alongside anything else in Power BI. Whichever comes
+first. Migration is a connection-string change plus `--rebuild`; nothing is lost,
+because the CSV is canonical. `SESSION_LOG.md` carries this in its work queue.
 
-Nothing about the *destination* — it is the *order* that changed. Building a
-Power BI report that researchers actually find useful is slow: it needs the
-database created, the gateway pointed at it, measures written, and a report
-designed for people whose requirements are still three open questions. This
-site already exists, is tested, and runs on the server today.
+### The constraint on what may be built here
 
-So: **put this in front of researchers first and learn what they use.** Whatever
-they actually reach for is the specification for the Power BI report — a far
-better specification than one written before anyone has seen the data.
+The instance owner asked for Power BI **specifically to avoid parallel systems**
+and agreed to this site as an evaluation with a defined end, not as a second
+permanent system. One rule follows, and it is load-bearing:
 
-### ⚠️ This is a sequencing decision, not a cancellation
-
-**The end state is still SQL Server as the store and Power BI as the
-researcher-facing dashboard.** If you are reading this months later wondering
-why the tracker is a Flask app: it was a deliberate first step, and finishing
-the migration is outstanding work, not an abandoned idea. The reasons SQL Server
-wins have not changed — the gateway is already on this host, it cannot read
-SQLite, and quota data belongs alongside price data.
-
-**The trigger for migrating:** researchers confirm the site is useful, *or* the
-first request arrives for quota data alongside anything else in Power BI.
-Whichever comes first. Migration is a connection-string change plus
-`--rebuild`; nothing is lost, because the CSV is canonical.
-
-`SESSION_LOG.md` carries this in its work queue so it stays visible.
-
-### Both stakeholders have now agreed to this (2026-08-08)
-
-It began as a unilateral reversal. It is not one any more — both people whose
-opinion it depends on replied the same day, and both accepted, from opposite
-directions:
-
-- **The research colleague** (owns the content): Power BI *"would be good to
-  have ... however this is not critical. If it is difficult or costly to
-  implement then the website would be sufficient."*
-- **The instance owner** (owns the box and the reporting estate): *"No problem
-  about your proposed solution ... Happy to go with your solution, but to avoid
-  having different systems it would be convenient to add this dashboard to
-  Power BI."*
-
-So: build the site, use it to find out which views matter, then port those to
-Power BI. Nobody is being overruled — but the instance owner's preference is
-explicit, and the second half of the plan is what honours it.
-
-### The objection, still live
-
-He asked for Power BI **specifically to avoid parallel systems**, and standing
-this site up builds the thing he would rather not have. He has agreed to it;
-that is not the same as the concern going away. It is *deferred*, on the
-understanding that this site is an evaluation with a defined end, not a second
-permanent system. Two consequences, both load-bearing:
-
-1. **Do not let this site accumulate features that only exist here.** Anything
-   researchers depend on has to be reproducible as a Power BI measure — now
-   including the 90% threshold, which has an operational meaning and must land
-   on the same boundary in both systems.
-2. **The IIS work needs him anyway** — see *How researchers reach it* — and it
-   is a larger favour than creating a database was.
+**Do not let this site accumulate features that only exist here.** Anything
+researchers come to depend on has to be reproducible as a Power BI measure —
+including the 90% threshold, which has an operational meaning and must land on
+the same boundary in both systems.
 
 > **A replacement VPS is being provisioned** through MEPS's IT company.
 > Migration will be needed eventually; it is not urgent and the box owner will
@@ -642,7 +599,8 @@ A failure here cannot fail, block or delay the data publish:
 
 ### Cost
 
-**3.2 seconds** for 359 pages (index + 358 quotas), producing a **2.1 MB** zip.
+**6.7-8.9 seconds** for 359 pages (index + 358 quotas), producing a **2.1 MB**
+zip. Re-measured 2026-09-02.
 Negligible against a ~200 s scrape, and it runs after everything time-critical.
 If it ever does need bounding, the cheapest lever is that `quota_context()`
 recomputes `freshness()` per page; caching it would remove most of the work.

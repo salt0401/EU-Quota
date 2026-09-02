@@ -21,10 +21,13 @@ a customer Excel report for MEPS. It runs in two halves:
 The repository is **public** on purpose — the downloader fetches data anonymously,
 so it must stay public. Do not make it private.
 
-Deeper detail lives in `README.md`, `docs/ARCHITECTURE.md`,
-`docs/DATA_FLOW_ANALYSIS.md`, the server runbook `docs/SERVER_DEPLOYMENT.md`,
-and the pipeline runbook `docs/DAILY_UPDATE_RUNBOOK.md`. Read those before
-changing behavior.
+Deeper detail lives in `README.md`, `docs/ARCHITECTURE.md`, the server runbook
+`docs/SERVER_DEPLOYMENT.md`, and the pipeline runbook
+`docs/DAILY_UPDATE_RUNBOOK.md`. Read those before changing behavior. What a
+field *means* is documented in the code rather than in prose -- the MEPS
+formulas at the top of `src/data_processor.py`, the published dataset's columns
+in `HISTORY_COLUMNS` in `src/publisher.py` -- because the prose copy went out of
+date within a day of a code change.
 
 > **If you are working on the server rather than a laptop**, read
 > `docs/SERVER_DEPLOYMENT.md` first, and the separate `meps-server-docs`

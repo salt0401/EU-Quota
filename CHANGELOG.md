@@ -2,6 +2,34 @@
 
 All notable changes to the EU Quota Scraper project will be documented in this file.
 
+## [2.11.1] - 2026-09-02
+
+### Rebuild so the exe renders with the truncation rule
+
+The percentage display rule changed to truncation, in `webapp/render.py`,
+`webapp/queries.py` and the new `quota_display.py`. All three are **bundled into
+the downloader exe** for its local-render mode, but none of them is in the CI
+rebuild path filter, which watches only `download.py`,
+`build/build_downloader_exe.py` and its own workflow file. So the published exe
+would have gone on rendering with the old rounding rule while the server bundle
+truncated -- the same figure classified two ways depending on where a colleague
+read it.
+
+Bumping the version here is what actually fixes it: it changes `download.py`, so
+CI rebuilds and republishes, and installed copies self-update on their next run.
+
+**The path filter should also list the bundled `webapp/` files and
+`quota_display.py`**, so this cannot recur. That is a change to
+`.github/workflows/build-downloader.yml`, which the daily task's token may not
+push -- a person has to make it.
+
+### 2.11.0 was never written up
+
+It shipped on 2026-08-23 and added the offline dashboard bundle: `--no-site`,
+`--render-local`, `fetch_site_bundle()`, `render_site_locally()`, and
+`metadata.json` alongside the workbooks. Recorded here because the convention is
+that a `__version__` bump gets an entry, and this one did not.
+
 ## [2.10.2] - 2026-08-02
 
 ### Documentation is English only

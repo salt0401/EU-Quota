@@ -7,7 +7,30 @@
 > Trade) Act 2018 (75 quotas, order numbers 058600–058671 plus authorised-use
 > 058673–058675). The architecture below is unchanged in shape; the input workbooks
 > carry the new order numbers, and the pre-July-2026 safeguard inputs and template
-> are archived in `data/input/archive/` and `templates/archive/`.
+> The pre-July-2026 safeguard inputs and template were deleted on 2026-09-02;
+> that regime ended on 30 June 2026 and the published history starts on 1 July
+> 2026, so nothing reads them. They remain in git history.
+
+## Where the field definitions live
+
+Not in this file, deliberately. Two places define them and both are executable,
+so neither can drift:
+
+- **The MEPS formulas** — `src/data_processor.py`, stated at the top of the
+  module and implemented directly below it.
+- **The published dataset's columns** — `HISTORY_COLUMNS` in `src/publisher.py`.
+
+A prose copy of either was maintained until 2026-09-02 and was wrong within a
+day of a code change, which is why there is not one now.
+
+Two rules that are *not* recoverable from reading the code:
+
+- **Everything is stored in kilograms and displayed in tonnes.** Percentages are
+  computed from raw kilograms before any rounding, never from rounded tonnes.
+- **The customer workbook's slicers depend on the Excel *table* structure.**
+  Writing values into the sheet without keeping the table ranges intact breaks
+  the interactive filters silently — the workbook still opens and still looks
+  right.
 
 ## Program Flow Diagram
 
@@ -188,7 +211,6 @@ EU Quota/
 ├── docs/                          ◄── Documentation
 │   ├── ARCHITECTURE.md                (this file)
 │   ├── TODO.md
-│   └── DATA_FLOW_ANALYSIS.md
 │
 ├── tests/                         ◄── Main pipeline unit tests
 │   ├── test_config.py
