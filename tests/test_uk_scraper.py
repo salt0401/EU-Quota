@@ -171,14 +171,32 @@ class TestCalculateUKMetrics:
         # 250 remaining / 1000 total = 0.25
         assert result['pct_remaining'].iloc[0] == pytest.approx(0.25)
 
-    def test_handles_zero_opening_balance(self):
+    def test_zero_opening_balance_gives_unknown_not_zero(self):
+        """Same trap as the EU path, fixed the same way on 2026-09-02.
+
+        Expectation inverted deliberately: 0 said "none of this quota has been
+        used" about a quota whose limit was never learned. `publisher._round`
+        maps None to an empty cell, so it publishes as unknown rather than as a
+        confident zero.
+        """
         df = pd.DataFrame({
             'opening_balance_kg': [0],
             'current_balance_kg': [0],
         })
         result = calculate_uk_metrics(df)
-        assert result['pct_allocated'].iloc[0] == 0
-        assert result['pct_remaining'].iloc[0] == 0
+        assert pd.isna(result['pct_allocated'].iloc[0])
+        assert pd.isna(result['pct_remaining'].iloc[0])
+        # numeric dtype, not object -- an all-None apply() would break the
+        # .round() the workbook step performs on this column
+        assert result['pct_allocated'].dtype.kind == 'f'
+
+    def test_a_real_opening_balance_still_computes(self):
+        df = pd.DataFrame({
+            'opening_balance_kg': [1000000],
+            'current_balance_kg': [250000],
+        })
+        result = calculate_uk_metrics(df)
+        assert result['pct_allocated'].iloc[0] == pytest.approx(0.75)
 
 
 class TestUKQuotaOrderNumbers:

@@ -86,16 +86,24 @@ def prepare_uk_customer_data(df: pd.DataFrame) -> pd.DataFrame:
         )
 
     # Calculate percentages if not present
+    # These two fallbacks fire only if `pct_allocated`/`pct_remaining` are
+    # absent, which the current pipeline never does -- both scrapers compute
+    # them from raw kilograms before any rounding. Kept as a guard, but with the
+    # missing-limit case returning None rather than 0: a quota whose limit we do
+    # not know has an unknown percentage, not a zero one. Note the residual
+    # imprecision if it ever does fire -- the tonnes columns are already rounded
+    # by then, so a percentage derived here is very slightly coarser than one
+    # derived from kilograms.
     if 'pct_allocated' not in df.columns and 'quota_limit_tonnes' in df.columns and 'quota_allocated_tonnes' in df.columns:
         df['pct_allocated'] = df.apply(
             lambda r: r['quota_allocated_tonnes'] / r['quota_limit_tonnes']
-            if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else 0,
+            if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else float('nan'),
             axis=1
         )
     if 'pct_remaining' not in df.columns and 'quota_limit_tonnes' in df.columns and 'balance_remaining_tonnes' in df.columns:
         df['pct_remaining'] = df.apply(
             lambda r: r['balance_remaining_tonnes'] / r['quota_limit_tonnes']
-            if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else 0,
+            if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else float('nan'),
             axis=1
         )
 

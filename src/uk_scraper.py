@@ -389,15 +389,23 @@ def calculate_uk_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df['balance_remaining_tonnes'] = df['current_balance_kg'].apply(convert_kg_to_tonnes)
     df['quota_allocated_tonnes'] = df['quota_limit_tonnes'] - df['balance_remaining_tonnes']
 
-    # Calculate percentages
+    # Calculate percentages. A missing or zero opening balance means the
+    # percentage is UNKNOWN, so these are None rather than 0 -- publishing
+    # "0% used" for a quota whose limit we never learned asserts the opposite of
+    # the truth. `publisher._round` maps it through to an empty cell.
+    #
+    # NaN rather than None, deliberately: an apply() that returns None for
+    # every row produces an OBJECT-dtype Series, and the next caller to run
+    # .round() on it raises TypeError. NaN keeps the column numeric.
+    # (Note these are FRACTIONS here, 0.75 not 75.0; the publisher multiplies.)
     df['pct_allocated'] = df.apply(
         lambda r: r['quota_allocated_tonnes'] / r['quota_limit_tonnes']
-        if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else 0,
+        if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else float('nan'),
         axis=1
     )
     df['pct_remaining'] = df.apply(
         lambda r: r['balance_remaining_tonnes'] / r['quota_limit_tonnes']
-        if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else 0,
+        if pd.notna(r['quota_limit_tonnes']) and r['quota_limit_tonnes'] > 0 else float('nan'),
         axis=1
     )
 

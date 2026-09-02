@@ -20,6 +20,11 @@ from .config import (
 )
 from .utils import parse_date_string
 
+# The single definition of how a percentage is displayed and banded. A root
+# module rather than a sibling in src/, because webapp/ needs the same rule and
+# the two packages may not import each other -- see quota_display.py.
+from quota_display import band_for
+
 
 def clean_quota_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -105,9 +110,16 @@ def calculate_quota_metrics(df: pd.DataFrame) -> pd.DataFrame:
     # Calculate quota allocated (what has been used)
     df['quota_allocated'] = df['quota_limit'] - df['balance_remaining']
 
-    # Calculate percentages (avoid division by zero)
-    df['pct_allocated'] = 0.0
-    df['pct_remaining'] = 0.0
+    # Calculate percentages (avoid division by zero).
+    #
+    # Initialised to NaN, NOT 0.0. A quota with a missing or zero limit has an
+    # UNKNOWN percentage, and publishing "0.0% used" for it states the opposite
+    # of the truth -- it reads as "none of it has been used" when the honest
+    # answer is "we do not know how much of it has been used". Every live row
+    # has a limit, so this was a trap rather than a visible defect; it is fixed
+    # here because the trap is one bad source day away from firing.
+    df['pct_allocated'] = float('nan')
+    df['pct_remaining'] = float('nan')
 
     mask = df['quota_limit'] > 0
     df.loc[mask, 'pct_allocated'] = (
@@ -132,34 +144,13 @@ def calculate_quota_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
         df['days_remaining'] = df['validity_end'].apply(calc_days_remaining)
 
-    # Calculate daily burn rate
-    if 'validity_start' in df.columns:
-        def calc_burn_rate(row):
-            start_str = row.get('validity_start')
-            if pd.isna(start_str):
-                return None
-
-            start_date = parse_date_string(str(start_str))
-            allocated = row.get('quota_allocated', 0)
-
-            if start_date and allocated and allocated > 0:
-                days_elapsed = (today - start_date).days
-                if days_elapsed > 0:
-                    return round(allocated / days_elapsed, 2)
-            return None
-
-        df['daily_burn_rate'] = df.apply(calc_burn_rate, axis=1)
-
-        # Estimate days until exhaustion at current rate
-        def calc_exhaustion_days(row):
-            remaining = row.get('balance_remaining', 0)
-            burn_rate = row.get('daily_burn_rate')
-
-            if remaining and burn_rate and burn_rate > 0:
-                return round(remaining / burn_rate, 0)
-            return None
-
-        df['est_days_to_exhaustion'] = df.apply(calc_exhaustion_days, axis=1)
+    # `daily_burn_rate` and `est_days_to_exhaustion` were computed here and
+    # removed on 2026-09-02. Nothing consumed them -- not the CSV, not the
+    # workbook, not the site -- and `est_days_to_exhaustion` rounded to whole
+    # days, so a quota with most of a day left would have reported "0 days" the
+    # moment anyone surfaced it. Deleted rather than left waiting to be found:
+    # the pace figure the site actually shows is computed from the daily history
+    # in `webapp/queries.py`, which is a better source than a single snapshot.
 
     return df
 
@@ -281,8 +272,22 @@ def prepare_customer_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_quota_summary(df: pd.DataFrame) -> dict:
-    """
-    Generate summary statistics for the quota data
+    """Summary statistics for the console line printed after a scrape.
+
+    **These counts are the site's bands**, computed through the same
+    `quota_display.band_for` the website and the offline bundle use, so the
+    figure an operator reads after a run cannot disagree with the figure a
+    researcher reads on the page. Before 2026-09-02 it counted `pct > 75`
+    (strictly greater, where the site uses `>=`) and `pct >= 100` on the raw
+    value, so the two could differ by a quota at exactly 75.0 or at 99.97.
+
+    `critical_count` used to sum a `critical` column that nothing in the
+    pipeline ever created, so it printed 0 unconditionally -- a metric reporting
+    zero where the truth was "not computed". It is now the 90-99.9% band.
+
+    `high_usage_count` is CUMULATIVE -- everything at or above 75%, including
+    critical and exhausted -- because that is what "high usage" means to the
+    person reading the line. The bands themselves are disjoint.
 
     Args:
         df: Processed DataFrame
@@ -298,12 +303,11 @@ def get_quota_summary(df: pd.DataFrame) -> dict:
     }
 
     if 'pct_allocated' in df.columns:
-        summary['high_usage_count'] = len(df[df['pct_allocated'] > 75])
-
-    if 'critical' in df.columns:
-        summary['critical_count'] = df['critical'].sum()
-
-    if 'pct_allocated' in df.columns:
-        summary['exhausted_count'] = len(df[df['pct_allocated'] >= 100])
+        bands = df['pct_allocated'].map(
+            lambda v: None if pd.isna(v) else band_for(float(v)))
+        summary['exhausted_count'] = int((bands == 'exhausted').sum())
+        summary['critical_count'] = int((bands == 'critical').sum())
+        summary['high_usage_count'] = int(
+            bands.isin(['high', 'critical', 'exhausted']).sum())
 
     return summary

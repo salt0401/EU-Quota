@@ -22,9 +22,8 @@ from sqlalchemy import and_, distinct, func, select
 from webapp import quota_period as qp
 from webapp.db import etl_run, quota_daily
 # Re-exported deliberately: callers and tests reach for `queries.displayed_pct`,
-# and there must be exactly one implementation of it. It lives in `render`
-# because it is the display rule, and `render` is what prints it.
-from webapp.render import DISPLAY_DP, displayed_pct  # noqa: F401
+# and there must be exactly one implementation of it.
+from quota_display import DISPLAY_DP, band_for, displayed_pct  # noqa: F401
 
 
 def latest_snapshot_date(conn) -> Optional[date]:
@@ -88,10 +87,7 @@ def _row_to_quota(r) -> dict:
         # asserted a customs threshold the authoritative figure had not crossed.
         # Truncating removes that objection entirely: `displayed_pct(v) <= v`,
         # so a displayed 90.0 guarantees a raw >= 90. One rule, all boundaries.
-        "band": ("exhausted" if disp is not None and disp >= 100
-                 else "critical" if disp is not None and disp >= 90
-                 else "high" if disp is not None and disp >= 75
-                 else "normal"),
+        "band": band_for(pct) or "normal",
     }
 
 

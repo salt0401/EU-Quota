@@ -170,8 +170,18 @@ class TestCalculateQuotaMetrics:
         # pct_remaining = 25%
         assert result['pct_remaining'].iloc[0] == 25.0
 
-    def test_handles_zero_quota_limit(self):
-        """Division by zero should be handled"""
+    def test_zero_quota_limit_gives_unknown_not_zero(self):
+        """A quota with no limit has an UNKNOWN percentage, not a zero one.
+
+        Expectation inverted on 2026-09-02, because the old one was the defect.
+        It asserted 0.0, which the pipeline would then publish and the site
+        would print as "0.0% used" -- stating that none of the quota has been
+        used, when the truth is that we never learned its limit. Division by
+        zero is still handled; it just yields NaN instead of a lie.
+
+        No live row is affected -- every quota has a limit -- so this closes a
+        trap rather than a visible bug.
+        """
         df = pd.DataFrame({
             'amount': [0],
             'transferred_amount': [0],
@@ -179,8 +189,33 @@ class TestCalculateQuotaMetrics:
             'awaiting_allocation': [0],
         })
         result = calculate_quota_metrics(df)
-        assert result['pct_allocated'].iloc[0] == 0.0
-        assert result['pct_remaining'].iloc[0] == 0.0
+        assert pd.isna(result['pct_allocated'].iloc[0])
+        assert pd.isna(result['pct_remaining'].iloc[0])
+
+    def test_a_real_limit_still_computes_normally(self):
+        """The guard must not swallow the ordinary case."""
+        df = pd.DataFrame({
+            'amount': [1000], 'transferred_amount': [0],
+            'balance': [250], 'awaiting_allocation': [0],
+        })
+        result = calculate_quota_metrics(df)
+        assert result['pct_allocated'].iloc[0] == 75.0
+
+    def test_the_dead_burn_rate_columns_are_gone(self):
+        """Removed 2026-09-02: computed, never consumed, and wrong if surfaced.
+
+        `est_days_to_exhaustion` rounded to whole days, so a quota with most of
+        a day left would have reported "0 days" the moment anyone put it on a
+        page. This pins the deletion so it is not reintroduced by reflex.
+        """
+        df = pd.DataFrame({
+            'amount': [1000], 'transferred_amount': [0],
+            'balance': [250], 'awaiting_allocation': [0],
+            'validity_start': ['01-07-2026'], 'validity_end': ['31-12-2026'],
+        })
+        result = calculate_quota_metrics(df)
+        assert 'daily_burn_rate' not in result.columns
+        assert 'est_days_to_exhaustion' not in result.columns
 
     def test_creates_missing_columns(self):
         """Should create missing numeric columns with default 0"""
@@ -360,7 +395,7 @@ class TestGetQuotaSummary:
             'pct_allocated': [50, 80, 90, 76],
         })
         summary = get_quota_summary(df)
-        # > 75%: 80, 90, 76 = 3 quotas
+        # at or above 75%: 80, 90, 76 = 3 quotas
         assert summary['high_usage_count'] == 3
 
     def test_counts_exhausted(self):
@@ -371,12 +406,60 @@ class TestGetQuotaSummary:
         # >= 100%: 100, 100.5 = 2 quotas
         assert summary['exhausted_count'] == 2
 
+    def test_seventy_five_exactly_counts_as_high_usage(self):
+        """It used to be `> 75`, so a quota at exactly 75.0 was excluded here
+        and included on the website. One boundary, two answers."""
+        df = pd.DataFrame({'pct_allocated': [74.9, 75.0]})
+        assert get_quota_summary(df)['high_usage_count'] == 1
+
+    def test_the_console_counts_the_displayed_figure(self):
+        """74.96% displays as 74.9%, so it is not high usage -- here either.
+
+        This is the whole point of routing the console through the same
+        `band_for` the site uses: the figure an operator reads after a run and
+        the figure a researcher reads on the page classify identically.
+        """
+        df = pd.DataFrame({'pct_allocated': [74.96, 75.04, 89.96, 99.97]})
+        s = get_quota_summary(df)
+        assert s['high_usage_count'] == 3      # 75.04, 89.96, 99.97
+        assert s['critical_count'] == 1        # 99.97 -> 99.9, critical
+        assert s['exhausted_count'] == 0       # nothing reaches a shown 100.0
+
     def test_counts_critical(self):
-        df = pd.DataFrame({
-            'critical': [True, False, True, False],
-        })
+        """`critical_count` is now computed, not read from a phantom column.
+
+        It used to sum a `critical` column that nothing in the pipeline ever
+        created, so every scrape printed "EU critical quotas: 0" regardless of
+        the data -- a metric reporting zero where the truth was "not computed".
+        This test used to supply that column by hand, which is why it passed
+        while the production path was broken.
+        """
+        df = pd.DataFrame({'pct_allocated': [50, 80, 90, 95, 100]})
         summary = get_quota_summary(df)
-        assert summary['critical_count'] == 2
+        assert summary['critical_count'] == 2          # 90 and 95
+        assert summary['exhausted_count'] == 1         # 100
+        assert summary['high_usage_count'] == 4        # 80, 90, 95, 100
+
+    def test_critical_count_is_not_hardwired_to_zero(self):
+        """The exact shape of the old bug: any data at all, and it printed 0."""
+        df = pd.DataFrame({'pct_allocated': [93.0]})
+        assert get_quota_summary(df)['critical_count'] == 1
+
+    def test_unknown_percentages_are_counted_in_no_band(self):
+        df = pd.DataFrame({'pct_allocated': [float('nan'), 95.0]})
+        s = get_quota_summary(df)
+        assert (s['high_usage_count'], s['critical_count'], s['exhausted_count']) == (1, 1, 0)
+
+    def test_the_console_and_the_website_agree(self):
+        """The claim in one assertion, against the website's own classifier."""
+        from quota_display import band_for
+        pcts = [0.0, 74.96, 75.0, 89.96, 90.0, 99.97, 100.0, 100.4]
+        s = get_quota_summary(pd.DataFrame({'pct_allocated': pcts}))
+        bands = [band_for(p) for p in pcts]
+        assert s['exhausted_count'] == bands.count('exhausted')
+        assert s['critical_count'] == bands.count('critical')
+        assert s['high_usage_count'] == sum(
+            1 for b in bands if b in ('high', 'critical', 'exhausted'))
 
     def test_handles_missing_columns(self):
         df = pd.DataFrame({
