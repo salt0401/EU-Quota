@@ -373,7 +373,7 @@ New files in this layer: `.github/workflows/daily-quota-update.yml`,
 │                                                                             │
 │   Dependencies: requirements.txt                                            │
 └─────────────────────────────────────────────────────────────────────────────┘
-         │ snapshot_*.xlsx (written daily)
+         │ quota_history_<YEAR>.csv (written daily)
          │
          ▼
 ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐

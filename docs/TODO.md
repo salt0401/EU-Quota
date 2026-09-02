@@ -40,11 +40,6 @@ Taxation (Cross-Border Trade) Act 2018).
 The sequencing decision of 2026-08-08 puts this ahead of Power BI. Full detail
 in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
 
-- [x] Webapp extras installed on the server, database built (2026-08-08)
-- [x] `waitress` installed and verified serving the real data
-- [x] **IIS modules** — URL Rewrite 2.1 + ARR 3.0 installed and proxy enabled
-      (2026-08-22), live API verified unaffected. Re-runnable via
-      `tools\install-iis-reverse-proxy.ps1`
 - [ ] **DNS record + certificate for `quota.mepsinternational.com`** — the box owner is
       arranging both. **This is now the only external blocker**; then
       `install-iis-reverse-proxy.ps1 -ConfigureSite`
@@ -55,64 +50,30 @@ in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
 - [ ] **Migrate to SQL Server** once researchers confirm the site is useful —
       deferred, **not cancelled**
 
-## 2b. Display-vs-logic: five open judgement calls
+## 2b. Display-vs-logic: one item left
 
-Found by the 2026-08-23 sweep and **deliberately not fixed** — each is a
-behaviour decision, not a tidy-up. The sixth, the band carrying two rules, was
-closed on 2026-09-02 by the decision to truncate rather than round. Working
-record at `_notes\rounding-audit-2026-08-23.md` on the server.
+The 2026-08-23 sweep found six judgement calls. All are now closed except the
+last, which was never started.
 
-- [ ] **The console summary disagrees with the website.**
-      `data_processor.get_quota_summary()` counts `pct > 75` (strictly greater,
-      where the site uses `>=`) and `pct >= 100` on the raw value, so the figure
-      printed after a scrape can differ from the site's. Operator-facing only —
-      not in the CSV or the workbook — so aligning it is a small behaviour
-      change to a separate audience
-- [ ] **`critical_count` is always 0.** It sums a `critical` column nothing ever
-      creates, so every scrape prints "EU critical quotas: 0" unconditionally —
-      a metric reporting zero where the truth is "not computed"
-- [ ] **`est_days_to_exhaustion` and `daily_burn_rate` are computed and never
-      consumed.** Not in the CSV, the workbook or the site. `round(remaining /
-      burn_rate, 0)` would print "0 days" for a quota with most of a day left,
-      so **the rounding rule needs choosing before either is ever surfaced**
-- [ ] **Null-as-zero is latent in the EU percentage path.** `pct_allocated`
-      starts at `0.0` and is only overwritten where `quota_limit > 0`, so a
-      quota with a missing or zero limit would publish "0.0% used" rather than
-      unknown. The UK path preserves `None`. No live rows are affected — every
-      row has a limit — so this is a trap, not a current defect
-- [ ] **`excel_generator` would compute a percentage from already-rounded
-      tonnes** if `pct_allocated` were ever absent, and falls back to `0` for a
-      missing limit. The guard means it never fires in the current pipeline
 - [ ] **Not swept: the workbook as Excel opens it.** The audit covered Python
       and the website. Excel's own cell formatting could round a value that a
-      formula then compares — the same class, one layer further out
+      formula then compares -- the same class, one layer further out. Deferred
+      by owner decision, not forgotten
 
-## 3. Content questions — ANSWERED 2026-08-08
+## 3. The 90% work — the highest-value content still to build
 
-All three are closed. Two removed work; the third added a requirement.
-
-- [x] **Search by steel grade** — **not wanted.** The research team thinks in
-      the broader categories. No grade→category map needed
-- [x] **Import-history charts** — **not wanted.** The team already receives
-      historical trade data by another route. Trade-flow ingestion is off the
-      roadmap
-- [x] **Status thresholds** — **keep 75 / 90 / 100**, confirmed
-
-### New work this created
-
-**90% is an operational threshold, not a colour.** Past it, imports against that
-quota go through a different customs process — so it is a state change in
-someone's job, not a shade in a legend. None of this is built yet:
+90% triggers a different customs process, so this is the number with an
+operational consequence. None of it is built:
 
 - [ ] **Count of quotas at or above 90%** as a masthead tile, alongside the
       exhausted count
 - [ ] **"Crossed 90% on `<date>`"** per quota — computable exactly from the
       daily history, and something the reference site cannot do at all
-- [ ] **Filter for ≥90%**, which is more useful than `?pressure=1` filtering
-      whole categories
-- [ ] Any Power BI port must land the 90% boundary **identically**, rounding
-      rule included — otherwise the two systems disagree about whether a
-      customs process applies
+- [ ] **Filter for ≥90%**, more useful than `?pressure=1` filtering whole
+      categories
+- [ ] Any Power BI port must land the 90% boundary **identically**, truncation
+      rule included — otherwise the two systems disagree about whether a customs
+      process applies
 
 ### Sizing
 

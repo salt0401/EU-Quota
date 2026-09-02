@@ -110,26 +110,11 @@ permanent system. Two consequences, both load-bearing:
 2. **The IIS work needs him anyway** — see *How researchers reach it* — and it
    is a larger favour than creating a database was.
 
-> ### ✅ Resolved: the host is NOT the machine being retired
->
-> The research colleague wrote, of hosting the site, *"this is reaching end of
-> life soon so will be replaced in the next few months."* We could not tell
-> which machine he meant and flagged it as a risk to the whole IIS plan.
->
-> **Answered 2026-08-22: he meant the physical server in the MEPS office.** This
-> project runs on a hosted VPS, which is unaffected. The IIS work is therefore
-> not being spent on a machine about to disappear, and it went ahead.
->
-> Worth keeping the episode: the concern was legitimate and correctly stopped us
-> committing the box owner's time, but the answer was different from either
-> reading we considered. Neither guess was right, and asking cost one sentence.
->
-> **Separately, and genuinely: a replacement VPS is being provisioned** through
-> MEPS's IT company. Migration will be needed eventually. It is not urgent and
-> the box owner will give notice — but it is why
-> `tools\install-iis-reverse-proxy.ps1` exists as a re-runnable, idempotent
-> script with pinned payload hashes rather than a list of commands someone
-> types twice.
+> **A replacement VPS is being provisioned** through MEPS's IT company.
+> Migration will be needed eventually; it is not urgent and the box owner will
+> give notice. This is why `tools\install-iis-reverse-proxy.ps1` is a
+> re-runnable, idempotent script with pinned payload hashes rather than a list
+> of commands someone types twice.
 
 ---
 
@@ -538,9 +523,14 @@ and exactly two change band.
 > does. Comparing the raw value would put the crossing date one day out from the
 > badge beside it on day one.
 
-The audit's working record — what was fixed, what was checked and found sound,
-and the judgement calls left open — is at `_notes\rounding-audit-2026-08-23.md`
-on the server. The open items are in `docs/TODO.md`.
+Every judgement call the 2026-08-23 audit left open was closed on 2026-09-02
+except one — the workbook as Excel itself opens it, which is in `docs/TODO.md`.
+The audit's working record is at `_notes\rounding-audit-2026-08-23.md` on the
+server.
+
+The console line printed after a scrape counts the same bands, through the same
+`quota_display.band_for`, so an operator and a researcher cannot read different
+answers about the same day.
 
 ---
 
@@ -592,15 +582,6 @@ and the downloader all share one set of display filters.
 `download.py`'s own imports are still standard library: the webapp imports are
 inside the rendering function, so `python download.py` still works where the
 package is absent, and a test enforces that.
-
-### Rendering a past date: considered and skipped
-
-The CSV holds the whole history, so this looked nearly free. It is not, and the
-reason is worth recording: `queries.freshness()` reports the **latest** snapshot,
-so a page rendered for an older date would carry a header describing a different
-day. That is the same shape as the pace bug this project already hit -- a view
-computing the wrong date -- and fixing it properly means threading a date through
-`freshness()` as well. Deferred rather than half-done.
 
 ### Single source of truth, deliberately
 
@@ -775,56 +756,20 @@ committed data. They skip cleanly if the webapp extras are not installed, so
 
 ---
 
-## Measured against the reference site
+## 90% is an operational threshold, not a colour
 
-The colleague named a model: TrueNorth Engineering's *Free Steel Quota Tracker*
-(UK balances). Read 2026-08-05. It is more useful than the requirements list,
-because it shows what "good" looks like to him.
+From the research colleague, 2026-08-08: *"75% and 90% work for me. **The 90% is
+the key indicator as it triggers a slightly different customs process.**"*
 
-The two hardest things to build, we already have: the **pace metric** (usage
-speed against elapsed time) and **status bands**. We also carry things it does
-not — it is UK-only, so no EU quotas, no awaiting-allocation, and no per-quota
-daily drill-down.
+This changes what the number is **for**. 75% is advisory — a quota worth
+watching. **90% is a state change in someone's actual job**: past it, imports
+against that quota go through a different customs process. It is not one of
+three colours in a legend, and anything that reproduces these figures — a Power
+BI port especially — must land on the same side of that boundary, rounding rule
+included, or the two systems disagree about whether a customs process applies.
 
-| TrueNorth has | Status |
-|---|---|
-| Days remaining in the quarter, headline | ✅ built — masthead tile, measured from the data date |
-| **Fastest-burning quota line** | ✅ built — see the ranking note below |
-| Count of categories tracked | ✅ built — counted per `(region, category)`, so it equals the sections on the page |
-| One-click "under pressure" filter | ✅ built — `?pressure=1`, filters whole categories |
-| Sort toggle: most-used vs category order | ✅ built — `?sort=pressure\|name` |
-| Bands at 70 / 90 | ✅ **answered 2026-08-08 — keep 75 / 90 / 100.** See the note below: 90 is not cosmetic |
-| **Search by steel grade** (EN3B, 304, S355) | ❌ **answered 2026-08-08 — not wanted.** "Please disregard the grades. The research team will mainly think in these broader categories." No grade→category map is needed, and the one capability the reference site had over us is deliberately declined |
-| 12-month import history, YoY, 3-month weighted average | ❌ **answered 2026-08-08 — not wanted.** The research team already receives historical trade data through another route. Trade-flow ingestion is off the roadmap entirely |
-
-### The three open questions are now closed (2026-08-08)
-
-All three were answered by the research colleague in one reply. Two removed
-work; the third added a requirement that was not previously visible.
-
-> ### ⚠️ 90% is an operational threshold, not a colour
->
-> *"75% and 90% work for me. **The 90% is the key indicator as it triggers a
-> slightly different customs process.**"*
->
-> This changes what the number is **for**. 75% is advisory — a quota worth
-> watching. **90% is a state change in someone's actual job**: past it, imports
-> against that quota go through a different customs process. It should not be
-> merely one of three colours in a legend.
->
-> Consequences worth building toward, none of them yet built:
->
-> - A **count of quotas at or above 90%** deserves masthead prominence, next to
->   the exhausted tile — it is the number with an operational consequence.
-> - **"Crossed 90% on <date>"** is computable exactly, because the daily history
->   is per-quota per-day. The reference site cannot do this; it has no history.
->   This is a stronger differentiator than grade search would have been.
-> - A filter for "at or above 90%" is more useful than the current
->   `?pressure=1`, which filters whole categories.
-> - **Any Power BI port must reproduce the 90% boundary exactly**, including the
->   displayed-value rounding rule below. A quota printing "90.0%" must be on the
->   same side of the line in both systems, or the two disagree about whether a
->   customs process applies.
+The work this implies is in `docs/TODO.md`. Thresholds are confirmed at
+75 / 90 / 100.
 
 ### Audience size: ~15 people
 
@@ -863,16 +808,3 @@ rather than category numbers.
 The import-history charts are probably part of what he meant by *"some of the
 information there is redundant"*, but that is worth confirming rather than
 guessing — trade-flow ingestion is a project, not a feature.
-
-## Possible next steps, not started
-
-- **Source-side "last allocation date."** TARIC publishes it and the scraper
-  already reads it, but it is not persisted to the history CSV. It would answer
-  "is this quota dormant or actively drawing?" better than the scrape timestamp.
-  Adding it means one new history column, which older rows would carry blank.
-- **Cross-quarter comparison view.** The data model supports it today
-  (`day_in_quarter` exists precisely for this); no UI is built because there is
-  only one quarter of history so far. Worth building around October 2026, when
-  Q2 gives it something to compare against.
-- **CSV/Excel export** from a filtered view, if researchers start copying out of
-  the table.

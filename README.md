@@ -205,13 +205,6 @@ it on every `download.py` change), so distribution is one-time.
 - [Daily update runbook](docs/DAILY_UPDATE_RUNBOOK.md) — triage when a run fails
 - [System Architecture](docs/ARCHITECTURE.md)
 
-> **Removed in v2.10.0:** the login-triggered auto-snapshot (`daily_snapshot.py`,
-> `src/snapshot_scheduler.py`, `setup_scheduler.bat`, `remove_scheduler.bat`).
-> It predated the automated daily publish and collected snapshots only when
-> somebody signed into Windows — which never happens on an unattended server.
-> The per-day history in `data/published/quota_history_<YEAR>.csv` supersedes it
-> and is strictly more complete.
-
 ## Data Sources
 
 - [EU TARIC Quota Database](https://ec.europa.eu/taxation_customs/dds2/taric/quota_consultation.jsp)

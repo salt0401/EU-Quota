@@ -273,7 +273,31 @@ asks for nothing unusual.
 
 ## 5. Session history
 
-### 2026-09-02 — percentages truncate; the docs stop overlapping
+### 2026-09-02 — percentages truncate; five defects closed; the docs stop overlapping
+
+- **The display-vs-logic sweep is finished.** Of the six judgement calls the
+  2026-08-23 audit left open, one was closed by truncation and four were fixed:
+  the console summary now counts the site's own bands through
+  `quota_display.band_for` (it counted `pct > 75` and raw `pct >= 100`, so an
+  operator and a researcher could read different answers); `critical_count`
+  summed a column nothing ever created and printed 0 unconditionally, and is now
+  computed; a missing or zero quota limit now yields an UNKNOWN percentage
+  instead of "0.0% used", in both the EU and UK paths and in the workbook
+  fallback. `daily_burn_rate` and `est_days_to_exhaustion` were **deleted** --
+  computed, never consumed, and `round(remaining / burn_rate, 0)` would have
+  reported "0 days" for a quota with most of a day left. One item remains: the
+  workbook as Excel itself opens it.
+- **`quota_display.py` is new, at the repo root**, and holds the one definition
+  of how a percentage is shown and banded. It is there rather than in `src/` or
+  `webapp/` because both need it and neither may import the other: nothing in
+  `src/` may import the webapp, and `webapp/render.py` is bundled into the
+  downloader exe so it must not reach into `src/` and drag pandas behind it.
+- **A check now catches documentation drift** --
+  `tests/test_docs_match_reality.py`. Every path and command a tracked document
+  quotes must resolve, and commands have no exemption at all. Written because
+  README and STARTUP both told a newcomer to run a script that had not existed
+  for weeks; the missing check was the defect, not the stale line.
+
 
 - **Displayed percentages are now TRUNCATED, not rounded** (owner decision).
   `render.displayed_pct()` is the single definition, `fmt_pct` prints exactly
@@ -337,35 +361,6 @@ asks for nothing unusual.
 > **Noticed in passing, not ours:** the live API's certificate
 > (`CN=api.mepsinternational.com`) **expires 2026-10-01**. It would take the
 > public API down. Worth mentioning to the box owner.
-
-### 2026-08-08 (all committed)
-
-- **Environment verified** before anything changed (queue item 1 of the previous
-  handover): git clean, correct interpreter, suites green, daily log clean.
-- **Webapp installed and the database built** (previous queue item 2). Flask
-  3.1.3 + SQLAlchemy 2.0.51 into the venv, `webapp.etl --rebuild` → 11,814 rows
-  across 33 days, cross-checked against `metadata.json`. The incremental command
-  the daily task actually runs (`python -m webapp.etl`, no `--rebuild`) was also
-  exercised: exit 0, row count unchanged, confirming idempotency. `SYSTEM` has
-  `FullControl` on the database file, which matters because the task runs as
-  SYSTEM while it was created by Administrator.
-- **`waitress` added** and verified serving the real data. `python -m webapp.app`
-  is Flask's *development* server and is now documented as such.
-- **`tools\set-site-password.ps1` written**, mirroring `set-github-token.ps1`.
-- **Public-repo sanitisation.** The host address, hostname and SSH key name were
-  committed in eight files; all are now placeholders resolved by a local
-  uncommitted note beside the GitHub token. The worst instance was not a doc:
-  the freshness watchdog embedded the SSH command in the heredoc it posts as a
-  **GitHub issue body**, so every failure published the address publicly.
-- **Repo reorganised**, stale docs pruned, dangling references fixed. See the
-  commit message on `df4c7aa` for what moved and why.
-
-> **Three incidents from this period are recorded outside the repository**, at
-> `_notes\incidents.md`: the 2026-08-08 source timeouts that lost one day of
-> data permanently, the 2026-08-08 `origin`-switched-to-SSH breakage, and the
-> 2026-08-09 push rejected for workflow scope. Every rule they produced is
-> already in `SERVER_DEPLOYMENT.md`, the runbook, or §6 and §7 below; the
-> narratives are not needed to work on the project.
 
 ## 6. Server rules — non-negotiable
 
@@ -471,7 +466,11 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
   missing and half the suite did not run — it is not a smaller suite passing.
 - **The repository holds project material only.** Parked investigations,
   incident write-ups and anything describing the server's security posture live
-  outside it, on the server under `_notes\` and `_secrets\`. A document that
+  outside it, on the server under `_notes\` and `_secrets\`. Three incidents
+  are recorded in `_notes\incidents.md` -- the 2026-08-08 source timeouts that
+  lost a day of data, `origin` switched to SSH the same day, and the 2026-08-09
+  push rejected for workflow scope. Every rule they produced is already in
+  `SERVER_DEPLOYMENT.md`, the runbook, or the rules above. A document that
   has stopped being something a new session would act on is deleted or moved
   out, not archived in place — a `docs/archive/` folder existed until
   2026-09-02 and its contents were, by its own README, unmaintained.
