@@ -87,7 +87,7 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
    for the database** — see §4. He also wants to test the app himself and has
    floated dropping Power BI if the app's interactivity is better, so an early
    look is worth offering.
-2. **Chase the DNS record and certificate for `quota.meps.co.uk`.** He is
+2. **Chase the DNS record and certificate for `quota.mepsinternational.com`.** He is
    arranging both through a colleague. **This is now the only external blocker**
    on researcher access. When they land:
    `tools\install-iis-reverse-proxy.ps1 -ConfigureSite`.
@@ -147,8 +147,36 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
   to install the IIS add-ons"* — which unblocked and completed that work. He
   wants to **test the app himself**, and has raised the possibility of
   **dropping Power BI long term** if the app's interactivity turns out better.
-  **He is arranging the DNS record and certificate** for `quota.meps.co.uk`
+  **He is arranging the DNS record and certificate** for `quota.mepsinternational.com`
   through a colleague; that is now the only external blocker.
+
+> ### ⚠️ CORRECTION 2026-08-24 — the host name was invented, not sourced
+>
+> Every document and the IIS script carried **`quota.meps.co.uk`**. The real
+> name, from the request the instance owner actually sent, is
+> **`quota.mepsinternational.com`**.
+>
+> **Nobody ever supplied `meps.co.uk`. It was invented** -- plausibly, from
+> "MEPS" plus a UK company -- and written into four files as though it were
+> fact. `git log -S` places its first appearance in commit `24d4649`, whose own
+> message is *"correct a fabricated commitment"*. So in the same commit that
+> corrected an unverified claim about a colleague, an unverified host name was
+> introduced.
+>
+> **It should have been caught by what was already on the box.** This same
+> server serves `CN=api.mepsinternational.com`, and that certificate was read,
+> quoted and even used in a verification step. A new subdomain was always going
+> to be on that domain. The contradiction was in front of us and was not noticed.
+>
+> **The cost was nearly a round trip with a third party** -- a DNS colleague was
+> being asked for the wrong name while the correct one was already being
+> provisioned.
+>
+> The lesson is the same one as the fabricated commitment, so it is recorded in
+> the same place rather than as a separate curiosity: **a fact that looks
+> plausible and is never checked against a primary source will survive, because
+> every later session inherits it from the file.** Host names, like commitments,
+> need a source.
 
 > ### ⚠️ CORRECTION 2026-08-22 — a commitment was attributed to him that he never made
 >
@@ -440,6 +468,31 @@ Power BI gateway). Fuller detail in `SERVER_DEPLOYMENT.md`; the short version:
   addresses/hostnames, no ticket or phone numbers, and no descriptions of the
   server's security posture in committed files. If continuation context needs
   such details, they go in the session prompt or a local uncommitted note.
+
+  > **The public-DNS exception, decided 2026-08-24 rather than left implicit.**
+  > The rule is about **the host**: its machine name, its IP address, the SSH
+  > key that reaches it, which ports are open, how the firewall and backups are
+  > arranged. Those describe the box and how to get at it, and together they are
+  > a map.
+  >
+  > **A public DNS name of a service MEPS publishes is not that.** It resolves
+  > for anyone, and once a certificate is issued it is in Certificate
+  > Transparency logs whether or not it is in this repository. Redacting it
+  > would protect nothing and would make the deployment scripts unusable.
+  >
+  > So `quota.mepsinternational.com` and `api.mepsinternational.com` may appear
+  > in committed files. The machine's own Windows computer name and its IP
+  > address may not: they stay `<server-host>` and `<server-address>`, resolved
+  > by the local access note.
+  >
+  > (Writing this rule out, the first draft quoted the machine name as an
+  > example of what must not be quoted. Caught by the same sweep that fixed the
+  > host name. Even a statement *of* the rule has to obey it.)
+  >
+  > For consistency both are **parameters with documented defaults** in
+  > `tools\install-iis-reverse-proxy.ps1`, not hardcoded strings -- the
+  > replacement VPS may serve different names, and moving should not require
+  > editing the script.
 - Documentation is **English only**.
 - The published CSV is **canonical**; every database is a rebuildable projection
   of it. Nothing may make the publish depend on the database.

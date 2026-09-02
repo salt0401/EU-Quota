@@ -33,8 +33,14 @@ param(
     [switch]$Install,
     [switch]$ConfigureSite,
     [switch]$Verify,
-    [string]$HostName    = "quota.meps.co.uk",
-    [string]$SiteName    = "quota-tracker",
+    # Both host names are PARAMETERS with documented defaults, not hardcoded
+    # strings. They are public DNS names of services MEPS publishes, so they are
+    # not covered by the no-hostnames rule (see docs/SESSION_LOG.md conventions),
+    # but the replacement VPS may serve different names and the script must not
+    # need editing to move.
+    [string]$HostName     = "quota.mepsinternational.com",
+    [string]$LiveSiteName = "api.mepsinternational.com",
+    [string]$SiteName     = "quota-tracker",
     [int]   $BackendPort = 8081,
     [string]$CacheDir    = "C:\DataScienceProject\_installers",
     [string]$LogDir      = "C:\DataScienceProject\EUQuota\data\logs"
@@ -291,7 +297,7 @@ function Test-Result {
     if ($w3.Status -eq "Running") { Ok "W3SVC running" } else { Bad ("W3SVC is " + $w3.Status) }
 
     # The whole point of the quiet window: prove the live API survived.
-    $live = & $appcmd list site "api.mepsinternational.com" 2>&1 | Out-String
+    $live = & $appcmd list site $LiveSiteName 2>&1 | Out-String
     if ($live -match "state:Started") { Ok "the live public API site is still Started" }
     else { Bad "THE LIVE API SITE IS NOT STARTED -- investigate immediately" }
 }

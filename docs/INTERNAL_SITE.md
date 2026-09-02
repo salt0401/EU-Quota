@@ -39,7 +39,7 @@ history. What is missing is not the application — it is the route to it.
 >
 > **Therefore: nothing may make this reachable from outside before that.** The
 > IIS modules are installed but no proxy site exists, `waitress` is not running,
-> and `quota.meps.co.uk` does not resolve. Any one of those changing without the
+> and `quota.mepsinternational.com` does not resolve. Any one of those changing without the
 > password in place would expose an unauthenticated site.
 
 ---

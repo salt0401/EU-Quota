@@ -45,7 +45,7 @@ in `docs/INTERNAL_SITE.md`; current queue in `docs/SESSION_LOG.md`.
 - [x] **IIS modules** — URL Rewrite 2.1 + ARR 3.0 installed and proxy enabled
       (2026-08-22), live API verified unaffected. Re-runnable via
       `tools\install-iis-reverse-proxy.ps1`
-- [ ] **DNS record + certificate for `quota.meps.co.uk`** — the box owner is
+- [ ] **DNS record + certificate for `quota.mepsinternational.com`** — the box owner is
       arranging both. **This is now the only external blocker**; then
       `install-iis-reverse-proxy.ps1 -ConfigureSite`
 - [ ] Keep `waitress` running across a reboot (scheduled task, `At startup`)
