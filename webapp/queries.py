@@ -21,6 +21,10 @@ from sqlalchemy import and_, distinct, func, select
 
 from webapp import quota_period as qp
 from webapp.db import etl_run, quota_daily
+# Re-exported deliberately: callers and tests reach for `queries.displayed_pct`,
+# and there must be exactly one implementation of it. It lives in `render`
+# because it is the display rule, and `render` is what prints it.
+from webapp.render import DISPLAY_DP, displayed_pct  # noqa: F401
 
 
 def latest_snapshot_date(conn) -> Optional[date]:
@@ -45,28 +49,12 @@ def freshness(conn) -> dict:
     }
 
 
-#: How many decimals the site prints a percentage to. The bands and the filters
-#: both classify on THIS figure, so what a reader sees and what the system
-#: decided cannot disagree.
-DISPLAY_DP = 1
-
-
-def displayed_pct(pct):
-    """The percentage as the reader sees it.
-
-    Every threshold comparison goes through here. Comparing the raw value while
-    printing a rounded one is the defect this project has now hit twice: a quota
-    at 99.99%% printed "100.0%%" while being banded critical, and the same value
-    printed "100.0%%" while the "Exhausted only" filter excluded it.
-    """
-    return None if pct is None else round(pct, DISPLAY_DP)
-
-
 def _row_to_quota(r) -> dict:
     limit = float(r["quota_limit_t"]) if r["quota_limit_t"] is not None else None
     allocated = float(r["quota_allocated_t"]) if r["quota_allocated_t"] is not None else None
     remaining = float(r["balance_remaining_t"]) if r["balance_remaining_t"] is not None else None
     pct = float(r["pct_allocated"]) if r["pct_allocated"] is not None else None
+    disp = displayed_pct(pct)
     awaiting = float(r["awaiting_allocation_t"]) if r["awaiting_allocation_t"] is not None else None
     return {
         "region": r["region"],
@@ -80,7 +68,7 @@ def _row_to_quota(r) -> dict:
         # The same figure the page prints, computed ONCE here. The client-side
         # filter in the offline bundle compares this rather than rounding for
         # itself, so JavaScript still never owns a classification rule.
-        "pct_display": displayed_pct(pct),
+        "pct_display": disp,
         "awaiting_t": awaiting,
         "validity_start": r["validity_start"],
         "validity_end": r["validity_end"],
@@ -88,23 +76,21 @@ def _row_to_quota(r) -> dict:
         "snapshot_date": r["snapshot_date"],
         # Presentation band, computed once here so template and chart agree.
         #
-        # Banded on the value AS DISPLAYED (one decimal), not the raw one. A
-        # quota at 99.99% renders as "100.0%" everywhere on the site, so banding
-        # it "critical" put a row reading 100.0% under a tile labelled
-        # "75-99% used" — and made the fastest-burning callout claim it excludes
-        # exhausted quotas while naming one that shows 100.0%. Both read as
-        # broken logic. The rule is that the band must agree with the number
-        # printed next to it.
-        # NOTE the asymmetry, which is deliberate and is NOT ours to change
-        # unilaterally: "exhausted" classifies on the DISPLAYED figure, while
-        # "critical" and "high" still classify on the raw one. Moving 90 and 75
-        # onto the displayed figure would give one rule everywhere, but it would
-        # also reclassify a quota at 89.96%% as critical when the authoritative
-        # figure is below 90 -- and 90 triggers a different customs process.
-        # That is an operational decision, not a tidy-up. Flagged for the owner.
-        "band": ("exhausted" if displayed_pct(pct) is not None and displayed_pct(pct) >= 100
-                 else "critical" if pct is not None and pct >= 90
-                 else "high" if pct is not None and pct >= 75
+        # All three boundaries classify on the value AS DISPLAYED, so the band
+        # always agrees with the number printed beside it. Banding on the raw
+        # figure is what put a row reading "100.0%" under a tile labelled
+        # "75-99% used", and made the fastest-burning callout claim it excludes
+        # exhausted quotas while naming one that showed 100.0%.
+        #
+        # This used to be asymmetric -- "exhausted" on the displayed figure,
+        # "critical" and "high" on the raw one -- because with ROUNDED display a
+        # quota at 89.96% displayed as 90.0%, and calling it critical would have
+        # asserted a customs threshold the authoritative figure had not crossed.
+        # Truncating removes that objection entirely: `displayed_pct(v) <= v`,
+        # so a displayed 90.0 guarantees a raw >= 90. One rule, all boundaries.
+        "band": ("exhausted" if disp is not None and disp >= 100
+                 else "critical" if disp is not None and disp >= 90
+                 else "high" if disp is not None and disp >= 75
                  else "normal"),
     }
 
@@ -140,13 +126,12 @@ def categories_overview(conn, snapshot_date: date, region: Optional[str] = None,
                   or needle in q["country"].lower()
                   or needle in q["order_number"]]
     if min_pct is not None:
-        # Compare the DISPLAYED figure, not the raw one. Before this, a quota at
-        # 99.98%% printed "100.0%%", was banded "exhausted", and was still
-        # excluded by the filter labelled "Exhausted only" -- the reader saw one
-        # answer and the system acted on another.
+        # Compare the DISPLAYED figure, not the raw one, so the filter's answer
+        # is checkable against the column the reader is looking at. `pct_display`
+        # was computed once per row in `_row_to_quota`; recomputing it here would
+        # be a second place for the rule to drift.
         quotas = [q for q in quotas
-                  if displayed_pct(q["pct_used"]) is not None
-                  and displayed_pct(q["pct_used"]) >= min_pct]
+                  if q["pct_display"] is not None and q["pct_display"] >= min_pct]
 
     grouped: dict[tuple[str, str], list[dict]] = {}
     for q in quotas:
@@ -163,7 +148,7 @@ def categories_overview(conn, snapshot_date: date, region: Optional[str] = None,
         # Explicit None test rather than `or -1`: 0.0 is falsy, so the old
         # idiom sorted a genuine 0.0% quota as if it were unknown.
         items.sort(key=lambda q: (
-            -(displayed_pct(q["pct_used"]) if q["pct_used"] is not None else -1.0),
+            -(q["pct_display"] if q["pct_display"] is not None else -1.0),
             q["country"]))
         exhausted = sum(1 for q in items if q["band"] == "exhausted")
         at_risk = sum(1 for q in items if q["band"] in ("critical", "high"))
@@ -180,7 +165,10 @@ def categories_overview(conn, snapshot_date: date, region: Optional[str] = None,
             "at_risk": at_risk,
             "total_limit_t": total_limit,
             "total_allocated_t": total_alloc,
-            "pct_used": (round(100.0 * total_alloc / total_limit, 1)
+            # A displayed percentage like any other: truncate, do not round.
+            # Rounding here would let a category header read 90.0% while its own
+            # rows all sit below 90.
+            "pct_used": (displayed_pct(100.0 * total_alloc / total_limit)
                          if total_limit else None),
         })
 

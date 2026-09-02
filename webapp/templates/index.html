@@ -175,7 +175,7 @@
           ok = (c.indexOf(needle) >= 0) || (co.indexOf(needle) >= 0) || (on.indexOf(needle) >= 0);
         }
         if (ok && minPct !== null) {
-          // data-pctdisp is the figure Python already rounded for display.
+          // data-pctdisp is the figure Python already truncated for display.
           // Comparing it here keeps ONE rule -- "classify on the figure as
           // displayed" -- and keeps JavaScript out of the classification
           // business entirely. Do not switch this to data-pct.

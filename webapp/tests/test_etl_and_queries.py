@@ -203,7 +203,7 @@ class TestQueries:
         assert eu["band"] == "normal"        # 30%
         assert uk["band"] == "exhausted"     # 150%
 
-    def test_a_quota_that_displays_as_100_is_banded_exhausted(self, tmp_path):
+    def test_a_quota_just_under_the_line_prints_and_bands_below_it(self, tmp_path):
         """Regression: bands must agree with the number printed beside them.
 
         Real data, 2026-08-05: order 058627 sat at 99.99% (2.15 t left of
@@ -211,6 +211,15 @@ class TestQueries:
         "100.0%" while being banded critical — putting it under a tile labelled
         "75-99% used", and making the fastest-burning callout name a quota
         showing 100.0% in the same sentence as "exhausted quotas are excluded".
+
+        The first fix banded it exhausted, agreeing with the "100.0%" on the
+        page. The 2026-09-02 decision fixes it from the other end: the page now
+        prints 99.9%, so critical is the honest band and the tile label is true.
+        The quota genuinely is not exhausted — 2.15 t remain.
+
+        Note the knock-on, asserted below: it is no longer excluded from the
+        fastest-burning callout, so the callout now names it. That is correct.
+        The callout excludes EXHAUSTED quotas, and this one is not one.
         """
         published = write_history(tmp_path, "".join([
             row("2026-08-02", "EU", "099491", pct="99.99", limit="17093",
@@ -220,9 +229,10 @@ class TestQueries:
         engine = get_engine(f"sqlite:///{tmp_path/'b.db'}")
         etl.load(engine, published_dir=published)
         with engine.connect() as c:
-            assert queries.quota_detail(c, "EU", "099491")["band"] == "exhausted"
+            assert queries.quota_detail(c, "EU", "099491")["pct_display"] == 99.9
+            assert queries.quota_detail(c, "EU", "099491")["band"] == "critical"
             assert queries.quota_detail(c, "EU", "099492")["band"] == "critical"
-            assert queries.summary_counts(c, LATEST)["fastest"]["order_number"] == "099492"
+            assert queries.summary_counts(c, LATEST)["fastest"]["order_number"] == "099491"
 
     def test_summary_counts_keeps_exhausted_and_at_risk_disjoint(self, loaded):
         # The two are shown side by side, so a quota must appear in exactly one.
@@ -437,33 +447,39 @@ def _one(tmp_path, pct, order="099716", region="EU"):
     return get_engine(db)
 
 
-def test_exhausted_filter_includes_a_quota_that_displays_as_100(tmp_path):
-    """EU 099716, live at 99.98%: prints "100.0%", banded exhausted.
+def test_the_page_and_the_exhausted_filter_agree_below_the_line(tmp_path):
+    """EU 099716, live at 99.98%: prints 99.9%, banded critical, filtered out.
 
-    Before the fix the "Exhausted only" filter (min_pct=100) excluded it, so the
-    reader saw 100.0% in an exhausted-looking row that the filter denied.
+    The original defect was disagreement — the reader saw 100.0% in a row the
+    "Exhausted only" filter denied. Either direction fixes it; truncation is the
+    direction chosen, because it makes the agreement structural rather than
+    threshold-by-threshold. All three statements about this quota now match, and
+    all three are true of the underlying number: it is not exhausted.
     """
     eng = _one(tmp_path, "99.98", order="099716")
     with eng.connect() as conn:
         latest = queries.latest_snapshot_date(conn)
         rows = [q for g in queries.categories_overview(conn, latest) for q in g["quotas"]]
-        assert rows[0]["band"] == "exhausted"
+        assert rows[0]["pct_display"] == 99.9
+        assert rows[0]["band"] == "critical"
         filtered = [q for g in queries.categories_overview(conn, latest, min_pct=100.0)
                     for q in g["quotas"]]
-    assert [q["order_number"] for q in filtered] == ["099716"]
+    assert filtered == []
 
 
-def test_exhausted_filter_includes_the_uk_case_too(tmp_path):
-    """UK 058627, live at 99.99%."""
+def test_the_uk_case_agrees_too(tmp_path):
+    """UK 058627, live at 99.99% — the closest real quota to the line."""
     eng = _one(tmp_path, "99.99", order="058627", region="UK")
     with eng.connect() as conn:
         latest = queries.latest_snapshot_date(conn)
+        rows = [q for g in queries.categories_overview(conn, latest) for q in g["quotas"]]
+        assert rows[0]["pct_display"] == 99.9
         filtered = [q for g in queries.categories_overview(conn, latest, min_pct=100.0)
                     for q in g["quotas"]]
-    assert [q["order_number"] for q in filtered] == ["058627"]
+    assert filtered == []
 
 
-def test_a_quota_below_the_rounding_boundary_is_still_excluded(tmp_path):
+def test_a_quota_below_the_boundary_is_still_excluded(tmp_path):
     """The fix must not swallow everything: 99.94% prints 99.9% and stays out."""
     eng = _one(tmp_path, "99.94", order="099717")
     with eng.connect() as conn:
@@ -476,18 +492,57 @@ def test_a_quota_below_the_rounding_boundary_is_still_excluded(tmp_path):
 
 
 def test_every_min_pct_threshold_agrees_with_the_displayed_figure(tmp_path):
-    """The filter's promise is about the figure the reader can see."""
-    for pct, threshold in (("49.96", 50.0), ("74.96", 75.0), ("89.96", 90.0)):
-        eng = _one(tmp_path, pct, order="0997" + pct[:2])
+    """The filter's promise is about the figure the reader can see.
+
+    Both directions, because asserting only inclusion would also pass for a
+    filter that included everything. The pairs sit one tick either side of each
+    threshold AS DISPLAYED.
+
+    This test used to assert that 49.96 / 74.96 / 89.96 were INCLUDED at
+    50 / 75 / 90, because rounding displayed them as exactly the threshold. The
+    expectation is inverted, not weakened: under truncation they display as
+    49.9 / 74.9 / 89.9, and a filter that included them would once again be
+    saying something the page contradicts. 89.96 is the case that matters — it
+    is below 90, and 90 is where a different customs process begins.
+    """
+    for pct, threshold, expected in (
+            ("49.96", 50.0, 0), ("50.04", 50.0, 1),
+            ("74.96", 75.0, 0), ("75.02", 75.0, 1),
+            ("89.96", 90.0, 0), ("90.00", 90.0, 1)):
+        eng = _one(tmp_path, pct, order="09" + pct.replace(".", ""))
         with eng.connect() as conn:
             latest = queries.latest_snapshot_date(conn)
             got = [q for g in queries.categories_overview(conn, latest, min_pct=threshold)
                    for q in g["quotas"]]
-        assert len(got) == 1, "%s displays as %s and must satisfy >=%s" % (
+        assert len(got) == expected, "%s displays as %s against >=%s" % (
             pct, queries.displayed_pct(float(pct)), threshold)
 
 
 def test_displayed_pct_is_the_single_rule():
-    assert queries.displayed_pct(99.98) == 100.0
+    assert queries.displayed_pct(99.98) == 99.9
     assert queries.displayed_pct(99.94) == 99.9
+    assert queries.displayed_pct(90.04) == 90.0
+    assert queries.displayed_pct(2.9) == 2.9      # binary float trap: not 2.8
+    assert queries.displayed_pct(0.0) == 0.0
     assert queries.displayed_pct(None) is None
+
+
+def test_the_displayed_figure_never_overstates_the_real_one():
+    """The property that closes the class, instead of one threshold at a time.
+
+    Because displayed <= raw always holds, a page showing 90.0% cannot belong to
+    a quota whose real figure is below 90 — for this threshold, for the other
+    three, and for any threshold added later, with nobody re-auditing them.
+    """
+    for i in range(0, 1000001):
+        v = i / 10000.0
+        d = queries.displayed_pct(v)
+        assert d <= v, (v, d)
+        assert v - d < 0.1, (v, d)          # and never understates by a whole step
+
+
+def test_the_printed_string_is_exactly_the_classified_number():
+    """fmt_pct must not re-derive the figure; if it rounded, the two would part."""
+    from webapp.render import fmt_pct
+    for raw in (99.99, 89.96, 74.999, 50.05, 0.04):
+        assert fmt_pct(raw) == "{:,.1f}%".format(queries.displayed_pct(raw))

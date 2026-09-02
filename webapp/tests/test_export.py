@@ -82,9 +82,9 @@ def _rows_from_index(html):
 def _client_filter(rows, region="", needle="", min_pct=None, pressure_only=False):
     """Python transcription of the client-side predicate in index.html.
 
-    Must mirror it exactly. Note the deliberate asymmetry, which is the live
-    site's own behaviour and is preserved rather than tidied:
-      * min_pct compares the RAW percentage;
+    Must mirror it exactly:
+      * min_pct compares data-pctdisp, the figure the SERVER computed for
+        display -- never one this transcription rounds for itself;
       * the band is READ, never recomputed.
     """
     kept = []
@@ -211,37 +211,45 @@ def test_client_filter_matches_server_filter(built, kw):
 
 
 def test_ninety_percent_boundary_is_identical_on_both_sides(built):
-    """The rounding rule with an operational consequence.
+    """The truncation rule with an operational consequence.
 
-    099716 sits at 99.98%: it DISPLAYS as 100.0% and is banded 'exhausted'.
-    The static bundle must classify it the same way the live site does -- and
-    must reproduce the live site's own quirk that the numeric 'Exhausted only'
-    filter (raw >= 100) excludes it, rather than quietly 'fixing' it and
-    diverging.
+    099716 sits at 99.98%. Under the 2026-09-02 decision the site TRUNCATES for
+    display, so it prints 99.9%, is banded 'critical', and the 'Exhausted only'
+    filter excludes it -- three statements that now agree with each other. The
+    static bundle must reproduce that agreement rather than reach its own
+    verdict.
+
+    This test previously asserted the opposite outcome (displays 100.0%, banded
+    exhausted, excluded by the filter -- and it called that last part a 'quirk',
+    which is exactly what it was). The expectation changed because the display
+    rule changed by decision. The INVARIANT under test did not: the bundle must
+    classify a boundary quota identically to the live site.
     """
     rows = {r["order"]: r for r in _rows_from_index(
         _read(os.path.join(built["dir"], "index.html")))}
 
     edge = rows["099716"]
-    assert float(edge["pct"]) < 100.0            # raw value is below the line
-    assert round(float(edge["pct"]), 1) >= 100.0  # displayed value is on it
-    assert edge["band"] == "exhausted"            # server said so; bundle carries it
+    assert float(edge["pct"]) < 100.0             # raw value is below the line
+    assert float(edge["pctdisp"]) == 99.9         # and the page says so too
+    assert edge["band"] == "critical"             # server said so; bundle carries it
 
-    # >=90% filter: the edge row and the 92% row qualify, the 80% one does not
+    # The filter can no longer disagree with the page: a row is included at
+    # >=90 precisely when the number printed in it is >=90.
     at90 = _client_filter(list(rows.values()), min_pct=90.0)
     assert ("EU", "099716") in at90 and ("UK", "058627") in at90
     assert ("UK", "058600") not in at90
     assert at90 == _server_filter(built["db"], min_pct=90.0)
 
-    # "Exhausted only" now INCLUDES it, because it prints 100.0% and is banded
-    # exhausted. This assertion was inverted on 2026-08-23: it previously
-    # asserted the exclusion, deliberately, to keep the bundle equivalent to a
-    # live site that still had the bug. That made it a test encoding a defect as
-    # expected behaviour -- kept here as a note, because such a test is worse
-    # than no test and this one was written knowingly.
+    # "Exhausted only" EXCLUDES it, and now so does the page: it prints 99.9%.
+    #
+    # This assertion has been written three ways, which is the whole history of
+    # the defect in six lines. First it asserted exclusion while the page showed
+    # 100.0% -- a test encoding a known defect as expected behaviour, written
+    # knowingly. Then it was inverted to inclusion, when banding moved onto the
+    # displayed figure. It is now back to exclusion, but for the opposite reason:
+    # nothing shows 100.0% any more unless it really is at 100.
     at100 = _client_filter(list(rows.values()), min_pct=100.0)
-    assert ("EU", "099716") in at100
-    assert ("UK", "058600") not in at100          # 80%: still correctly excluded
+    assert at100 == set()
     assert at100 == _server_filter(built["db"], min_pct=100.0)
 
 
@@ -363,7 +371,11 @@ def test_local_render_equals_the_release_bundle(tmp_path):
 
 
 def test_local_render_matches_on_the_ninety_percent_boundary(tmp_path):
-    """The rule with an operational consequence, across both delivery paths."""
+    """The rule with an operational consequence, across both delivery paths.
+
+    Expectation inverted with the 2026-09-02 truncation decision, for the same
+    reason as the bundle test above: 99.98% now prints and bands as 99.9%.
+    """
     dl = _download_module()
     body = ""
     for d in ("2026-07-06", "2026-07-07"):
@@ -378,8 +390,8 @@ def test_local_render_matches_on_the_ninety_percent_boundary(tmp_path):
     rows = {r["order"]: r for r in _rows_from_index(html)}
     edge = rows["099716"]
     assert float(edge["pct"]) < 100.0
-    assert round(float(edge["pct"]), 1) >= 100.0
-    assert edge["band"] == "exhausted"          # same classification as the server
+    assert float(edge["pctdisp"]) == 99.9
+    assert edge["band"] == "critical"           # same classification as the server
     assert rows["058600"]["band"] == "high"
 
 
