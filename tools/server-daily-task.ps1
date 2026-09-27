@@ -33,9 +33,10 @@ param(
     [string]$ProjectRoot      = "C:\DataScienceProject\EUQuota",
     [string]$TokenFile        = "C:\DataScienceProject\_secrets\euquota-github.token",
     [string]$Branch           = "main",
-    # Where the tracker read model lives, for the ETL and the bundle render.
-    # Empty = the code's default, a local SQLite file (webapp/db.py).
-    [string]$DbUrl            = "",
+    # Where the tracker read model lives, for the ETL and the bundle render:
+    # SQL Server (MEPSQuota) since 2026-09-27, Windows authentication as the
+    # task account. Empty = the code's default, a local SQLite file.
+    [string]$DbUrl            = "mssql+pyodbc://@localhost/MEPSQuota?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes",
     [int]   $LogRetentionDays = 45
 )
 
@@ -139,9 +140,25 @@ $env:PYTHONIOENCODING = "utf-8"
 # Process-scoped, so it reaches the ETL and the bundle render below and nothing
 # else on the box. The URL carries no secret: SQL Server is reached with
 # Windows authentication as the account running this task.
+#
+# Probed first. If this account cannot read the database -- instance down,
+# database missing, or the task account's grant not (yet) in place -- fall
+# back to the local SQLite file for this run, loudly, so the ETL and the
+# offline bundle still happen. The next run that can reach SQL Server
+# rewrites the whole history there, so nothing is lost by a fallback day.
 if ($DbUrl) {
     $env:QUOTA_DB_URL = $DbUrl
-    Write-Log "Tracker database: $DbUrl"
+    $probe = [int](Invoke-Native $venvPython @("-c",
+        "import os, sqlalchemy as sa; c = sa.create_engine(os.environ['QUOTA_DB_URL']).connect(); c.exec_driver_sql('SELECT TOP 1 1 FROM dbo.quota_daily'); c.close()"
+    ) "database probe" -AllowFailure)
+    if ($probe -eq 0) {
+        Write-Log "Tracker database: $DbUrl"
+    } else {
+        Remove-Item Env:\QUOTA_DB_URL -ErrorAction SilentlyContinue
+        Write-Log ("Tracker database NOT reachable as {0} (probe exit {1}) -- " -f $env:USERNAME, $probe +
+                   "falling back to the local SQLite file for this run. Check that " +
+                   "this account has db_datareader + db_datawriter in the database.") "WARN"
+    }
 }
 
 # ---------------------------------------------------------------- scrape ---
