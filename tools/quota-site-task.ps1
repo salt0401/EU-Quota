@@ -58,7 +58,11 @@ param(
     [int]   $Port         = 8081,
     [string]$PasswordFile = "C:\DataScienceProject\_secrets\quota-site-password.txt",
     [int]   $TestSeconds  = 8,
-    [int]   $RetentionDays = 45
+    [int]   $RetentionDays = 45,
+    # The site reads the same SQL Server read model the daily ETL writes.
+    # Windows authentication as the task account (SYSTEM, db_datareader).
+    # Pass -DbUrl "" to fall back to the local SQLite file.
+    [string]$DbUrl        = "mssql+pyodbc://@localhost/MEPSQuota?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
 )
 
 $ErrorActionPreference = "Stop"
@@ -73,6 +77,9 @@ function Die  { param([string]$m) Write-Output ""; Write-Output ("ABORT: " + $m)
 
 $venvPython  = Join-Path $ProjectRoot "venv\Scripts\python.exe"
 $waitressExe = Join-Path $ProjectRoot "venv\Scripts\waitress-serve.exe"
+
+# Process-scoped; inherited by waitress in -Serve and by the -TestRun job.
+if ($DbUrl) { $env:QUOTA_DB_URL = $DbUrl }
 $logDir      = Join-Path $ProjectRoot "data\logs"
 $selfPath    = Join-Path $ProjectRoot "tools\quota-site-task.ps1"
 

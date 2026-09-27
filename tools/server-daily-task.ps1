@@ -13,20 +13,35 @@
 # That is what makes a bring-up run safe while GitHub Actions is still live --
 # two hosts publishing the same day would race on git push.
 #
+# -LocalCommitOnly is the third mode: scrape, commit data/published/ LOCALLY,
+# refresh the database and render the bundle -- but upload nothing and push
+# nothing. It is for when colleagues no longer read the data from GitHub.
+# While they do, it would freeze every colleague's downloader on the last
+# pushed day, and the GitHub freshness watchdog would open an alert daily.
+#
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File server-daily-task.ps1
 #   powershell -ExecutionPolicy Bypass -File server-daily-task.ps1 -Push
+#   powershell -ExecutionPolicy Bypass -File server-daily-task.ps1 -LocalCommitOnly
 
 param(
     [switch]$Push,
+    [switch]$LocalCommitOnly,
     [switch]$SkipScrape,
     [switch]$SkipEtl,
     [switch]$SkipSite,
     [string]$ProjectRoot      = "C:\DataScienceProject\EUQuota",
     [string]$TokenFile        = "C:\DataScienceProject\_secrets\euquota-github.token",
     [string]$Branch           = "main",
+    # Where the tracker read model lives, for the ETL and the bundle render.
+    # Empty = the code's default, a local SQLite file (webapp/db.py).
+    [string]$DbUrl            = "",
     [int]   $LogRetentionDays = 45
 )
+
+# Live = commits and refreshes the database. Online = also uploads and pushes.
+$Live   = $Push -or $LocalCommitOnly
+$Online = $Push -and -not $LocalCommitOnly
 
 $ErrorActionPreference = "Stop"
 
@@ -76,7 +91,10 @@ function Invoke-Native {
 }
 
 Write-Log "=== EU Quota daily update starting ==="
-Write-Log ("Push mode: {0}" -f $(if ($Push) { "LIVE (will commit, push and upload)" } else { "INERT (local only)" }))
+$modeText = if ($Online) { "LIVE (will commit, push and upload)" }
+            elseif ($Live) { "LOCAL COMMIT (will commit locally; no push, no upload)" }
+            else           { "INERT (local only)" }
+Write-Log ("Push mode: {0}" -f $modeText)
 
 # ------------------------------------------------------------- preflight ---
 
@@ -87,7 +105,7 @@ if (-not (Test-Path $venvPython)) {
 if (-not (Test-Path (Join-Path $ProjectRoot ".git"))) {
     Fail "$ProjectRoot is not a git working copy."
 }
-if ($Push -and -not (Test-Path $TokenFile)) {
+if ($Online -and -not (Test-Path $TokenFile)) {
     Fail "-Push was requested but the token file $TokenFile does not exist."
 }
 
@@ -105,7 +123,7 @@ $utcDate   = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
 $localDate = (Get-Date).ToString("yyyy-MM-dd")
 Write-Log ("Date check -- local {0} / UTC {1}" -f $localDate, $utcDate)
 if ($utcDate -ne $localDate) {
-    if ($Push) {
+    if ($Live) {
         Fail "Local date ($localDate) and UTC date ($utcDate) disagree, and -Push was requested. The trigger has drifted into the pre-01:00 window where local time and UTC fall on different days; publishing now would file today's history a day ahead of every previous row. Move the trigger later (06:40 local is the designed slot) rather than publishing under an ambiguous date."
     }
     Write-Log "Local and UTC dates disagree. Harmless for an inert run -- rows will be stamped $localDate and should be discarded afterwards -- but this run could NOT have published." "WARN"
@@ -117,6 +135,14 @@ Set-Location $ProjectRoot
 # regulation text, and a non-UTF-8 console codepage crashes the run.
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
+
+# Process-scoped, so it reaches the ETL and the bundle render below and nothing
+# else on the box. The URL carries no secret: SQL Server is reached with
+# Windows authentication as the account running this task.
+if ($DbUrl) {
+    $env:QUOTA_DB_URL = $DbUrl
+    Write-Log "Tracker database: $DbUrl"
+}
 
 # ---------------------------------------------------------------- scrape ---
 
@@ -146,7 +172,7 @@ if (Test-Path $metaPath) {
     Fail "data/published/metadata.json was not produced -- the publish step did not complete."
 }
 
-if (-not $Push) {
+if (-not $Live) {
     Write-Log "INERT run complete. Nothing was pushed or uploaded."
     Write-Log "Discard the local publish with: git checkout -- data/published/"
     Write-Log "=== RUN OK (inert) ==="
@@ -159,10 +185,13 @@ if (-not $Push) {
 # name is inert; pushed metadata naming a not-yet-uploaded asset 404s in every
 # colleague's downloader. This bites on the first run of each calendar year,
 # when the new year's workbook name does not exist on the release yet.
-Write-Log "Uploading workbooks to the 'latest-data' release..."
-Invoke-Native $venvPython @("tools\publish_release_assets.py", "--token-file", $TokenFile) "release asset upload" | Out-Null
-
-Write-Log "Committing and pushing published data (csv + metadata only)..."
+if ($Online) {
+    Write-Log "Uploading workbooks to the 'latest-data' release..."
+    Invoke-Native $venvPython @("tools\publish_release_assets.py", "--token-file", $TokenFile) "release asset upload" | Out-Null
+    Write-Log "Committing and pushing published data (csv + metadata only)..."
+} else {
+    Write-Log "Committing published data locally (csv + metadata only); nothing is uploaded or pushed..."
+}
 
 # Identity is set per-repository so nothing global on this shared box changes.
 Invoke-Native "git" @("config", "user.name", "meps-server-euquota") "git config user.name" | Out-Null
@@ -200,17 +229,21 @@ if ($staged -eq 0) {
 } else {
     Invoke-Native "git" @("commit", "-m", "data: daily quota update $utcDate") "git commit" | Out-Null
 
-    # Tolerate a manual push that landed while we were scraping, exactly as the
-    # Actions job did.
-    $rebased = [int](Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "origin", $Branch)) "git pull --rebase" -AllowFailure)
-    if ($rebased -ne 0) {
-        Write-Log "Rebase hit a conflict -- aborting and retrying with -X theirs." "WARN"
-        Invoke-Native "git" @("rebase", "--abort") "git rebase --abort" -AllowFailure | Out-Null
-        Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "-X", "theirs", "origin", $Branch)) "git pull --rebase -X theirs" | Out-Null
-    }
+    if ($Online) {
+        # Tolerate a manual push that landed while we were scraping, exactly as
+        # the Actions job did.
+        $rebased = [int](Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "origin", $Branch)) "git pull --rebase" -AllowFailure)
+        if ($rebased -ne 0) {
+            Write-Log "Rebase hit a conflict -- aborting and retrying with -X theirs." "WARN"
+            Invoke-Native "git" @("rebase", "--abort") "git rebase --abort" -AllowFailure | Out-Null
+            Invoke-Native "git" ($GitNoHelper + @("pull", "--rebase", "-X", "theirs", "origin", $Branch)) "git pull --rebase -X theirs" | Out-Null
+        }
 
-    Invoke-Native "git" ($GitNoHelper + @("push", "origin", $Branch)) "git push" | Out-Null
-    Write-Log "Pushed data: daily quota update $utcDate"
+        Invoke-Native "git" ($GitNoHelper + @("push", "origin", $Branch)) "git push" | Out-Null
+        Write-Log "Pushed data: daily quota update $utcDate"
+    } else {
+        Write-Log "Committed locally: daily quota update $utcDate (not pushed)"
+    }
 }
 
 Remove-Item Env:\EUQUOTA_TOKEN_FILE, Env:\GIT_ASKPASS -ErrorAction SilentlyContinue
@@ -264,7 +297,7 @@ if (-not $SkipSite) {
                    "The published data is unaffected and this run still counts as " +
                    "a success. The previous bundle, if any, remains on the release.") "WARN"
     }
-    elseif ($Push) {
+    elseif ($Online) {
         $siteUp = Invoke-Native $venvPython @("tools\publish_release_assets.py", "--token-file", $TokenFile, "--assets", $siteZip) "offline dashboard upload" -AllowFailure
         if ($siteUp -ne 0) {
             Write-Log ("Offline dashboard upload failed (exit {0}). The data upload " -f $siteUp +
@@ -285,5 +318,5 @@ Get-ChildItem -Path $logDir -Filter "server_*.log" -ErrorAction SilentlyContinue
         Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
     }
 
-Write-Log "=== RUN OK (live) ==="
+Write-Log ("=== RUN OK ({0}) ===" -f $(if ($Online) { "live" } else { "local commit" }))
 exit 0

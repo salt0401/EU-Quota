@@ -248,10 +248,11 @@ Full detail, including the migration checklist, is in `INTERNAL_SITE.md`.
 
 | # | What is being asked | Status |
 |---|---|---|
-| 1 | Permission to **create one small database** on the existing instance — SIMPLE recovery (inherited from `model`), with a size cap | **ASKED, not agreed** |
-| 2 | Permission to create a **dedicated read-only login** for the Power BI gateway on that database — `db_datareader` only | **ASKED, not agreed** |
-| 3 | Permission to **enable the Task Scheduler operational log** (a system-level setting) so run failures become diagnosable — see queue item 5 | **ASKED, not agreed** |
+| 1 | Permission to **create one small database** on the existing instance — SIMPLE recovery (inherited from `model`), with a size cap | **AGREED 2026-09-24**, in writing, by the instance owner (quote kept outside this public repository). **Created 2026-09-27** — `sql/create_mepsquota.sql`: data 2 GB / log 1 GB caps, SIMPLE |
+| 2 | Permission to create a **dedicated read-only login** for the Power BI gateway on that database — `db_datareader` only | **AGREED 2026-09-24**, same message. Created interactively by this project's owner with a sysadmin script kept outside this repository (name and password are never recorded here) |
+| 3 | Permission to **enable the Task Scheduler operational log** (a system-level setting) so run failures become diagnosable — see queue item 5 | **AGREED 2026-09-24**, same message |
 | 4 | The **DNS record and TLS certificate** for the tracker host name | **ASKED, he indicated he would arrange it; not yet delivered** |
+| 5 | Read/write for the **task account** (`NT AUTHORITY\SYSTEM`) inside the new database only — no server role, no DDL | **AGREED 2026-09-27** (relayed by this project's owner) |
 
 **Why a dedicated read-only login rather than reusing something.** The
 gateway's own service account has **no login on the instance at all**, so

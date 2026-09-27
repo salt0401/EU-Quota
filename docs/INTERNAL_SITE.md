@@ -223,13 +223,16 @@ blocked:
 | Step | State |
 |---|---|
 | ODBC Driver 17 for SQL Server | ✅ **already installed** (64-bit) — verified 2026-08-08, so no machine-wide install and no notice needed |
-| `pyodbc` in the venv | ⏳ one `pip install`, venv-local |
-| The database itself | ⏳ **not created, and not requested.** Our account has sufficient rights to create it, so this is a permission question rather than a technical one; the standing rule is to ask first. See *Do we need to ask?* below |
-| Login for the task account | ✅ **already exists** — `NT AUTHORITY\SYSTEM` has had a login on this instance since 2024-12-11. Only database-level permissions would be needed, not a new login |
-| `QUOTA_DB_URL` → SQL Server | ⏳ one environment variable |
-| `--rebuild` against it | ⏳ under a minute |
+| `pyodbc` in the venv | ✅ **installed 2026-09-27** (5.3.0; `requirements-webapp.txt`) |
+| The database itself | ✅ **created 2026-09-27** with the instance owner's approval — `sql/create_mepsquota.sql` (re-runnable; data 2 GB / log 1 GB caps, SIMPLE) |
+| Login for the task account | ✅ `NT AUTHORITY\SYSTEM` has had a login since 2024-12-11. It **also needs a user in MEPSQuota** with `db_datareader` + `db_datawriter` — granted by a sysadmin outside this repository; without it the daily ETL fails with only a WARN |
+| `QUOTA_DB_URL` → SQL Server | Set **per process** by the task scripts' `-DbUrl` parameter (`tools/server-daily-task.ps1`, `tools/quota-site-task.ps1`), never machine-wide |
+| `--rebuild` against it | ✅ **62 s**, 29,356 rows over 82 days — identical to SQLite (2026-09-27) |
 
-That is the whole migration. It stays one action whenever it is wanted.
+The tables are created by the first `--rebuild` (as a sysadmin), so the task
+account never needs DDL rights. Every daily run rewrites the full history in
+one transaction; the log cap has to hold that, so watch its high-water mark
+as the history grows.
 
 ### Do we need to ask? Yes — and the answer makes the request small
 
