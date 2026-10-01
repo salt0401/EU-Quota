@@ -1,12 +1,12 @@
 {
-  "generated_utc": "2026-09-30T05:43:52Z",
-  "data_date": "2026-09-30",
-  "quota_period": "01-Jul-2026 to 30-Sep-2026",
+  "generated_utc": "2026-10-01T05:44:09Z",
+  "data_date": "2026-10-01",
+  "quota_period": "01-Oct-2026 to 31-Dec-2026",
   "eu_quotas": 283,
   "uk_quotas": 75,
   "eu_failed": 0,
   "uk_failed": 0,
-  "history_rows": 30430,
+  "history_rows": 30788,
   "current_history_csv": "quota_history_2026.csv",
   "history_csvs": [
     "quota_history_2026.csv"
